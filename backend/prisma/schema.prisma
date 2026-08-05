@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SYSTEM_ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum RotaStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum ShiftStatus {
+  ASSIGNED
+  ADDITIONAL
+  SWAP
+  HOLIDAY
+  REQUESTED_HOLIDAY
+  AVAILABLE
+  CANCELLED
+}
+
+enum HolidayStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SwapStatus {
+  PENDING
+  ACCEPTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model Business {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  rotas     Rota[]
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role
+  active       Boolean   @default(true)
+  businessId   String?
+  business     Business? @relation(fields: [businessId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  shifts           Shift[]
+  holidayRequests  HolidayRequest[]
+  swapRequestsFrom SwapRequest[]    @relation("SwapRequester")
+  swapRequestsTo   SwapRequest[]    @relation("SwapAcceptor")
+  notifications    Notification[]
+  pushTokens       PushToken[]
+  auditLogs        AuditLog[]
+  sessions         Session[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model Rota {
+  id         String     @id @default(cuid())
+  businessId String
+  business   Business   @relation(fields: [businessId], references: [id])
+  name       String?
+  startDate  DateTime
+  endDate    DateTime
+  status     RotaStatus @default(DRAFT)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  shifts     Shift[]
+}
+
+model Shift {
+  id        String      @id @default(cuid())
+  rotaId    String
+  rota      Rota        @relation(fields: [rotaId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?       @relation(fields: [userId], references: [id])
+  date      DateTime
+  startTime String
+  endTime   String
+  location  String?
+  notes     String?
+  status    ShiftStatus @default(ASSIGNED)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  holidayRequests HolidayRequest[]
+  swapRequests    SwapRequest[]
+}
+
+model HolidayRequest {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  shiftId   String?
+  shift     Shift?        @relation(fields: [shiftId], references: [id])
+  date      DateTime
+  reason    String?
+  status    HolidayStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model SwapRequest {
+  id          String     @id @default(cuid())
+  shiftId     String
+  shift       Shift      @relation(fields: [shiftId], references: [id])
+  requesterId String
+  requester   User       @relation("SwapRequester", fields: [requesterId], references: [id])
+  acceptorId  String?
+  acceptor    User?      @relation("SwapAcceptor", fields: [acceptorId], references: [id])
+  status      SwapStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  data      Json?
+  createdAt DateTime @default(now())
+}
+
+model PushToken {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+  endpoint String @unique
+  p256dh   String
+  auth     String
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  createdAt DateTime @default(now())
+}

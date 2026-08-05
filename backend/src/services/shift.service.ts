@@ -1,0 +1,249 @@
+import { ShiftStatus } from "@prisma/client";
+import prisma from "../lib/db.js";
+import { AppError, ConflictError, NotFoundError } from "../lib/errors.js";
+
+interface CreateShiftInput {
+  userId?: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location?: string | null;
+  notes?: string | null;
+  status?: ShiftStatus;
+}
+
+export async function createShift(rotaId: string, data: CreateShiftInput) {
+  const rota = await prisma.rota.findUnique({ where: { id: rotaId } });
+  if (!rota) throw new NotFoundError("Rota");
+  if (rota.status === "PUBLISHED") {
+    throw new AppError(400, "Cannot add shifts to a published rota");
+  }
+
+  if (data.userId) {
+    await checkTimeConflict(data.userId, data.date, data.startTime, data.endTime);
+  }
+
+  return prisma.shift.create({
+    data: {
+      rotaId,
+      userId: data.userId || null,
+      date: new Date(data.date),
+      startTime: data.startTime,
+      endTime: data.endTime,
+      location: data.location || null,
+      notes: data.notes || null,
+      status: data.status || "ASSIGNED",
+    },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
+}
+
+export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
+  const shift = await prisma.shift.findUnique({
+    where: { id },
+    include: { rota: true },
+  });
+  if (!shift) throw new NotFoundError("Shift");
+
+  if (data.userId && data.userId !== shift.userId) {
+    await checkTimeConflict(
+      data.userId,
+      data.date || shift.date.toISOString().split("T")[0],
+      data.startTime || shift.startTime,
+      data.endTime || shift.endTime,
+      id,
+    );
+  }
+
+  return prisma.shift.update({
+    where: { id },
+    data: {
+      ...(data.userId !== undefined ? { userId: data.userId || null } : {}),
+      ...(data.date ? { date: new Date(data.date) } : {}),
+      ...(data.startTime ? { startTime: data.startTime } : {}),
+      ...(data.endTime ? { endTime: data.endTime } : {}),
+      ...(data.location !== undefined ? { location: data.location || null } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
+      ...(data.status ? { status: data.status } : {}),
+    },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
+}
+
+export async function deleteShift(id: string) {
+  const shift = await prisma.shift.findUnique({
+    where: { id },
+    include: { rota: true },
+  });
+  if (!shift) throw new NotFoundError("Shift");
+  if (shift.rota.status === "PUBLISHED") {
+    throw new AppError(400, "Cannot delete shifts from a published rota");
+  }
+
+  await prisma.shift.delete({ where: { id } });
+}
+
+export async function bulkCreateShifts(rotaId: string, shifts: CreateShiftInput[]) {
+  const rota = await prisma.rota.findUnique({ where: { id: rotaId } });
+  if (!rota) throw new NotFoundError("Rota");
+  if (rota.status === "PUBLISHED") {
+    throw new AppError(400, "Cannot add shifts to a published rota");
+  }
+
+  const created = await prisma.shift.createMany({
+    data: shifts.map((s) => ({
+      rotaId,
+      userId: s.userId || null,
+      date: new Date(s.date),
+      startTime: s.startTime,
+      endTime: s.endTime,
+      location: s.location || null,
+      notes: s.notes || null,
+      status: s.status || "ASSIGNED",
+    })),
+  });
+
+  return { count: created.count };
+}
+
+export async function getShiftsForUser(userId: string, from?: string, to?: string) {
+  return prisma.shift.findMany({
+    where: {
+      userId,
+      ...(from || to
+        ? {
+            date: {
+              ...(from ? { gte: new Date(from) } : {}),
+              ...(to ? { lte: new Date(to) } : {}),
+            },
+          }
+        : {}),
+      rota: { status: "PUBLISHED" },
+    },
+    include: {
+      rota: { select: { id: true, startDate: true, endDate: true, status: true } },
+    },
+    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+  });
+}
+
+export async function getAvailableShifts(businessId: string, excludeUserId: string) {
+  return prisma.shift.findMany({
+    where: {
+      rota: { businessId, status: "PUBLISHED" },
+      status: { in: ["AVAILABLE", "SWAP"] },
+      date: { gte: new Date() },
+    },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true } },
+      rota: { select: { id: true, startDate: true, endDate: true } },
+    },
+    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+  });
+}
+
+export async function claimShift(shiftId: string, userId: string) {
+  return prisma.$transaction(async (tx) => {
+    const shift = await tx.shift.findUnique({
+      where: { id: shiftId },
+      include: { rota: true },
+    });
+
+    if (!shift) throw new NotFoundError("Shift");
+    if (shift.status !== "AVAILABLE" && shift.status !== "SWAP") {
+      throw new ConflictError("This shift is no longer available");
+    }
+    if (shift.userId === userId) {
+      throw new AppError(400, "You cannot claim your own shift");
+    }
+
+    const dateStr = shift.date.toISOString().split("T")[0];
+    await checkTimeConflictTx(tx, userId, dateStr, shift.startTime, shift.endTime);
+
+    const newStatus: ShiftStatus = shift.status === "SWAP" ? "SWAP" : "ADDITIONAL";
+
+    const claimed = await tx.shift.update({
+      where: { id: shiftId },
+      data: { userId, status: newStatus },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    const claimingUser = await tx.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+
+    const managers = await tx.user.findMany({
+      where: { businessId: shift.rota.businessId, role: "MANAGER", active: true },
+      select: { id: true },
+    });
+
+    const notifications = [
+      ...managers.map((m) => ({
+        userId: m.id,
+        title: "Shift Claimed",
+        body: `${claimingUser?.firstName} ${claimingUser?.lastName} claimed a shift on ${dateStr}.`,
+        data: JSON.stringify({ type: "SHIFT_CLAIMED", shiftId }),
+      })),
+    ];
+
+    if (notifications.length > 0) {
+      await tx.notification.createMany({ data: notifications });
+    }
+
+    return claimed;
+  });
+}
+
+async function checkTimeConflict(
+  userId: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  excludeShiftId?: string,
+) {
+  const conflicts = await prisma.shift.findMany({
+    where: {
+      userId,
+      date: new Date(date),
+      status: { notIn: ["CANCELLED", "AVAILABLE"] },
+      ...(excludeShiftId ? { id: { not: excludeShiftId } } : {}),
+    },
+  });
+
+  for (const existing of conflicts) {
+    if (startTime < existing.endTime && endTime > existing.startTime) {
+      throw new ConflictError(
+        `Time conflict with existing shift ${existing.startTime}-${existing.endTime}`,
+      );
+    }
+  }
+}
+
+async function checkTimeConflictTx(
+  tx: any,
+  userId: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+) {
+  const conflicts = await tx.shift.findMany({
+    where: {
+      userId,
+      date: new Date(date),
+      status: { notIn: ["CANCELLED", "AVAILABLE"] },
+    },
+  });
+
+  for (const existing of conflicts) {
+    if (startTime < existing.endTime && endTime > existing.startTime) {
+      throw new ConflictError("You have a conflicting shift on this date");
+    }
+  }
+}

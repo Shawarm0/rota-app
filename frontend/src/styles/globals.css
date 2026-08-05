@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --color-shift-assigned: #3B82F6;
+  --color-shift-additional: #22C55E;
+  --color-shift-swap: #A855F7;
+  --color-shift-holiday: #EF4444;
+  --color-shift-requested: #EAB308;
+  --color-shift-available: #9CA3AF;
+  --color-shift-cancelled: #6B7280;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+}
