@@ -39,3 +39,8 @@ export async function claimShift(id: string): Promise<Shift> {
   const { data } = await client.post<Shift>(`/shifts/${id}/claim`);
   return data;
 }
+
+export async function requestCover(id: string): Promise<{ notified: number }> {
+  const { data } = await client.post<{ notified: number }>(`/shifts/${id}/request-cover`);
+  return data;
+}

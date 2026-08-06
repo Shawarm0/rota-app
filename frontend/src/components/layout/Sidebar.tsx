@@ -10,6 +10,7 @@ import {
   Users,
   CalendarPlus,
   BarChart3,
+  AlertCircle,
   LogOut,
   Shield,
 } from "lucide-react";
@@ -78,6 +79,10 @@ export function Sidebar() {
           <NavLink to="/manager/rota-builder" className={navLinkClass}>
             <CalendarPlus className="h-5 w-5" />
             Rota Builder
+          </NavLink>
+          <NavLink to="/manager/shifts-to-cover" className={navLinkClass}>
+            <AlertCircle className="h-5 w-5" />
+            Shifts to Cover
           </NavLink>
           <NavLink to="/manager/reports" className={navLinkClass}>
             <BarChart3 className="h-5 w-5" />

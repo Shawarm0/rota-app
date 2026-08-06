@@ -1,21 +1,19 @@
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { TopBar } from "../../components/layout/TopBar";
 import { Card } from "../../components/ui/Card";
-import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
-import { useDashboard, useEmployeeSummaries, useShiftsToCover } from "../../hooks/useDashboard";
+import { useDashboard, useEmployeeSummaries } from "../../hooks/useDashboard";
 import { useHolidayRequests, useApproveHoliday, useRejectHoliday } from "../../hooks/useHolidays";
 import { formatDate } from "../../lib/dateUtils";
 import { Users, Palmtree, AlertCircle, Check, X } from "lucide-react";
 
 export function ManagerDashboardPage() {
+  const navigate = useNavigate();
   const { data: dashboard, isLoading } = useDashboard();
   const { data: employees } = useEmployeeSummaries();
   const { data: holidays } = useHolidayRequests("PENDING");
-  const { data: shiftsToCover } = useShiftsToCover();
   const approveHoliday = useApproveHoliday();
   const rejectHoliday = useRejectHoliday();
-  const [showShiftsToCover, setShowShiftsToCover] = useState(false);
 
   if (isLoading) {
     return (
@@ -28,7 +26,7 @@ export function ManagerDashboardPage() {
 
   const stats = [
     { label: "Pending Holidays", value: dashboard?.pendingHolidays || 0, icon: Palmtree, color: "text-amber-600 bg-amber-50", onClick: undefined },
-    { label: "Shifts to Cover", value: dashboard?.shiftsNeedingCover || 0, icon: AlertCircle, color: "text-red-600 bg-red-50", onClick: () => setShowShiftsToCover(true) },
+    { label: "Shifts to Cover", value: dashboard?.shiftsNeedingCover || 0, icon: AlertCircle, color: "text-red-600 bg-red-50", onClick: () => navigate("/manager/shifts-to-cover") },
     { label: "Active Employees", value: dashboard?.totalEmployees || 0, icon: Users, color: "text-blue-600 bg-blue-50", onClick: undefined },
   ];
 
@@ -132,33 +130,6 @@ export function ManagerDashboardPage() {
           </Card>
         )}
       </div>
-
-      <Modal open={showShiftsToCover} onClose={() => setShowShiftsToCover(false)} title="Shifts to Cover">
-        {shiftsToCover && shiftsToCover.length > 0 ? (
-          <div className="space-y-3">
-            {shiftsToCover.map((shift) => (
-              <div key={shift.id} className="rounded-lg border p-3 space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-900">{formatDate(shift.date)}</p>
-                  {(shift.location || shift.rota.location?.name) && (
-                    <span className="text-xs text-gray-500">
-                      {shift.location || shift.rota.location?.name}
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-gray-700">
-                  {shift.startTime} - {shift.endTime}
-                </p>
-                {shift.rota.name && (
-                  <p className="text-xs text-gray-400">{shift.rota.name}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">No shifts need covering right now.</p>
-        )}
-      </Modal>
     </>
   );
 }

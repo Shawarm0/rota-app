@@ -76,6 +76,15 @@ export const getAvailableShifts: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const requestCover: RequestHandler = async (req, res, next) => {
+  try {
+    const result = await shiftService.requestCover(param(req, "id"));
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const claimShift: RequestHandler = async (req, res, next) => {
   try {
     const shift = await shiftService.claimShift(param(req, "id"), req.user!.userId);

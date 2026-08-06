@@ -23,6 +23,21 @@ export function useAvailableShifts() {
   });
 }
 
+export function useRequestCover() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: shiftApi.requestCover,
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["shiftsToCover"] });
+      toast(`Cover requested — ${data.notified} employee${data.notified !== 1 ? "s" : ""} notified`, "success");
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || "Failed to request cover";
+      toast(msg, "error");
+    },
+  });
+}
+
 export function useClaimShift() {
   const qc = useQueryClient();
   return useMutation({
@@ -30,6 +45,9 @@ export function useClaimShift() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["availableShifts"] });
       qc.invalidateQueries({ queryKey: ["myShifts"] });
+      qc.invalidateQueries({ queryKey: ["shiftsToCover"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["allShifts"] });
       toast("Shift claimed!", "success");
     },
     onError: (err: any) => {

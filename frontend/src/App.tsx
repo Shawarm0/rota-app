@@ -17,6 +17,7 @@ import { ManagerDashboardPage } from "./pages/manager/ManagerDashboardPage";
 import { EmployeesPage } from "./pages/manager/EmployeesPage";
 import { RotaBuilderPage } from "./pages/manager/RotaBuilderPage";
 import { ReportsPage } from "./pages/manager/ReportsPage";
+import { ShiftsToCoverPage } from "./pages/manager/ShiftsToCoverPage";
 import { AdminPage } from "./pages/admin/AdminPage";
 
 const queryClient = new QueryClient({
@@ -51,6 +52,7 @@ function AppRoutes() {
           <Route path="/manager/employees" element={<EmployeesPage />} />
           <Route path="/manager/rota-builder" element={<RotaBuilderPage />} />
           <Route path="/manager/reports" element={<ReportsPage />} />
+          <Route path="/manager/shifts-to-cover" element={<ShiftsToCoverPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Route>
       </Route>

@@ -91,6 +91,8 @@ export function useUpdateShift() {
       qc.invalidateQueries({ queryKey: ["rota"] });
       qc.invalidateQueries({ queryKey: ["allShifts"] });
       qc.invalidateQueries({ queryKey: ["myShifts"] });
+      qc.invalidateQueries({ queryKey: ["shiftsToCover"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (err: any) => {
       const msg = err.response?.data?.error?.message || "Failed to update shift";
@@ -107,6 +109,8 @@ export function useDeleteShift() {
       qc.invalidateQueries({ queryKey: ["rota"] });
       qc.invalidateQueries({ queryKey: ["allShifts"] });
       qc.invalidateQueries({ queryKey: ["myShifts"] });
+      qc.invalidateQueries({ queryKey: ["shiftsToCover"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
       toast("Shift deleted", "success");
     },
     onError: (err: any) => {

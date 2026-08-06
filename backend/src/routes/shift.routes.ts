@@ -15,5 +15,6 @@ router.get("/available", shiftController.getAvailableShifts);
 router.patch("/:id", validate(updateShiftSchema), shiftController.updateShift);
 router.delete("/:id", shiftController.deleteShift);
 router.post("/:id/claim", shiftController.claimShift);
+router.post("/:id/request-cover", authorize("MANAGER", "SYSTEM_ADMIN"), shiftController.requestCover);
 
 export default router;

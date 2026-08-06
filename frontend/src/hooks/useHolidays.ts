@@ -38,6 +38,9 @@ export function useApproveHoliday() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["holidays"] });
       qc.invalidateQueries({ queryKey: ["availableShifts"] });
+      qc.invalidateQueries({ queryKey: ["shiftsToCover"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["allShifts"] });
       toast("Holiday approved", "success");
     },
   });

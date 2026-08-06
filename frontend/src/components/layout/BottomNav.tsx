@@ -68,6 +68,13 @@ export function BottomNav() {
                   Rota Builder
                 </NavLink>
                 <NavLink
+                  to="/manager/shifts-to-cover"
+                  onClick={() => setMoreOpen(false)}
+                  className="block rounded-lg px-4 py-3 text-sm font-medium hover:bg-gray-50"
+                >
+                  Shifts to Cover
+                </NavLink>
+                <NavLink
                   to="/manager/reports"
                   onClick={() => setMoreOpen(false)}
                   className="block rounded-lg px-4 py-3 text-sm font-medium hover:bg-gray-50"

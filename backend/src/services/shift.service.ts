@@ -186,12 +186,22 @@ export async function getAllShifts(businessId: string, from?: string, to?: strin
   });
 }
 
-export async function getAvailableShifts(businessId: string, excludeUserId: string) {
+export async function getAvailableShifts(businessId: string, userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { locationId: true, location: { select: { name: true } } },
+  });
+
+  const locationName = user?.location?.name;
+
   return prisma.shift.findMany({
     where: {
       rota: { businessId, status: "PUBLISHED" },
       status: "AVAILABLE",
       date: { gte: new Date() },
+      ...(locationName
+        ? { OR: [{ location: locationName }, { location: null }] }
+        : {}),
     },
     include: {
       user: { select: { id: true, firstName: true, lastName: true } },
@@ -216,7 +226,7 @@ export async function claimShift(shiftId: string, userId: string) {
     const dateStr = shift.date.toISOString().split("T")[0];
     await checkTimeConflictTx(tx, userId, dateStr, shift.startTime, shift.endTime);
 
-    const newStatus: ShiftStatus = "ADDITIONAL";
+    const newStatus: ShiftStatus = "ASSIGNED";
 
     const claimed = await tx.shift.update({
       where: { id: shiftId },
@@ -251,6 +261,44 @@ export async function claimShift(shiftId: string, userId: string) {
 
     return claimed;
   });
+}
+
+export async function requestCover(shiftId: string) {
+  const shift = await prisma.shift.findUnique({
+    where: { id: shiftId },
+    include: { rota: true },
+  });
+  if (!shift) throw new NotFoundError("Shift");
+  if (shift.status !== "AVAILABLE") {
+    throw new AppError(400, "Only available shifts can be put up for cover");
+  }
+
+  const dateStr = shift.date.toISOString().split("T")[0];
+
+  const employees = await prisma.user.findMany({
+    where: {
+      businessId: shift.rota.businessId,
+      role: "EMPLOYEE",
+      active: true,
+      ...(shift.location
+        ? { OR: [{ location: { name: shift.location } }, { locationId: null }] }
+        : {}),
+    },
+    select: { id: true },
+  });
+
+  if (employees.length > 0) {
+    await prisma.notification.createMany({
+      data: employees.map((emp) => ({
+        userId: emp.id,
+        title: "Shift Available",
+        body: `A shift on ${dateStr} (${shift.startTime}-${shift.endTime}${shift.location ? ` at ${shift.location}` : ""}) needs cover. Check the Shift Pot to claim it.`,
+        data: { type: "SHIFT_COVER", shiftId },
+      })),
+    });
+  }
+
+  return { notified: employees.length };
 }
 
 async function checkTimeConflict(
