@@ -152,14 +152,14 @@ export async function getShiftsForUser(userId: string, from?: string, to?: strin
   });
 }
 
-export async function getAllShifts(businessId: string, from?: string, to?: string, locationId?: string) {
+export async function getAllShifts(businessId: string, from?: string, to?: string, location?: string) {
   return prisma.shift.findMany({
     where: {
       rota: {
         businessId,
         status: "PUBLISHED",
-        ...(locationId ? { locationId } : {}),
       },
+      ...(location ? { location } : {}),
       ...(from || to
         ? {
             date: {

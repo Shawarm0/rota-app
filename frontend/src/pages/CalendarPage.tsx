@@ -122,7 +122,7 @@ export function CalendarPage() {
 
   const locationOptions = [
     { value: "", label: "All locations" },
-    ...(locations?.map((l) => ({ value: l.id, label: l.name })) || []),
+    ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
   ];
 
   return (
