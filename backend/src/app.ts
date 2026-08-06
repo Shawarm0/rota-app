@@ -17,7 +17,6 @@ import userRoutes from "./routes/user.routes.js";
 import rotaRoutes from "./routes/rota.routes.js";
 import shiftRoutes from "./routes/shift.routes.js";
 import holidayRoutes from "./routes/holiday.routes.js";
-import swapRoutes from "./routes/swap.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 
@@ -37,7 +36,6 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/rotas", rotaRoutes);
 app.use("/api/v1/shifts", shiftRoutes);
 app.use("/api/v1/holidays", holidayRoutes);
-app.use("/api/v1/swaps", swapRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 

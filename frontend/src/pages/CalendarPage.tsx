@@ -1,11 +1,20 @@
 import { useState, useMemo } from "react";
+import { useForm } from "react-hook-form";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { TopBar } from "../components/layout/TopBar";
 import { Card } from "../components/ui/Card";
 import { ShiftBadge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
+import { Input } from "../components/ui/Input";
+import { Select } from "../components/ui/Select";
+import { Button } from "../components/ui/Button";
 import { Spinner } from "../components/ui/Spinner";
-import { useMyShifts } from "../hooks/useShifts";
+import { useQuery } from "@tanstack/react-query";
+import { useApprovedHolidays } from "../hooks/useHolidays";
+import { useUpdateShift } from "../hooks/useRotas";
+import { useAuthStore } from "../stores/authStore";
+import * as shiftApi from "../api/shift.api";
+import * as userApi from "../api/user.api";
 import { getDaysInMonth, isSameDay, toDateString, formatDate } from "../lib/dateUtils";
 import type { Shift, ShiftStatus } from "../types";
 import clsx from "clsx";
@@ -13,16 +22,28 @@ import clsx from "clsx";
 const STATUS_DOT_COLORS: Record<ShiftStatus, string> = {
   ASSIGNED: "bg-shift-assigned",
   ADDITIONAL: "bg-shift-additional",
-  SWAP: "bg-shift-swap",
   HOLIDAY: "bg-shift-holiday",
   REQUESTED_HOLIDAY: "bg-shift-requested",
   AVAILABLE: "bg-shift-available",
   CANCELLED: "bg-shift-cancelled",
 };
 
+interface ShiftEditForm {
+  startTime: string;
+  endTime: string;
+  userId: string;
+  location: string;
+  notes: string;
+}
+
 export function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [selectedShifts, setSelectedShifts] = useState<Shift[] | null>(null);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
+
+  const role = useAuthStore((s) => s.user?.role);
+  const isManager = role === "MANAGER" || role === "SYSTEM_ADMIN";
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -30,7 +51,27 @@ export function CalendarPage() {
   const from = toDateString(new Date(year, month, 1));
   const to = toDateString(new Date(year, month + 1, 0));
 
-  const { data: shifts, isLoading } = useMyShifts(from, to);
+  const { data: myShifts, isLoading: myLoading } = useQuery({
+    queryKey: ["myShifts", from, to],
+    queryFn: () => shiftApi.getMyShifts(from, to),
+    enabled: !isManager,
+  });
+  const { data: allShifts, isLoading: allLoading } = useQuery({
+    queryKey: ["allShifts", from, to],
+    queryFn: () => shiftApi.getAllShifts(from, to),
+    enabled: isManager,
+  });
+  const { data: holidays } = useApprovedHolidays(from, to);
+  const { data: employees } = useQuery({
+    queryKey: ["users", "EMPLOYEE"],
+    queryFn: () => userApi.listUsers("EMPLOYEE"),
+    enabled: isManager,
+  });
+  const updateShift = useUpdateShift();
+  const shiftForm = useForm<ShiftEditForm>();
+
+  const shifts = isManager ? allShifts : myShifts;
+  const isLoading = isManager ? allLoading : myLoading;
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month]);
   const startPadding = (firstDay.getDay() + 6) % 7;
@@ -39,8 +80,41 @@ export function CalendarPage() {
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
   const getShiftsForDay = (day: Date) => shifts?.filter((s) => isSameDay(s.date, day)) || [];
+  const isHolidayDay = (day: Date) => holidays?.some((h) => isSameDay(h.date, day)) || false;
 
   const today = new Date();
+
+  const handleDayClick = (day: Date, dayShifts: Shift[]) => {
+    if (dayShifts.length > 0 || isHolidayDay(day)) {
+      setSelectedShifts(dayShifts);
+      setSelectedDay(day);
+    }
+  };
+
+  const handleEditShift = (shift: Shift) => {
+    setEditingShift(shift);
+    shiftForm.reset({
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      userId: shift.userId || "",
+      location: shift.location || "",
+      notes: shift.notes || "",
+    });
+    setSelectedShifts(null);
+  };
+
+  const onSaveShift = (data: ShiftEditForm) => {
+    if (!editingShift) return;
+    updateShift.mutate(
+      { id: editingShift.id, data: { ...data, userId: data.userId || null } },
+      { onSuccess: () => setEditingShift(null) },
+    );
+  };
+
+  const employeeOptions = [
+    { value: "", label: "Unassigned" },
+    ...(employees?.map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })) || []),
+  ];
 
   return (
     <>
@@ -78,33 +152,39 @@ export function CalendarPage() {
                 {days.map((day) => {
                   const dayShifts = getShiftsForDay(day);
                   const isToday = isSameDay(day, today);
+                  const hasHoliday = isHolidayDay(day);
                   return (
                     <div
                       key={day.toISOString()}
                       className={clsx(
                         "p-1 min-h-[60px] border border-gray-50 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors",
                         isToday && "bg-blue-50",
+                        hasHoliday && !isToday && "bg-red-50",
                       )}
-                      onClick={() => {
-                        if (dayShifts.length > 0) setSelectedShift(dayShifts[0]);
-                      }}
+                      onClick={() => handleDayClick(day, dayShifts)}
                     >
                       <span
                         className={clsx(
                           "text-xs font-medium",
-                          isToday ? "text-blue-600" : "text-gray-700",
+                          isToday ? "text-blue-600" : hasHoliday ? "text-red-600" : "text-gray-700",
                         )}
                       >
                         {day.getDate()}
                       </span>
+                      {hasHoliday && (
+                        <div className="text-[9px] text-red-500 font-medium leading-tight">Holiday</div>
+                      )}
                       <div className="flex flex-wrap gap-0.5 mt-0.5">
-                        {dayShifts.map((s) => (
+                        {dayShifts.slice(0, 4).map((s) => (
                           <div
                             key={s.id}
                             className={clsx("h-2 w-2 rounded-full", STATUS_DOT_COLORS[s.status])}
-                            title={`${s.startTime}-${s.endTime}`}
+                            title={`${s.user ? `${s.user.firstName} ` : ""}${s.startTime}-${s.endTime}`}
                           />
                         ))}
+                        {dayShifts.length > 4 && (
+                          <span className="text-[8px] text-gray-400">+{dayShifts.length - 4}</span>
+                        )}
                       </div>
                     </div>
                   );
@@ -120,25 +200,76 @@ export function CalendarPage() {
                 <span className="text-xs text-gray-500 capitalize">{status.toLowerCase().replace("_", " ")}</span>
               </div>
             ))}
+            <div className="flex items-center gap-1.5">
+              <div className="h-2.5 w-2.5 rounded-full bg-red-300" />
+              <span className="text-xs text-gray-500">Approved holiday</span>
+            </div>
           </div>
         </Card>
       </div>
 
-      <Modal open={!!selectedShift} onClose={() => setSelectedShift(null)} title="Shift Details">
-        {selectedShift && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <ShiftBadge status={selectedShift.status} />
-            </div>
-            <div className="text-sm space-y-2">
-              <p><span className="text-gray-500">Date:</span> {formatDate(selectedShift.date)}</p>
-              <p><span className="text-gray-500">Time:</span> {selectedShift.startTime} - {selectedShift.endTime}</p>
-              {selectedShift.location && <p><span className="text-gray-500">Location:</span> {selectedShift.location}</p>}
-              {selectedShift.notes && <p><span className="text-gray-500">Notes:</span> {selectedShift.notes}</p>}
-            </div>
+      <Modal
+        open={!!selectedShifts}
+        onClose={() => { setSelectedShifts(null); setSelectedDay(null); }}
+        title={selectedDay ? `Shifts — ${formatDate(selectedDay)}` : "Shift Details"}
+      >
+        {selectedDay && isHolidayDay(selectedDay) && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+            <p className="text-sm font-medium text-red-700">Approved Holiday</p>
           </div>
         )}
+        {selectedShifts && selectedShifts.length > 0 ? (
+          <div className="space-y-3">
+            {selectedShifts.map((shift) => (
+              <div
+                key={shift.id}
+                className={clsx(
+                  "flex items-center justify-between rounded-lg border p-3",
+                  isManager && "cursor-pointer hover:bg-gray-50",
+                )}
+                onClick={() => isManager && handleEditShift(shift)}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <ShiftBadge status={shift.status} />
+                    {shift.user && (
+                      <span className="text-xs text-gray-500">{shift.user.firstName} {shift.user.lastName}</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    {shift.startTime} - {shift.endTime}
+                    {shift.location && ` · ${shift.location}`}
+                  </p>
+                  {shift.notes && <p className="text-xs text-gray-400">{shift.notes}</p>}
+                </div>
+                {isManager && (
+                  <span className="text-xs text-gray-400">Edit &rarr;</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">No shifts on this day.</p>
+        )}
       </Modal>
+
+      {isManager && (
+        <Modal open={!!editingShift} onClose={() => setEditingShift(null)} title="Edit Shift">
+          <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
+              <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
+            </div>
+            <Select id="userId" label="Employee" options={employeeOptions} {...shiftForm.register("userId")} />
+            <Input id="location" label="Location" {...shiftForm.register("location")} />
+            <Input id="notes" label="Notes" {...shiftForm.register("notes")} />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" type="button" onClick={() => setEditingShift(null)}>Cancel</Button>
+              <Button type="submit" loading={updateShift.isPending}>Save</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }

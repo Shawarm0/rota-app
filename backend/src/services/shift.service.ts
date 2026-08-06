@@ -12,6 +12,15 @@ interface CreateShiftInput {
   status?: ShiftStatus;
 }
 
+async function checkApprovedHoliday(userId: string, date: string) {
+  const holiday = await prisma.holidayRequest.findFirst({
+    where: { userId, date: new Date(date), status: "APPROVED" },
+  });
+  if (holiday) {
+    throw new ConflictError("This employee has an approved holiday on this date");
+  }
+}
+
 export async function createShift(rotaId: string, data: CreateShiftInput) {
   const rota = await prisma.rota.findUnique({ where: { id: rotaId } });
   if (!rota) throw new NotFoundError("Rota");
@@ -20,6 +29,7 @@ export async function createShift(rotaId: string, data: CreateShiftInput) {
   }
 
   if (data.userId) {
+    await checkApprovedHoliday(data.userId, data.date);
     await checkTimeConflict(data.userId, data.date, data.startTime, data.endTime);
   }
 
@@ -48,9 +58,11 @@ export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
   if (!shift) throw new NotFoundError("Shift");
 
   if (data.userId && data.userId !== shift.userId) {
+    const dateStr = data.date || shift.date.toISOString().split("T")[0];
+    await checkApprovedHoliday(data.userId, dateStr);
     await checkTimeConflict(
       data.userId,
-      data.date || shift.date.toISOString().split("T")[0],
+      dateStr,
       data.startTime || shift.startTime,
       data.endTime || shift.endTime,
       id,
@@ -94,6 +106,13 @@ export async function bulkCreateShifts(rotaId: string, shifts: CreateShiftInput[
     throw new AppError(400, "Cannot add shifts to a published rota");
   }
 
+  for (const s of shifts) {
+    if (s.userId) {
+      await checkApprovedHoliday(s.userId, s.date);
+      await checkTimeConflict(s.userId, s.date, s.startTime, s.endTime);
+    }
+  }
+
   const created = await prisma.shift.createMany({
     data: shifts.map((s) => ({
       rotaId,
@@ -131,11 +150,32 @@ export async function getShiftsForUser(userId: string, from?: string, to?: strin
   });
 }
 
+export async function getAllShifts(businessId: string, from?: string, to?: string) {
+  return prisma.shift.findMany({
+    where: {
+      rota: { businessId, status: "PUBLISHED" },
+      ...(from || to
+        ? {
+            date: {
+              ...(from ? { gte: new Date(from) } : {}),
+              ...(to ? { lte: new Date(to) } : {}),
+            },
+          }
+        : {}),
+    },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true } },
+      rota: { select: { id: true, startDate: true, endDate: true, status: true } },
+    },
+    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+  });
+}
+
 export async function getAvailableShifts(businessId: string, excludeUserId: string) {
   return prisma.shift.findMany({
     where: {
       rota: { businessId, status: "PUBLISHED" },
-      status: { in: ["AVAILABLE", "SWAP"] },
+      status: "AVAILABLE",
       date: { gte: new Date() },
     },
     include: {
@@ -154,17 +194,14 @@ export async function claimShift(shiftId: string, userId: string) {
     });
 
     if (!shift) throw new NotFoundError("Shift");
-    if (shift.status !== "AVAILABLE" && shift.status !== "SWAP") {
+    if (shift.status !== "AVAILABLE") {
       throw new ConflictError("This shift is no longer available");
-    }
-    if (shift.userId === userId) {
-      throw new AppError(400, "You cannot claim your own shift");
     }
 
     const dateStr = shift.date.toISOString().split("T")[0];
     await checkTimeConflictTx(tx, userId, dateStr, shift.startTime, shift.endTime);
 
-    const newStatus: ShiftStatus = shift.status === "SWAP" ? "SWAP" : "ADDITIONAL";
+    const newStatus: ShiftStatus = "ADDITIONAL";
 
     const claimed = await tx.shift.update({
       where: { id: shiftId },

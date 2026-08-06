@@ -12,6 +12,7 @@ router.use(authenticate);
 
 router.post("/", validate(createHolidaySchema), holidayController.requestHoliday);
 router.get("/", holidayController.listHolidayRequests);
+router.get("/approved", holidayController.getApprovedHolidays);
 
 router.post(
   "/:id/approve",

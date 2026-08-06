@@ -52,6 +52,20 @@ export const getMyShifts: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const getAllShifts: RequestHandler = async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    const shifts = await shiftService.getAllShifts(
+      req.user!.businessId!,
+      from as string | undefined,
+      to as string | undefined,
+    );
+    res.json(shifts);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getAvailableShifts: RequestHandler = async (req, res, next) => {
   try {
     const shifts = await shiftService.getAvailableShifts(req.user!.businessId!, req.user!.userId);

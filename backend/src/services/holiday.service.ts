@@ -136,6 +136,24 @@ export async function listHolidayRequests(businessId: string, status?: string) {
   });
 }
 
+export async function getApprovedHolidays(userId: string, from?: string, to?: string) {
+  return prisma.holidayRequest.findMany({
+    where: {
+      userId,
+      status: "APPROVED",
+      ...(from || to
+        ? {
+            date: {
+              ...(from ? { gte: new Date(from) } : {}),
+              ...(to ? { lte: new Date(to) } : {}),
+            },
+          }
+        : {}),
+    },
+    orderBy: { date: "asc" },
+  });
+}
+
 export async function getMyHolidayRequests(userId: string) {
   return prisma.holidayRequest.findMany({
     where: { userId },

@@ -2,7 +2,6 @@ import client from "./client";
 
 export interface DashboardData {
   pendingHolidays: number;
-  pendingSwaps: number;
   shiftsNeedingCover: number;
   totalEmployees: number;
   recentActivity: Array<{
@@ -24,7 +23,6 @@ export interface EmployeeSummary {
   totalHours: number;
   assignedCount: number;
   additionalCount: number;
-  swapCount: number;
   holidaysUsed: number;
 }
 

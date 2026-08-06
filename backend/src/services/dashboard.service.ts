@@ -1,13 +1,10 @@
 import prisma from "../lib/db.js";
 
 export async function getDashboardData(businessId: string) {
-  const [pendingHolidays, pendingSwaps, shiftsNeedingCover, totalEmployees, recentActivity] =
+  const [pendingHolidays, shiftsNeedingCover, totalEmployees, recentActivity] =
     await Promise.all([
       prisma.holidayRequest.count({
         where: { user: { businessId }, status: "PENDING" },
-      }),
-      prisma.swapRequest.count({
-        where: { requester: { businessId }, status: { in: ["PENDING", "ACCEPTED"] } },
       }),
       prisma.shift.count({
         where: { rota: { businessId, status: "PUBLISHED" }, status: "AVAILABLE", date: { gte: new Date() } },
@@ -25,7 +22,6 @@ export async function getDashboardData(businessId: string) {
 
   return {
     pendingHolidays,
-    pendingSwaps,
     shiftsNeedingCover,
     totalEmployees,
     recentActivity,
@@ -81,7 +77,6 @@ export async function getEmployeeSummaries(businessId: string) {
     let totalHours = 0;
     let assignedCount = 0;
     let additionalCount = 0;
-    let swapCount = 0;
 
     for (const shift of emp.shifts) {
       const [startH, startM] = shift.startTime.split(":").map(Number);
@@ -90,7 +85,6 @@ export async function getEmployeeSummaries(businessId: string) {
 
       if (shift.status === "ASSIGNED") assignedCount++;
       else if (shift.status === "ADDITIONAL") additionalCount++;
-      else if (shift.status === "SWAP") swapCount++;
     }
 
     return {
@@ -102,7 +96,6 @@ export async function getEmployeeSummaries(businessId: string) {
       totalHours: Math.round(totalHours * 10) / 10,
       assignedCount,
       additionalCount,
-      swapCount,
       holidaysUsed: emp.holidayRequests.length,
     };
   });

@@ -25,3 +25,8 @@ export async function cancelHoliday(id: string) {
   const { data } = await client.post(`/holidays/${id}/cancel`);
   return data;
 }
+
+export async function getApprovedHolidays(from?: string, to?: string): Promise<HolidayRequest[]> {
+  const { data } = await client.get<HolidayRequest[]>("/holidays/approved", { params: { from, to } });
+  return data;
+}

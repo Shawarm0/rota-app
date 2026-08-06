@@ -85,6 +85,12 @@ export function useUpdateShift() {
       shiftApi.updateShift(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rota"] });
+      qc.invalidateQueries({ queryKey: ["allShifts"] });
+      qc.invalidateQueries({ queryKey: ["myShifts"] });
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || "Failed to update shift";
+      toast(msg, "error");
     },
   });
 }

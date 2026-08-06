@@ -3,20 +3,15 @@ import { Card } from "../../components/ui/Card";
 import { Spinner } from "../../components/ui/Spinner";
 import { useDashboard, useEmployeeSummaries } from "../../hooks/useDashboard";
 import { useHolidayRequests, useApproveHoliday, useRejectHoliday } from "../../hooks/useHolidays";
-import { useSwapRequests, useApproveSwap, useRejectSwap } from "../../hooks/useSwaps";
-import { Badge } from "../../components/ui/Badge";
 import { formatDate } from "../../lib/dateUtils";
-import { Users, Palmtree, ArrowRightLeft, AlertCircle, Check, X } from "lucide-react";
+import { Users, Palmtree, AlertCircle, Check, X } from "lucide-react";
 
 export function ManagerDashboardPage() {
   const { data: dashboard, isLoading } = useDashboard();
   const { data: employees } = useEmployeeSummaries();
   const { data: holidays } = useHolidayRequests("PENDING");
-  const { data: swaps } = useSwapRequests("PENDING");
   const approveHoliday = useApproveHoliday();
   const rejectHoliday = useRejectHoliday();
-  const approveSwap = useApproveSwap();
-  const rejectSwap = useRejectSwap();
 
   if (isLoading) {
     return (
@@ -29,7 +24,6 @@ export function ManagerDashboardPage() {
 
   const stats = [
     { label: "Pending Holidays", value: dashboard?.pendingHolidays || 0, icon: Palmtree, color: "text-amber-600 bg-amber-50" },
-    { label: "Pending Swaps", value: dashboard?.pendingSwaps || 0, icon: ArrowRightLeft, color: "text-purple-600 bg-purple-50" },
     { label: "Shifts to Cover", value: dashboard?.shiftsNeedingCover || 0, icon: AlertCircle, color: "text-red-600 bg-red-50" },
     { label: "Active Employees", value: dashboard?.totalEmployees || 0, icon: Users, color: "text-blue-600 bg-blue-50" },
   ];
@@ -38,7 +32,7 @@ export function ManagerDashboardPage() {
     <>
       <TopBar title="Manager Dashboard" />
       <div className="p-4 md:p-6 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {stats.map(({ label, value, icon: Icon, color }) => (
             <Card key={label}>
               <div className="flex items-center gap-3">
@@ -78,42 +72,6 @@ export function ManagerDashboardPage() {
           </Card>
         )}
 
-        {swaps && swaps.length > 0 && (
-          <Card>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Pending Swap Requests</h3>
-            <div className="space-y-3">
-              {swaps.map((swap) => (
-                <div key={swap.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{swap.requester?.firstName} {swap.requester?.lastName}</p>
-                    <p className="text-xs text-gray-500">
-                      {formatDate(swap.shift?.date || "")} · {swap.shift?.startTime}-{swap.shift?.endTime}
-                    </p>
-                    {swap.acceptor && (
-                      <p className="text-xs text-gray-400">
-                        Accepted by: {swap.acceptor.firstName} {swap.acceptor.lastName}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={swap.status === "ACCEPTED" ? "blue" : "yellow"}>{swap.status}</Badge>
-                    {(swap.status === "PENDING" || swap.status === "ACCEPTED") && (
-                      <>
-                        <button onClick={() => approveSwap.mutate(swap.id)} className="p-1.5 rounded-lg hover:bg-green-50">
-                          <Check className="h-4 w-4 text-green-600" />
-                        </button>
-                        <button onClick={() => rejectSwap.mutate(swap.id)} className="p-1.5 rounded-lg hover:bg-red-50">
-                          <X className="h-4 w-4 text-red-600" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
         {employees && employees.length > 0 && (
           <Card>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Employee Summary</h3>
@@ -125,7 +83,6 @@ export function ManagerDashboardPage() {
                     <th className="pb-2 font-medium text-right">Shifts</th>
                     <th className="pb-2 font-medium text-right">Hours</th>
                     <th className="pb-2 font-medium text-right">Extra</th>
-                    <th className="pb-2 font-medium text-right">Swaps</th>
                     <th className="pb-2 font-medium text-right">Holidays</th>
                   </tr>
                 </thead>
@@ -136,7 +93,6 @@ export function ManagerDashboardPage() {
                       <td className="py-2 text-right">{emp.totalShifts}</td>
                       <td className="py-2 text-right">{emp.totalHours}h</td>
                       <td className="py-2 text-right">{emp.additionalCount}</td>
-                      <td className="py-2 text-right">{emp.swapCount}</td>
                       <td className="py-2 text-right">{emp.holidaysUsed}</td>
                     </tr>
                   ))}

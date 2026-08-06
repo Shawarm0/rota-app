@@ -5,15 +5,12 @@ export type RotaStatus = "DRAFT" | "PUBLISHED";
 export type ShiftStatus =
   | "ASSIGNED"
   | "ADDITIONAL"
-  | "SWAP"
   | "HOLIDAY"
   | "REQUESTED_HOLIDAY"
   | "AVAILABLE"
   | "CANCELLED";
 
 export type HolidayStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
-
-export type SwapStatus = "PENDING" | "ACCEPTED" | "APPROVED" | "REJECTED" | "CANCELLED";
 
 export interface User {
   id: string;
@@ -62,18 +59,6 @@ export interface HolidayRequest {
   date: string;
   reason: string | null;
   status: HolidayStatus;
-  createdAt: string;
-}
-
-export interface SwapRequest {
-  id: string;
-  shiftId: string;
-  shift?: Shift;
-  requesterId: string;
-  requester?: User;
-  acceptorId: string | null;
-  acceptor?: User;
-  status: SwapStatus;
   createdAt: string;
 }
 

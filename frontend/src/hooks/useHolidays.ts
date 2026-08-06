@@ -9,6 +9,13 @@ export function useHolidayRequests(status?: string) {
   });
 }
 
+export function useApprovedHolidays(from?: string, to?: string) {
+  return useQuery({
+    queryKey: ["approvedHolidays", from, to],
+    queryFn: () => holidayApi.getApprovedHolidays(from, to),
+  });
+}
+
 export function useRequestHoliday() {
   const qc = useQueryClient();
   return useMutation({

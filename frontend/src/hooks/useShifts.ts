@@ -9,6 +9,13 @@ export function useMyShifts(from?: string, to?: string) {
   });
 }
 
+export function useAllShifts(from?: string, to?: string) {
+  return useQuery({
+    queryKey: ["allShifts", from, to],
+    queryFn: () => shiftApi.getAllShifts(from, to),
+  });
+}
+
 export function useAvailableShifts() {
   return useQuery({
     queryKey: ["availableShifts"],

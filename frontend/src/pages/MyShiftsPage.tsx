@@ -1,17 +1,14 @@
 import { TopBar } from "../components/layout/TopBar";
 import { Card } from "../components/ui/Card";
 import { ShiftBadge } from "../components/ui/Badge";
-import { Button } from "../components/ui/Button";
 import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
 import { useMyShifts } from "../hooks/useShifts";
-import { useRequestSwap } from "../hooks/useSwaps";
 import { formatDate, formatDay } from "../lib/dateUtils";
-import { Clock, ArrowRightLeft } from "lucide-react";
+import { Clock } from "lucide-react";
 
 export function MyShiftsPage() {
   const { data: shifts, isLoading } = useMyShifts();
-  const swapMutation = useRequestSwap();
 
   return (
     <>
@@ -39,17 +36,6 @@ export function MyShiftsPage() {
                 </p>
                 {shift.notes && <p className="text-xs text-gray-400 mt-0.5">{shift.notes}</p>}
               </div>
-              {shift.status === "ASSIGNED" && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => swapMutation.mutate(shift.id)}
-                  loading={swapMutation.isPending}
-                >
-                  <ArrowRightLeft className="h-4 w-4 mr-1" />
-                  Swap
-                </Button>
-              )}
             </Card>
           ))
         )}

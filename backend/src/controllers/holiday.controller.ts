@@ -44,6 +44,20 @@ export const rejectHoliday: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const getApprovedHolidays: RequestHandler = async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    const holidays = await holidayService.getApprovedHolidays(
+      req.user!.userId,
+      from as string | undefined,
+      to as string | undefined,
+    );
+    res.json(holidays);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const cancelHoliday: RequestHandler = async (req, res, next) => {
   try {
     const result = await holidayService.cancelHoliday(param(req, "id"), req.user!.userId);
