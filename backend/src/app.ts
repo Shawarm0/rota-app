@@ -43,7 +43,7 @@ app.use(errorHandler);
 
 const clientDist = path.join(__dirname, "..", "public");
 app.use(express.static(clientDist));
-app.get("/{*splat}", (_req, res) => {
+app.use((_req, res) => {
   res.sendFile(path.join(clientDist, "index.html"));
 });
 
