@@ -87,14 +87,8 @@ export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
 }
 
 export async function deleteShift(id: string) {
-  const shift = await prisma.shift.findUnique({
-    where: { id },
-    include: { rota: true },
-  });
+  const shift = await prisma.shift.findUnique({ where: { id } });
   if (!shift) throw new NotFoundError("Shift");
-  if (shift.rota.status === "PUBLISHED") {
-    throw new AppError(400, "Cannot delete shifts from a published rota");
-  }
 
   await prisma.shift.delete({ where: { id } });
 }

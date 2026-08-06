@@ -41,12 +41,10 @@ app.use("/api/v1/dashboard", dashboardRoutes);
 
 app.use(errorHandler);
 
-if (env.NODE_ENV === "production") {
-  const clientDist = path.join(__dirname, "..", "public");
-  app.use(express.static(clientDist));
-  app.get("/{*splat}", (_req, res) => {
-    res.sendFile(path.join(clientDist, "index.html"));
-  });
-}
+const clientDist = path.join(__dirname, "..", "public");
+app.use(express.static(clientDist));
+app.get("/{*splat}", (_req, res) => {
+  res.sendFile(path.join(clientDist, "index.html"));
+});
 
 export default app;
