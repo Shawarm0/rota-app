@@ -9,10 +9,10 @@ import { Modal } from "../components/ui/Modal";
 import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
 import { RoleGate } from "../components/auth/RoleGate";
-import { useHolidayRequests, useRequestHoliday, useApproveHoliday, useRejectHoliday, useCancelHoliday } from "../hooks/useHolidays";
+import { useHolidayRequests, useRequestHoliday, useApproveHoliday, useRejectHoliday, useCancelHoliday, useUpdateHoliday, useDeleteHoliday } from "../hooks/useHolidays";
 import { formatDate } from "../lib/dateUtils";
-import { Palmtree, Plus, Check, X } from "lucide-react";
-import type { HolidayStatus } from "../types";
+import { Palmtree, Plus, Check, X, Pencil, Trash2 } from "lucide-react";
+import type { HolidayStatus, HolidayRequest } from "../types";
 
 const statusVariants: Record<HolidayStatus, "yellow" | "green" | "red" | "gray"> = {
   PENDING: "yellow",
@@ -26,19 +26,47 @@ interface HolidayForm {
   reason: string;
 }
 
+interface EditHolidayForm {
+  date: string;
+  reason: string;
+}
+
 export function HolidaysPage() {
   const { data: requests, isLoading } = useHolidayRequests();
   const requestMutation = useRequestHoliday();
   const approveMutation = useApproveHoliday();
   const rejectMutation = useRejectHoliday();
   const cancelMutation = useCancelHoliday();
+  const updateMutation = useUpdateHoliday();
+  const deleteMutation = useDeleteHoliday();
   const [showForm, setShowForm] = useState(false);
+  const [editingHoliday, setEditingHoliday] = useState<HolidayRequest | null>(null);
   const { register, handleSubmit, reset } = useForm<HolidayForm>();
+  const editForm = useForm<EditHolidayForm>();
 
   const onSubmit = (data: HolidayForm) => {
     requestMutation.mutate(
       { date: data.date, reason: data.reason || undefined },
       { onSuccess: () => { setShowForm(false); reset(); } },
+    );
+  };
+
+  const handleEdit = (req: HolidayRequest) => {
+    setEditingHoliday(req);
+    const dateStr = typeof req.date === "string"
+      ? req.date.split("T")[0]
+      : new Date(req.date).toISOString().split("T")[0];
+    editForm.reset({
+      date: dateStr,
+      reason: req.reason || "",
+    });
+  };
+
+  const onEditSubmit = (data: EditHolidayForm) => {
+    if (!editingHoliday) return;
+    updateMutation.mutate(
+      { id: editingHoliday.id, data: { date: data.date, reason: data.reason || null } },
+      { onSuccess: () => setEditingHoliday(null) },
     );
   };
 
@@ -80,17 +108,33 @@ export function HolidaysPage() {
                         <button
                           onClick={() => approveMutation.mutate(req.id)}
                           className="p-1.5 rounded-lg hover:bg-green-50"
+                          title="Approve"
                         >
                           <Check className="h-4 w-4 text-green-600" />
                         </button>
                         <button
                           onClick={() => rejectMutation.mutate({ id: req.id })}
                           className="p-1.5 rounded-lg hover:bg-red-50"
+                          title="Reject"
                         >
                           <X className="h-4 w-4 text-red-600" />
                         </button>
                       </>
                     )}
+                    <button
+                      onClick={() => handleEdit(req)}
+                      className="p-1.5 rounded-lg hover:bg-gray-100"
+                      title="Edit"
+                    >
+                      <Pencil className="h-4 w-4 text-gray-500" />
+                    </button>
+                    <button
+                      onClick={() => deleteMutation.mutate(req.id)}
+                      className="p-1.5 rounded-lg hover:bg-red-50"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </button>
                   </RoleGate>
                   <RoleGate allowedRoles={["EMPLOYEE"]}>
                     {req.status === "PENDING" && (
@@ -124,6 +168,30 @@ export function HolidaysPage() {
           <div className="flex justify-end gap-2">
             <Button variant="secondary" type="button" onClick={() => setShowForm(false)}>Cancel</Button>
             <Button type="submit" loading={requestMutation.isPending}>Submit</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={!!editingHoliday} onClose={() => setEditingHoliday(null)} title="Edit Holiday">
+        <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+          <Input id="editDate" label="Date" type="date" {...editForm.register("date", { required: true })} />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Reason</label>
+            <textarea
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              rows={3}
+              {...editForm.register("reason")}
+            />
+          </div>
+          {editingHoliday && (
+            <p className="text-xs text-gray-400">
+              Status: {editingHoliday.status}
+              {editingHoliday.user && ` — ${editingHoliday.user.firstName} ${editingHoliday.user.lastName}`}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" type="button" onClick={() => setEditingHoliday(null)}>Cancel</Button>
+            <Button type="submit" loading={updateMutation.isPending}>Save</Button>
           </div>
         </form>
       </Modal>

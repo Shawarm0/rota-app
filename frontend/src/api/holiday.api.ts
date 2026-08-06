@@ -26,6 +26,15 @@ export async function cancelHoliday(id: string) {
   return data;
 }
 
+export async function updateHoliday(id: string, input: { date?: string; reason?: string | null }): Promise<HolidayRequest> {
+  const { data } = await client.patch<HolidayRequest>(`/holidays/${id}`, input);
+  return data;
+}
+
+export async function deleteHoliday(id: string) {
+  await client.delete(`/holidays/${id}`);
+}
+
 export async function getApprovedHolidays(from?: string, to?: string): Promise<HolidayRequest[]> {
   const { data } = await client.get<HolidayRequest[]>("/holidays/approved", { params: { from, to } });
   return data;

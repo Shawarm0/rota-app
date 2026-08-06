@@ -4,7 +4,7 @@ import { authenticate } from "../middleware/auth.js";
 import { authorize } from "../middleware/authorize.js";
 import { validate } from "../middleware/validate.js";
 import { auditLog } from "../middleware/auditLog.js";
-import { createHolidaySchema, rejectHolidaySchema } from "../validation/holiday.schema.js";
+import { createHolidaySchema, updateHolidaySchema, rejectHolidaySchema } from "../validation/holiday.schema.js";
 
 const router = Router();
 
@@ -27,6 +27,21 @@ router.post(
   validate(rejectHolidaySchema),
   auditLog("REJECT", "HolidayRequest"),
   holidayController.rejectHoliday,
+);
+
+router.patch(
+  "/:id",
+  authorize("MANAGER"),
+  validate(updateHolidaySchema),
+  auditLog("UPDATE", "HolidayRequest"),
+  holidayController.updateHoliday,
+);
+
+router.delete(
+  "/:id",
+  authorize("MANAGER"),
+  auditLog("DELETE", "HolidayRequest"),
+  holidayController.deleteHoliday,
 );
 
 router.post("/:id/cancel", holidayController.cancelHoliday);

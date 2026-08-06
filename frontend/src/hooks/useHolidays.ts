@@ -58,6 +58,41 @@ export function useRejectHoliday() {
   });
 }
 
+export function useUpdateHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { date?: string; reason?: string | null } }) =>
+      holidayApi.updateHoliday(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["holidays"] });
+      qc.invalidateQueries({ queryKey: ["approvedHolidays"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast("Holiday updated", "success");
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || "Failed to update holiday";
+      toast(msg, "error");
+    },
+  });
+}
+
+export function useDeleteHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: holidayApi.deleteHoliday,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["holidays"] });
+      qc.invalidateQueries({ queryKey: ["approvedHolidays"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast("Holiday deleted", "success");
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || "Failed to delete holiday";
+      toast(msg, "error");
+    },
+  });
+}
+
 export function useCancelHoliday() {
   const qc = useQueryClient();
   return useMutation({

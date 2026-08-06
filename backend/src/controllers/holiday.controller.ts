@@ -58,6 +58,24 @@ export const getApprovedHolidays: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const updateHoliday: RequestHandler = async (req, res, next) => {
+  try {
+    const result = await holidayService.updateHoliday(param(req, "id"), req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteHoliday: RequestHandler = async (req, res, next) => {
+  try {
+    await holidayService.deleteHoliday(param(req, "id"));
+    res.json({ message: "Holiday request deleted" });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const cancelHoliday: RequestHandler = async (req, res, next) => {
   try {
     const result = await holidayService.cancelHoliday(param(req, "id"), req.user!.userId);

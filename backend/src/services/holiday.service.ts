@@ -124,6 +124,29 @@ export async function cancelHoliday(requestId: string, userId: string) {
   });
 }
 
+export async function updateHoliday(requestId: string, data: { date?: string; reason?: string | null }) {
+  const request = await prisma.holidayRequest.findUnique({ where: { id: requestId } });
+  if (!request) throw new NotFoundError("Holiday request");
+
+  return prisma.holidayRequest.update({
+    where: { id: requestId },
+    data: {
+      ...(data.date ? { date: new Date(data.date) } : {}),
+      ...(data.reason !== undefined ? { reason: data.reason } : {}),
+    },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
+}
+
+export async function deleteHoliday(requestId: string) {
+  const request = await prisma.holidayRequest.findUnique({ where: { id: requestId } });
+  if (!request) throw new NotFoundError("Holiday request");
+
+  await prisma.holidayRequest.delete({ where: { id: requestId } });
+}
+
 export async function listHolidayRequests(businessId: string, status?: string) {
   return prisma.holidayRequest.findMany({
     where: {
