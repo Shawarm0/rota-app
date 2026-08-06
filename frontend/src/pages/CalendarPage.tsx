@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { TopBar } from "../components/layout/TopBar";
 import { Card } from "../components/ui/Card";
 import { ShiftBadge } from "../components/ui/Badge";
@@ -11,7 +11,7 @@ import { Button } from "../components/ui/Button";
 import { Spinner } from "../components/ui/Spinner";
 import { useQuery } from "@tanstack/react-query";
 import { useApprovedHolidays } from "../hooks/useHolidays";
-import { useUpdateShift } from "../hooks/useRotas";
+import { useUpdateShift, useDeleteShift } from "../hooks/useRotas";
 import { useAuthStore } from "../stores/authStore";
 import * as shiftApi from "../api/shift.api";
 import * as userApi from "../api/user.api";
@@ -68,6 +68,7 @@ export function CalendarPage() {
     enabled: isManager,
   });
   const updateShift = useUpdateShift();
+  const deleteShift = useDeleteShift();
   const shiftForm = useForm<ShiftEditForm>();
 
   const shifts = isManager ? allShifts : myShifts;
@@ -263,9 +264,22 @@ export function CalendarPage() {
             <Select id="userId" label="Employee" options={employeeOptions} {...shiftForm.register("userId")} />
             <Input id="location" label="Location" {...shiftForm.register("location")} />
             <Input id="notes" label="Notes" {...shiftForm.register("notes")} />
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" type="button" onClick={() => setEditingShift(null)}>Cancel</Button>
-              <Button type="submit" loading={updateShift.isPending}>Save</Button>
+            <div className="flex justify-between">
+              <Button
+                variant="danger"
+                type="button"
+                size="sm"
+                onClick={() => {
+                  deleteShift.mutate(editingShift!.id);
+                  setEditingShift(null);
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-1" /> Delete
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="secondary" type="button" onClick={() => setEditingShift(null)}>Cancel</Button>
+                <Button type="submit" loading={updateShift.isPending}>Save</Button>
+              </div>
             </div>
           </form>
         </Modal>

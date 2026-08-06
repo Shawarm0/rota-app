@@ -75,6 +75,10 @@ export function useCreateShift() {
     onSuccess: (_, { rotaId }) => {
       qc.invalidateQueries({ queryKey: ["rota", rotaId] });
     },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || "Failed to create shift";
+      toast(msg, "error");
+    },
   });
 }
 
@@ -101,6 +105,13 @@ export function useDeleteShift() {
     mutationFn: shiftApi.deleteShift,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rota"] });
+      qc.invalidateQueries({ queryKey: ["allShifts"] });
+      qc.invalidateQueries({ queryKey: ["myShifts"] });
+      toast("Shift deleted", "success");
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || "Failed to delete shift";
+      toast(msg, "error");
     },
   });
 }
