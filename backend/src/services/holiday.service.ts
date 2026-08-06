@@ -61,12 +61,14 @@ export async function approveHoliday(requestId: string) {
       include: { user: { select: { id: true, firstName: true, lastName: true } } },
     });
 
-    if (request.shiftId) {
-      await tx.shift.update({
-        where: { id: request.shiftId },
-        data: { status: "AVAILABLE", userId: null },
-      });
-    }
+    await tx.shift.updateMany({
+      where: {
+        userId: request.userId,
+        date: request.date,
+        status: { notIn: ["CANCELLED", "AVAILABLE"] },
+      },
+      data: { status: "AVAILABLE", userId: null },
+    });
 
     await tx.notification.create({
       data: {
