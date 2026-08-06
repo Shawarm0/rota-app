@@ -28,6 +28,20 @@ export async function getDashboardData(businessId: string) {
   };
 }
 
+export async function getShiftsToCover(businessId: string) {
+  return prisma.shift.findMany({
+    where: {
+      rota: { businessId, status: "PUBLISHED" },
+      status: "AVAILABLE",
+      date: { gte: new Date() },
+    },
+    include: {
+      rota: { select: { id: true, name: true, location: { select: { name: true } } } },
+    },
+    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+  });
+}
+
 export async function getStaffingOverview(businessId: string, weekStart: string) {
   const start = new Date(weekStart);
   const end = new Date(start);

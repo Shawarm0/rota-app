@@ -8,6 +8,13 @@ export function useDashboard() {
   });
 }
 
+export function useShiftsToCover() {
+  return useQuery({
+    queryKey: ["shiftsToCover"],
+    queryFn: dashboardApi.getShiftsToCover,
+  });
+}
+
 export function useStaffing(weekStart: string) {
   return useQuery({
     queryKey: ["staffing", weekStart],

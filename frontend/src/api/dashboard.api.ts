@@ -36,6 +36,20 @@ export async function getDashboard(): Promise<DashboardData> {
   return data;
 }
 
+export interface ShiftToCover {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string | null;
+  rota: { id: string; name: string | null; location: { name: string } | null };
+}
+
+export async function getShiftsToCover(): Promise<ShiftToCover[]> {
+  const { data } = await client.get<ShiftToCover[]>("/dashboard/shifts-to-cover");
+  return data;
+}
+
 export async function getStaffing(weekStart: string): Promise<StaffingDay[]> {
   const { data } = await client.get<StaffingDay[]>("/dashboard/staffing", { params: { weekStart } });
   return data;

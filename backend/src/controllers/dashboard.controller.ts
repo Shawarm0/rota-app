@@ -11,6 +11,15 @@ export const getDashboard: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const getShiftsToCover: RequestHandler = async (req, res, next) => {
+  try {
+    const data = await dashboardService.getShiftsToCover(req.user!.businessId!);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const getStaffing: RequestHandler = async (req, res, next) => {
   try {
     const weekStart = req.query.weekStart as string;

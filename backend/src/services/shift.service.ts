@@ -74,6 +74,15 @@ export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
     );
   }
 
+  let autoStatus = data.status;
+  if (!autoStatus && data.userId !== undefined) {
+    if (data.userId && shift.status === "AVAILABLE") {
+      autoStatus = "ASSIGNED";
+    } else if (!data.userId && shift.status !== "AVAILABLE") {
+      autoStatus = "AVAILABLE";
+    }
+  }
+
   return prisma.shift.update({
     where: { id },
     data: {
@@ -83,7 +92,7 @@ export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
       ...(data.endTime ? { endTime: data.endTime } : {}),
       ...(data.location !== undefined ? { location: data.location || null } : {}),
       ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
-      ...(data.status ? { status: data.status } : {}),
+      ...(autoStatus ? { status: autoStatus } : {}),
     },
     include: {
       user: { select: { id: true, firstName: true, lastName: true } },
