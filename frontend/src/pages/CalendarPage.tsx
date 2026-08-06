@@ -283,7 +283,15 @@ export function CalendarPage() {
               <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
             </div>
             <Select id="userId" label="Employee" options={employeeOptions} {...shiftForm.register("userId")} />
-            <Input id="location" label="Location" {...shiftForm.register("location")} />
+            <Select
+              id="location"
+              label="Location"
+              options={[
+                { value: "", label: "No location" },
+                ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
+              ]}
+              {...shiftForm.register("location")}
+            />
             <Input id="notes" label="Notes" {...shiftForm.register("notes")} />
             <div className="flex justify-between">
               <Button
