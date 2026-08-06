@@ -10,6 +10,7 @@ interface CreateUserInput {
   lastName: string;
   role: "MANAGER" | "EMPLOYEE";
   businessId?: string;
+  locationId?: string;
 }
 
 export async function createUser(input: CreateUserInput, creatorRole: Role, creatorBusinessId: string | null) {
@@ -36,6 +37,7 @@ export async function createUser(input: CreateUserInput, creatorRole: Role, crea
       lastName: input.lastName,
       role: input.role,
       businessId,
+      locationId: input.locationId || null,
     },
     select: {
       id: true,
@@ -44,17 +46,20 @@ export async function createUser(input: CreateUserInput, creatorRole: Role, crea
       lastName: true,
       role: true,
       businessId: true,
+      locationId: true,
+      location: { select: { id: true, name: true } },
       active: true,
       createdAt: true,
     },
   });
 }
 
-export async function listUsers(businessId: string | null, role?: Role) {
+export async function listUsers(businessId: string | null, role?: Role, locationId?: string) {
   return prisma.user.findMany({
     where: {
       ...(businessId ? { businessId } : {}),
       ...(role ? { role } : {}),
+      ...(locationId ? { locationId } : {}),
     },
     select: {
       id: true,
@@ -63,6 +68,8 @@ export async function listUsers(businessId: string | null, role?: Role) {
       lastName: true,
       role: true,
       businessId: true,
+      locationId: true,
+      location: { select: { id: true, name: true } },
       active: true,
       createdAt: true,
     },
@@ -80,6 +87,8 @@ export async function getUser(id: string) {
       lastName: true,
       role: true,
       businessId: true,
+      locationId: true,
+      location: { select: { id: true, name: true } },
       active: true,
       createdAt: true,
     },
@@ -88,7 +97,7 @@ export async function getUser(id: string) {
   return user;
 }
 
-export async function updateUser(id: string, data: { firstName?: string; lastName?: string; email?: string }) {
+export async function updateUser(id: string, data: { firstName?: string; lastName?: string; email?: string; locationId?: string | null }) {
   return prisma.user.update({
     where: { id },
     data,
@@ -99,6 +108,8 @@ export async function updateUser(id: string, data: { firstName?: string; lastNam
       lastName: true,
       role: true,
       businessId: true,
+      locationId: true,
+      location: { select: { id: true, name: true } },
       active: true,
     },
   });

@@ -14,9 +14,11 @@ export const createUser: RequestHandler = async (req, res, next) => {
 export const listUsers: RequestHandler = async (req, res, next) => {
   try {
     const role = req.query.role as string | undefined;
+    const locationId = req.query.locationId as string | undefined;
     const users = await userService.listUsers(
       req.user!.role === "SYSTEM_ADMIN" ? null : req.user!.businessId,
       role as any,
+      locationId,
     );
     res.json(users);
   } catch (err) {

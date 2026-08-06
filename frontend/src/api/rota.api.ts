@@ -11,7 +11,7 @@ export async function getRota(id: string): Promise<Rota> {
   return data;
 }
 
-export async function createRota(input: { name?: string; startDate: string; endDate: string }): Promise<Rota> {
+export async function createRota(input: { name?: string; startDate: string; endDate: string; locationId?: string }): Promise<Rota> {
   const { data } = await client.post<Rota>("/rotas", input);
   return data;
 }

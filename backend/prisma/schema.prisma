@@ -44,12 +44,26 @@ enum SwapStatus {
 }
 
 model Business {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   users     User[]
   rotas     Rota[]
+  locations Location[]
+}
+
+model Location {
+  id         String   @id @default(cuid())
+  name       String
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  users      User[]
+  rotas      Rota[]
+
+  @@unique([businessId, name])
 }
 
 model User {
@@ -62,6 +76,8 @@ model User {
   active       Boolean   @default(true)
   businessId   String?
   business     Business? @relation(fields: [businessId], references: [id])
+  locationId   String?
+  location     Location? @relation(fields: [locationId], references: [id])
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -88,6 +104,8 @@ model Rota {
   id         String     @id @default(cuid())
   businessId String
   business   Business   @relation(fields: [businessId], references: [id])
+  locationId String?
+  location   Location?  @relation(fields: [locationId], references: [id])
   name       String?
   startDate  DateTime
   endDate    DateTime

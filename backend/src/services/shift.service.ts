@@ -22,7 +22,10 @@ async function checkApprovedHoliday(userId: string, date: string) {
 }
 
 export async function createShift(rotaId: string, data: CreateShiftInput) {
-  const rota = await prisma.rota.findUnique({ where: { id: rotaId } });
+  const rota = await prisma.rota.findUnique({
+    where: { id: rotaId },
+    include: { location: { select: { name: true } } },
+  });
   if (!rota) throw new NotFoundError("Rota");
   if (rota.status === "PUBLISHED") {
     throw new AppError(400, "Cannot add shifts to a published rota");
@@ -33,6 +36,8 @@ export async function createShift(rotaId: string, data: CreateShiftInput) {
     await checkTimeConflict(data.userId, data.date, data.startTime, data.endTime);
   }
 
+  const shiftLocation = data.location ?? rota.location?.name ?? null;
+
   return prisma.shift.create({
     data: {
       rotaId,
@@ -40,7 +45,7 @@ export async function createShift(rotaId: string, data: CreateShiftInput) {
       date: new Date(data.date),
       startTime: data.startTime,
       endTime: data.endTime,
-      location: data.location || null,
+      location: shiftLocation,
       notes: data.notes || null,
       status: data.status || "ASSIGNED",
     },
@@ -94,7 +99,10 @@ export async function deleteShift(id: string) {
 }
 
 export async function bulkCreateShifts(rotaId: string, shifts: CreateShiftInput[]) {
-  const rota = await prisma.rota.findUnique({ where: { id: rotaId } });
+  const rota = await prisma.rota.findUnique({
+    where: { id: rotaId },
+    include: { location: { select: { name: true } } },
+  });
   if (!rota) throw new NotFoundError("Rota");
   if (rota.status === "PUBLISHED") {
     throw new AppError(400, "Cannot add shifts to a published rota");
@@ -114,7 +122,7 @@ export async function bulkCreateShifts(rotaId: string, shifts: CreateShiftInput[
       date: new Date(s.date),
       startTime: s.startTime,
       endTime: s.endTime,
-      location: s.location || null,
+      location: s.location ?? rota.location?.name ?? null,
       notes: s.notes || null,
       status: s.status || "ASSIGNED",
     })),
@@ -144,10 +152,14 @@ export async function getShiftsForUser(userId: string, from?: string, to?: strin
   });
 }
 
-export async function getAllShifts(businessId: string, from?: string, to?: string) {
+export async function getAllShifts(businessId: string, from?: string, to?: string, locationId?: string) {
   return prisma.shift.findMany({
     where: {
-      rota: { businessId, status: "PUBLISHED" },
+      rota: {
+        businessId,
+        status: "PUBLISHED",
+        ...(locationId ? { locationId } : {}),
+      },
       ...(from || to
         ? {
             date: {

@@ -12,6 +12,13 @@ export type ShiftStatus =
 
 export type HolidayStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
+export interface Location {
+  id: string;
+  name: string;
+  businessId?: string;
+  _count?: { users: number };
+}
+
 export interface User {
   id: string;
   email: string;
@@ -19,6 +26,8 @@ export interface User {
   lastName: string;
   role: Role;
   businessId: string | null;
+  locationId: string | null;
+  location?: { id: string; name: string } | null;
   active?: boolean;
 }
 
@@ -30,6 +39,8 @@ export interface Business {
 export interface Rota {
   id: string;
   businessId: string;
+  locationId: string | null;
+  location?: { id: string; name: string } | null;
   name: string | null;
   startDate: string;
   endDate: string;

@@ -15,6 +15,18 @@ async function main() {
     },
   });
 
+  const highSt = await prisma.location.upsert({
+    where: { businessId_name: { businessId: business.id, name: "High Street" } },
+    update: {},
+    create: { id: "loc-high-street", name: "High Street", businessId: business.id },
+  });
+
+  const mallStore = await prisma.location.upsert({
+    where: { businessId_name: { businessId: business.id, name: "Mall Store" } },
+    update: {},
+    create: { id: "loc-mall-store", name: "Mall Store", businessId: business.id },
+  });
+
   await prisma.user.upsert({
     where: { email: "admin@rota.app" },
     update: {},
@@ -41,15 +53,15 @@ async function main() {
   });
 
   const employees = [
-    { email: "alice@rota.app", firstName: "Alice", lastName: "Smith" },
-    { email: "bob@rota.app", firstName: "Bob", lastName: "Jones" },
-    { email: "charlie@rota.app", firstName: "Charlie", lastName: "Brown" },
+    { email: "alice@rota.app", firstName: "Alice", lastName: "Smith", locationId: highSt.id },
+    { email: "bob@rota.app", firstName: "Bob", lastName: "Jones", locationId: highSt.id },
+    { email: "charlie@rota.app", firstName: "Charlie", lastName: "Brown", locationId: mallStore.id },
   ];
 
   for (const emp of employees) {
     await prisma.user.upsert({
       where: { email: emp.email },
-      update: {},
+      update: { locationId: emp.locationId },
       create: {
         ...emp,
         passwordHash: hash,
@@ -60,6 +72,7 @@ async function main() {
   }
 
   console.log("Seed completed. All users have password: password123");
+  console.log("Locations: High Street, Mall Store");
 }
 
 main()

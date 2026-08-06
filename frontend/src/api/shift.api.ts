@@ -25,8 +25,8 @@ export async function getMyShifts(from?: string, to?: string): Promise<Shift[]> 
   return data;
 }
 
-export async function getAllShifts(from?: string, to?: string): Promise<Shift[]> {
-  const { data } = await client.get<Shift[]>("/shifts/all", { params: { from, to } });
+export async function getAllShifts(from?: string, to?: string, locationId?: string): Promise<Shift[]> {
+  const { data } = await client.get<Shift[]>("/shifts/all", { params: { from, to, locationId } });
   return data;
 }
 

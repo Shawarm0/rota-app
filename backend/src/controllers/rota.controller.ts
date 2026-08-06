@@ -14,7 +14,8 @@ export const createRota: RequestHandler = async (req, res, next) => {
 export const listRotas: RequestHandler = async (req, res, next) => {
   try {
     const status = req.query.status as string | undefined;
-    const rotas = await rotaService.listRotas(req.user!.businessId!, req.user!.role, status as any);
+    const locationId = req.query.locationId as string | undefined;
+    const rotas = await rotaService.listRotas(req.user!.businessId!, req.user!.role, status as any, locationId);
     res.json(rotas);
   } catch (err) {
     next(err);

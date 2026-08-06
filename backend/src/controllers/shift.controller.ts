@@ -54,11 +54,12 @@ export const getMyShifts: RequestHandler = async (req, res, next) => {
 
 export const getAllShifts: RequestHandler = async (req, res, next) => {
   try {
-    const { from, to } = req.query;
+    const { from, to, locationId } = req.query;
     const shifts = await shiftService.getAllShifts(
       req.user!.businessId!,
       from as string | undefined,
       to as string | undefined,
+      locationId as string | undefined,
     );
     res.json(shifts);
   } catch (err) {

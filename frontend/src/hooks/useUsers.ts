@@ -21,6 +21,18 @@ export function useCreateUser() {
   });
 }
 
+export function useUpdateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof userApi.updateUser>[1] }) =>
+      userApi.updateUser(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: () => toast("Failed to update user", "error"),
+  });
+}
+
 export function useDisableUser() {
   const qc = useQueryClient();
   return useMutation({

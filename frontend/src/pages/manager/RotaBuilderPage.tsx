@@ -11,6 +11,7 @@ import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useRotas, useRota, useCreateRota, usePublishRota, useDeleteRota, useCreateShift, useUpdateShift, useDeleteShift } from "../../hooks/useRotas";
 import { useUsers } from "../../hooks/useUsers";
+import { useLocations } from "../../hooks/useLocations";
 import { addDays, toDateString, formatShortDate, formatDay } from "../../lib/dateUtils";
 import { CalendarPlus, Plus, Send, Trash2 } from "lucide-react";
 import type { Shift, ShiftStatus } from "../../types";
@@ -36,11 +37,13 @@ interface ShiftForm {
 interface NewRotaForm {
   name: string;
   startDate: string;
+  locationId: string;
 }
 
 export function RotaBuilderPage() {
   const { data: rotas } = useRotas();
-  const { data: employees } = useUsers("EMPLOYEE");
+  const { data: allEmployees } = useUsers("EMPLOYEE");
+  const { data: locations } = useLocations();
   const [selectedRotaId, setSelectedRotaId] = useState<string | null>(null);
   const { data: selectedRota, isLoading: rotaLoading } = useRota(selectedRotaId);
   const createRota = useCreateRota();
@@ -56,6 +59,12 @@ export function RotaBuilderPage() {
   const shiftForm = useForm<ShiftForm>();
 
   const draftRotas = rotas?.filter((r) => r.status === "DRAFT") || [];
+
+  const employees = useMemo(() => {
+    if (!allEmployees) return [];
+    if (!selectedRota?.locationId) return allEmployees;
+    return allEmployees.filter((e) => e.locationId === selectedRota.locationId);
+  }, [allEmployees, selectedRota?.locationId]);
 
   const days = useMemo(() => {
     if (!selectedRota) return [];
@@ -77,7 +86,12 @@ export function RotaBuilderPage() {
     const start = new Date(data.startDate);
     const end = addDays(start, 13);
     createRota.mutate(
-      { name: data.name || undefined, startDate: data.startDate, endDate: toDateString(end) },
+      {
+        name: data.name || undefined,
+        startDate: data.startDate,
+        endDate: toDateString(end),
+        locationId: data.locationId || undefined,
+      },
       {
         onSuccess: (rota) => {
           setSelectedRotaId(rota.id);
@@ -105,8 +119,18 @@ export function RotaBuilderPage() {
 
   const employeeOptions = [
     { value: "", label: "Unassigned" },
-    ...(employees?.map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })) || []),
+    ...(allEmployees?.map((e) => ({
+      value: e.id,
+      label: `${e.firstName} ${e.lastName}${e.location ? ` (${e.location.name})` : ""}`,
+    })) || []),
   ];
+
+  const locationOptions = [
+    { value: "", label: "All locations" },
+    ...(locations?.map((l) => ({ value: l.id, label: l.name })) || []),
+  ];
+
+  const rotaLocationName = selectedRota?.location?.name;
 
   return (
     <>
@@ -118,12 +142,12 @@ export function RotaBuilderPage() {
               { value: "", label: "Select a rota..." },
               ...draftRotas.map((r) => ({
                 value: r.id,
-                label: r.name || `${formatShortDate(r.startDate)} - ${formatShortDate(r.endDate)}`,
+                label: `${r.name || `${formatShortDate(r.startDate)} - ${formatShortDate(r.endDate)}`}${r.location ? ` · ${r.location.name}` : ""}`,
               })),
             ]}
             value={selectedRotaId || ""}
             onChange={(e) => setSelectedRotaId(e.target.value || null)}
-            className="w-64"
+            className="w-72"
           />
           <Button variant="secondary" size="sm" onClick={() => setShowNewRota(true)}>
             <Plus className="h-4 w-4 mr-1" /> New Rota
@@ -150,6 +174,15 @@ export function RotaBuilderPage() {
             </>
           )}
         </div>
+
+        {selectedRota?.location && (
+          <div className="flex items-center gap-2">
+            <Badge variant="blue">{selectedRota.location.name}</Badge>
+            <span className="text-xs text-gray-500">
+              Showing {employees.length} employee{employees.length !== 1 ? "s" : ""} at this location
+            </span>
+          </div>
+        )}
 
         {!selectedRotaId ? (
           <EmptyState
@@ -190,7 +223,10 @@ export function RotaBuilderPage() {
                   {employees?.map((emp) => (
                     <tr key={emp.id} className="border-b hover:bg-gray-50/50">
                       <td className="sticky left-0 bg-white px-3 py-2 font-medium text-gray-900">
-                        {emp.firstName} {emp.lastName}
+                        <div>{emp.firstName} {emp.lastName}</div>
+                        {emp.location && (
+                          <div className="text-[10px] text-gray-400">{emp.location.name}</div>
+                        )}
                       </td>
                       {days.map((day) => {
                         const dateStr = toDateString(day);
@@ -226,7 +262,7 @@ export function RotaBuilderPage() {
                                     startTime: "09:00",
                                     endTime: "17:00",
                                     userId: emp.id,
-                                    location: "",
+                                    location: rotaLocationName || "",
                                     notes: "",
                                   });
                                 }}
@@ -251,7 +287,15 @@ export function RotaBuilderPage() {
         <form onSubmit={newRotaForm.handleSubmit(onCreateRota)} className="space-y-4">
           <Input id="rotaName" label="Name (optional)" {...newRotaForm.register("name")} />
           <Input id="startDate" label="Start Date (Monday)" type="date" {...newRotaForm.register("startDate", { required: true })} />
-          <p className="text-xs text-gray-500">Rota will span 2 weeks from the start date</p>
+          <Select
+            id="locationId"
+            label="Store Location (optional)"
+            options={locationOptions}
+            {...newRotaForm.register("locationId")}
+          />
+          <p className="text-xs text-gray-500">
+            Rota will span 2 weeks. If a location is set, only employees at that store will be shown.
+          </p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" type="button" onClick={() => setShowNewRota(false)}>Cancel</Button>
             <Button type="submit" loading={createRota.isPending}>Create</Button>

@@ -12,6 +12,7 @@ import { Spinner } from "../components/ui/Spinner";
 import { useQuery } from "@tanstack/react-query";
 import { useApprovedHolidays } from "../hooks/useHolidays";
 import { useUpdateShift, useDeleteShift } from "../hooks/useRotas";
+import { useLocations } from "../hooks/useLocations";
 import { useAuthStore } from "../stores/authStore";
 import * as shiftApi from "../api/shift.api";
 import * as userApi from "../api/user.api";
@@ -41,6 +42,7 @@ export function CalendarPage() {
   const [selectedShifts, setSelectedShifts] = useState<Shift[] | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [locationFilter, setLocationFilter] = useState<string>("");
 
   const role = useAuthStore((s) => s.user?.role);
   const isManager = role === "MANAGER" || role === "SYSTEM_ADMIN";
@@ -57,8 +59,8 @@ export function CalendarPage() {
     enabled: !isManager,
   });
   const { data: allShifts, isLoading: allLoading } = useQuery({
-    queryKey: ["allShifts", from, to],
-    queryFn: () => shiftApi.getAllShifts(from, to),
+    queryKey: ["allShifts", from, to, locationFilter],
+    queryFn: () => shiftApi.getAllShifts(from, to, locationFilter || undefined),
     enabled: isManager,
   });
   const { data: holidays } = useApprovedHolidays(from, to);
@@ -67,6 +69,7 @@ export function CalendarPage() {
     queryFn: () => userApi.listUsers("EMPLOYEE"),
     enabled: isManager,
   });
+  const { data: locations } = useLocations();
   const updateShift = useUpdateShift();
   const deleteShift = useDeleteShift();
   const shiftForm = useForm<ShiftEditForm>();
@@ -117,6 +120,11 @@ export function CalendarPage() {
     ...(employees?.map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })) || []),
   ];
 
+  const locationOptions = [
+    { value: "", label: "All locations" },
+    ...(locations?.map((l) => ({ value: l.id, label: l.name })) || []),
+  ];
+
   return (
     <>
       <TopBar title="Calendar" />
@@ -126,9 +134,22 @@ export function CalendarPage() {
             <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-gray-100">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <h2 className="text-base font-semibold">
-              {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-semibold">
+                {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+              </h2>
+              {isManager && locations && locations.length > 0 && (
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="text-xs border rounded-lg px-2 py-1.5 text-gray-600 bg-white"
+                >
+                  {locationOptions.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-gray-100">
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -180,7 +201,7 @@ export function CalendarPage() {
                           <div
                             key={s.id}
                             className={clsx("h-2 w-2 rounded-full", STATUS_DOT_COLORS[s.status])}
-                            title={`${s.user ? `${s.user.firstName} ` : ""}${s.startTime}-${s.endTime}`}
+                            title={`${s.user ? `${s.user.firstName} ` : ""}${s.startTime}-${s.endTime}${s.location ? ` · ${s.location}` : ""}`}
                           />
                         ))}
                         {dayShifts.length > 4 && (

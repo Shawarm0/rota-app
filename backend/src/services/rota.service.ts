@@ -2,27 +2,33 @@ import { RotaStatus } from "@prisma/client";
 import prisma from "../lib/db.js";
 import { AppError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 
-export async function createRota(businessId: string, data: { name?: string; startDate: string; endDate: string }) {
+export async function createRota(businessId: string, data: { name?: string; startDate: string; endDate: string; locationId?: string }) {
   return prisma.rota.create({
     data: {
       businessId,
       name: data.name,
       startDate: new Date(data.startDate),
       endDate: new Date(data.endDate),
+      locationId: data.locationId || null,
       status: "DRAFT",
+    },
+    include: {
+      location: { select: { id: true, name: true } },
     },
   });
 }
 
-export async function listRotas(businessId: string, role: string, status?: RotaStatus) {
+export async function listRotas(businessId: string, role: string, status?: RotaStatus, locationId?: string) {
   return prisma.rota.findMany({
     where: {
       businessId,
       ...(role === "EMPLOYEE" ? { status: "PUBLISHED" } : {}),
       ...(status ? { status } : {}),
+      ...(locationId ? { locationId } : {}),
     },
     include: {
       _count: { select: { shifts: true } },
+      location: { select: { id: true, name: true } },
     },
     orderBy: { startDate: "desc" },
   });
@@ -32,6 +38,7 @@ export async function getRota(id: string, role: string) {
   const rota = await prisma.rota.findUnique({
     where: { id },
     include: {
+      location: { select: { id: true, name: true } },
       shifts: {
         include: {
           user: {
@@ -49,7 +56,7 @@ export async function getRota(id: string, role: string) {
   return rota;
 }
 
-export async function updateRota(id: string, data: { name?: string; startDate?: string; endDate?: string }) {
+export async function updateRota(id: string, data: { name?: string; startDate?: string; endDate?: string; locationId?: string | null }) {
   const rota = await prisma.rota.findUnique({ where: { id } });
   if (!rota) throw new NotFoundError("Rota");
   if (rota.status === "PUBLISHED") {
@@ -62,6 +69,10 @@ export async function updateRota(id: string, data: { name?: string; startDate?: 
       ...(data.name !== undefined ? { name: data.name } : {}),
       ...(data.startDate ? { startDate: new Date(data.startDate) } : {}),
       ...(data.endDate ? { endDate: new Date(data.endDate) } : {}),
+      ...(data.locationId !== undefined ? { locationId: data.locationId } : {}),
+    },
+    include: {
+      location: { select: { id: true, name: true } },
     },
   });
 }
@@ -89,7 +100,12 @@ export async function publishRota(id: string) {
   });
 
   const employees = await prisma.user.findMany({
-    where: { businessId: rota.businessId, role: "EMPLOYEE", active: true },
+    where: {
+      businessId: rota.businessId,
+      role: "EMPLOYEE",
+      active: true,
+      ...(rota.locationId ? { locationId: rota.locationId } : {}),
+    },
     select: { id: true },
   });
 
@@ -128,6 +144,7 @@ export async function copyRota(sourceId: string, newStartDate: string, businessI
       name: source.name ? `${source.name} (copy)` : null,
       startDate: new Date(newStartDate),
       endDate: new Date(new Date(newStartDate).getTime() + duration * 24 * 60 * 60 * 1000),
+      locationId: source.locationId,
       status: "DRAFT",
     },
   });
