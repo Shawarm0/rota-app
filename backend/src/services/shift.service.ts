@@ -224,6 +224,14 @@ export async function claimShift(shiftId: string, userId: string) {
     }
 
     const dateStr = shift.date.toISOString().split("T")[0];
+
+    const holiday = await tx.holidayRequest.findFirst({
+      where: { userId, date: shift.date, status: "APPROVED" },
+    });
+    if (holiday) {
+      throw new ConflictError("You have an approved holiday on this date");
+    }
+
     await checkTimeConflictTx(tx, userId, dateStr, shift.startTime, shift.endTime);
 
     const newStatus: ShiftStatus = "ASSIGNED";
