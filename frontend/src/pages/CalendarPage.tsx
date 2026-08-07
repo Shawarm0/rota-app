@@ -11,7 +11,6 @@ import { Button } from "../components/ui/Button";
 import { Spinner } from "../components/ui/Spinner";
 import { useQuery } from "@tanstack/react-query";
 import { useApprovedHolidays } from "../hooks/useHolidays";
-import { Badge } from "../components/ui/Badge";
 import { useUpdateShift, useDeleteShift } from "../hooks/useRotas";
 import { useLocations } from "../hooks/useLocations";
 import { useAuthStore } from "../stores/authStore";
