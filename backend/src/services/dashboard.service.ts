@@ -88,7 +88,7 @@ export async function getEmployeeSummaries(businessId: string) {
   });
 
   return employees.map((emp) => {
-    let totalHours = 0;
+    let assignedHours = 0;
     let assignedCount = 0;
     let additionalCount = 0;
     let additionalHours = 0;
@@ -97,10 +97,11 @@ export async function getEmployeeSummaries(businessId: string) {
       const [startH, startM] = shift.startTime.split(":").map(Number);
       const [endH, endM] = shift.endTime.split(":").map(Number);
       const hours = endH - startH + (endM - startM) / 60;
-      totalHours += hours;
 
-      if (shift.status === "ASSIGNED") assignedCount++;
-      else if (shift.status === "ADDITIONAL") {
+      if (shift.status === "ASSIGNED") {
+        assignedCount++;
+        assignedHours += hours;
+      } else if (shift.status === "ADDITIONAL") {
         additionalCount++;
         additionalHours += hours;
       }
@@ -112,7 +113,7 @@ export async function getEmployeeSummaries(businessId: string) {
       lastName: emp.lastName,
       email: emp.email,
       totalShifts: emp.shifts.length,
-      totalHours: Math.round(totalHours * 10) / 10,
+      totalHours: Math.round(assignedHours * 10) / 10,
       assignedCount,
       additionalCount,
       additionalHours: Math.round(additionalHours * 10) / 10,

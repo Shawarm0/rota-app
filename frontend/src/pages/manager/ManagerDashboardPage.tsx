@@ -144,8 +144,8 @@ export function ManagerDashboardPage() {
     },
     {
       label: "Labor Hours (wk)",
-      value: `${totalHours}h`,
-      sub: totalAdditionalHours > 0 ? `incl. ${Math.round(totalAdditionalHours * 10) / 10}h extra` : undefined,
+      value: `${Math.round((totalHours + totalAdditionalHours) * 10) / 10}h`,
+      sub: totalAdditionalHours > 0 ? `+${Math.round(totalAdditionalHours * 10) / 10}h extra` : undefined,
       Icon: BarChart3,
       iconBg: "bg-green-50",
       iconColor: "text-green-600",
