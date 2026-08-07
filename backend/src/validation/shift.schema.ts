@@ -9,7 +9,7 @@ export const createShiftSchema = z.object({
   endTime: z.string().regex(timeRegex, "Must be HH:MM format"),
   location: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  status: z.enum(["ASSIGNED", "ADDITIONAL", "SWAP", "HOLIDAY", "REQUESTED_HOLIDAY", "AVAILABLE", "CANCELLED"]).optional(),
+  status: z.enum(["ASSIGNED", "ADDITIONAL", "AVAILABLE"]).optional(),
 });
 
 export const updateShiftSchema = createShiftSchema.partial();

@@ -23,21 +23,13 @@ import clsx from "clsx";
 const STATUS_DOT_COLORS: Record<ShiftStatus, string> = {
   ASSIGNED: "bg-shift-assigned",
   ADDITIONAL: "bg-shift-additional",
-  SWAP: "bg-purple-500",
-  HOLIDAY: "bg-shift-holiday",
-  REQUESTED_HOLIDAY: "bg-shift-requested",
   AVAILABLE: "bg-shift-available",
-  CANCELLED: "bg-shift-cancelled",
 };
 
 const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
   { value: "ASSIGNED", label: "Assigned" },
   { value: "ADDITIONAL", label: "Additional" },
   { value: "AVAILABLE", label: "Available" },
-  { value: "SWAP", label: "Swap" },
-  { value: "HOLIDAY", label: "Holiday" },
-  { value: "REQUESTED_HOLIDAY", label: "Requested Holiday" },
-  { value: "CANCELLED", label: "Cancelled" },
 ];
 
 interface ShiftEditForm {
@@ -255,7 +247,6 @@ export function CalendarPage() {
 
           <div className="border-t px-5 py-3 flex flex-wrap gap-3">
             {Object.entries(STATUS_DOT_COLORS)
-              .filter(([status]) => !isManager || (status !== "CANCELLED" && status !== "HOLIDAY" && status !== "SWAP" && status !== "REQUESTED_HOLIDAY"))
               .map(([status, color]) => (
               <div key={status} className="flex items-center gap-1.5">
                 <div className={clsx("h-2.5 w-2.5 rounded-full", color)} />

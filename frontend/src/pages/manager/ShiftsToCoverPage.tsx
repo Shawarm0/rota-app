@@ -23,10 +23,6 @@ const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
   { value: "ASSIGNED", label: "Assigned" },
   { value: "ADDITIONAL", label: "Additional" },
   { value: "AVAILABLE", label: "Available" },
-  { value: "SWAP", label: "Swap" },
-  { value: "HOLIDAY", label: "Holiday" },
-  { value: "REQUESTED_HOLIDAY", label: "Requested Holiday" },
-  { value: "CANCELLED", label: "Cancelled" },
 ];
 
 interface ShiftEditForm {

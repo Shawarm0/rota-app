@@ -21,11 +21,7 @@ enum RotaStatus {
 enum ShiftStatus {
   ASSIGNED
   ADDITIONAL
-  SWAP
-  HOLIDAY
-  REQUESTED_HOLIDAY
   AVAILABLE
-  CANCELLED
 }
 
 enum HolidayStatus {

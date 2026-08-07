@@ -11,7 +11,7 @@ export async function getHoursReport(businessId: string, from: string, to: strin
         where: {
           date: { gte: new Date(from), lte: new Date(to) },
           rota: { status: "PUBLISHED" },
-          status: { notIn: ["CANCELLED", "AVAILABLE"] },
+          status: { not: "AVAILABLE" },
         },
         select: { startTime: true, endTime: true, date: true, status: true },
       },

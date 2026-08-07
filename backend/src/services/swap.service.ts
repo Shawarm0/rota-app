@@ -34,7 +34,7 @@ export async function requestSwap(userId: string, shiftId: string) {
 
     await tx.shift.update({
       where: { id: shiftId },
-      data: { status: "SWAP" },
+      data: { status: "ADDITIONAL" },
     });
 
     const managers = await tx.user.findMany({
@@ -74,7 +74,7 @@ export async function acceptSwap(swapId: string, acceptorId: string) {
     where: {
       userId: acceptorId,
       date: swap.shift.date,
-      status: { notIn: ["CANCELLED", "AVAILABLE"] },
+      status: { not: "AVAILABLE" },
     },
   });
 
@@ -139,7 +139,7 @@ async function finalizeSwap(swapId: string, acceptorId: string) {
 
     await tx.shift.update({
       where: { id: swap.shiftId },
-      data: { userId: acceptorId, status: "SWAP" },
+      data: { userId: acceptorId, status: "ADDITIONAL" },
     });
 
     const acceptor = await tx.user.findUnique({

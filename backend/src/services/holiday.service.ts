@@ -83,7 +83,7 @@ export async function approveHoliday(requestId: string) {
       where: {
         userId: request.userId,
         date: request.date,
-        status: { notIn: ["CANCELLED", "AVAILABLE"] },
+        status: { not: "AVAILABLE" },
       },
       data: { status: "AVAILABLE", userId: null },
     });
@@ -165,7 +165,7 @@ export async function updateHoliday(requestId: string, data: { date?: string; re
       where: {
         userId: request.userId,
         date: newDate,
-        status: { notIn: ["CANCELLED", "AVAILABLE"] },
+        status: { not: "AVAILABLE" },
       },
     });
     if (assignedShift) {
@@ -191,7 +191,7 @@ export async function updateHoliday(requestId: string, data: { date?: string; re
         where: {
           userId: request.userId,
           date: effectiveDate,
-          status: { notIn: ["CANCELLED", "AVAILABLE"] },
+          status: { not: "AVAILABLE" },
         },
         data: { status: "AVAILABLE", userId: null },
       });

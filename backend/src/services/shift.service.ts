@@ -408,7 +408,7 @@ async function checkTimeConflict(
     where: {
       userId,
       date: new Date(date),
-      status: { notIn: ["CANCELLED", "AVAILABLE"] },
+      status: { not: "AVAILABLE" },
       ...(excludeShiftId ? { id: { not: excludeShiftId } } : {}),
     },
   });
@@ -433,7 +433,7 @@ async function checkTimeConflictTx(
     where: {
       userId,
       date: new Date(date),
-      status: { notIn: ["CANCELLED", "AVAILABLE"] },
+      status: { not: "AVAILABLE" },
     },
   });
 

@@ -51,7 +51,7 @@ export async function getStaffingOverview(businessId: string, weekStart: string)
     where: {
       rota: { businessId, status: "PUBLISHED" },
       date: { gte: start, lt: end },
-      status: { notIn: ["CANCELLED", "AVAILABLE"] },
+      status: { not: "AVAILABLE" },
     },
     select: { date: true, userId: true },
   });
@@ -77,7 +77,7 @@ export async function getEmployeeSummaries(businessId: string) {
       lastName: true,
       email: true,
       shifts: {
-        where: { rota: { status: "PUBLISHED" }, status: { notIn: ["CANCELLED", "AVAILABLE"] } },
+        where: { rota: { status: "PUBLISHED" }, status: { not: "AVAILABLE" } },
         select: { status: true, startTime: true, endTime: true },
       },
       holidayRequests: {
