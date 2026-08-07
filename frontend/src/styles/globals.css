@@ -9,3 +9,10 @@
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
 }
+
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  min-width: 0 !important;
+  max-width: 100%;
+}
