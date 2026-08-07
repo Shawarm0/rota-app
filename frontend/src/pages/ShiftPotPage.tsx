@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { TopBar } from "../components/layout/TopBar";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
@@ -11,6 +12,7 @@ import { ShoppingBag, MapPin, Clock } from "lucide-react";
 export function ShiftPotPage() {
   const { data: shifts, isLoading } = useAvailableShifts();
   const claimMutation = useClaimShift();
+  const [claimingId, setClaimingId] = useState<string | null>(null);
 
   return (
     <>
@@ -49,8 +51,14 @@ export function ShiftPotPage() {
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => claimMutation.mutate(shift.id)}
-                  loading={claimMutation.isPending}
+                  onClick={() => {
+                    setClaimingId(shift.id);
+                    claimMutation.mutate(shift.id, {
+                      onSettled: () => setClaimingId(null),
+                    });
+                  }}
+                  loading={claimingId === shift.id}
+                  disabled={claimMutation.isPending}
                 >
                   Claim
                 </Button>
