@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { TopBar } from "../../components/layout/TopBar";
 import { Card } from "../../components/ui/Card";
@@ -9,11 +9,11 @@ import { Select } from "../../components/ui/Select";
 import { Badge } from "../../components/ui/Badge";
 import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { useRotas, useRota, useCreateRota, usePublishRota, useDeleteRota, useCreateShift, useUpdateShift, useDeleteShift } from "../../hooks/useRotas";
+import { useRotas, useRota, useCreateRota, usePublishRota, useDeleteRota, useSyncShifts } from "../../hooks/useRotas";
 import { useUsers } from "../../hooks/useUsers";
 import { useLocations } from "../../hooks/useLocations";
 import { addDays, toDateString, formatShortDate, formatDay } from "../../lib/dateUtils";
-import { CalendarPlus, Plus, Send, Trash2, Copy } from "lucide-react";
+import { CalendarPlus, Plus, Send, Trash2, Copy, Save } from "lucide-react";
 import type { Shift, ShiftStatus } from "../../types";
 import clsx from "clsx";
 
@@ -37,6 +37,17 @@ const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
   { value: "CANCELLED", label: "Cancelled" },
 ];
 
+interface LocalShift {
+  localId: string;
+  userId: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string | null;
+  notes: string | null;
+  status: ShiftStatus;
+}
+
 interface ShiftForm {
   startTime: string;
   endTime: string;
@@ -52,6 +63,24 @@ interface NewRotaForm {
   locationId: string;
 }
 
+let nextLocalId = 1;
+function genLocalId() {
+  return `local-${nextLocalId++}`;
+}
+
+function serverShiftsToLocal(shifts: Shift[]): LocalShift[] {
+  return shifts.map((s) => ({
+    localId: genLocalId(),
+    userId: s.userId,
+    date: toDateString(new Date(s.date)),
+    startTime: s.startTime,
+    endTime: s.endTime,
+    location: s.location,
+    notes: s.notes,
+    status: s.status,
+  }));
+}
+
 export function RotaBuilderPage() {
   const { data: rotas } = useRotas();
   const { data: allEmployees } = useUsers("EMPLOYEE");
@@ -61,19 +90,36 @@ export function RotaBuilderPage() {
   const createRota = useCreateRota();
   const publishRota = usePublishRota();
   const deleteRota = useDeleteRota();
-  const createShift = useCreateShift();
-  const updateShift = useUpdateShift();
-  const deleteShift = useDeleteShift();
+  const syncShifts = useSyncShifts();
 
   const [showNewRota, setShowNewRota] = useState(false);
-  const [editingShift, setEditingShift] = useState<{ date: string; shift?: Shift } | null>(null);
+  const [editingShift, setEditingShift] = useState<{ date: string; shift?: LocalShift } | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showCopy, setShowCopy] = useState(false);
   const [copyTargetDays, setCopyTargetDays] = useState<string[]>([]);
-  const [dragShift, setDragShift] = useState<Shift | null>(null);
+  const [dragShift, setDragShift] = useState<LocalShift | null>(null);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
   const newRotaForm = useForm<NewRotaForm>();
   const shiftForm = useForm<ShiftForm>();
+
+  const [localShifts, setLocalShifts] = useState<LocalShift[]>([]);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [serverSnapshotKey, setServerSnapshotKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedRota?.shifts) {
+      setLocalShifts([]);
+      setHasUnsavedChanges(false);
+      setServerSnapshotKey(null);
+      return;
+    }
+    const key = selectedRota.shifts.map((s) => s.id).sort().join(",");
+    if (key !== serverSnapshotKey) {
+      setLocalShifts(serverShiftsToLocal(selectedRota.shifts));
+      setHasUnsavedChanges(false);
+      setServerSnapshotKey(key);
+    }
+  }, [selectedRota?.shifts, serverSnapshotKey]);
 
   const draftRotas = rotas?.filter((r) => r.status === "DRAFT") || [];
 
@@ -95,9 +141,7 @@ export function RotaBuilderPage() {
   }, [selectedRota]);
 
   const getShiftsForCell = (employeeId: string, date: string) =>
-    selectedRota?.shifts?.filter(
-      (s) => s.userId === employeeId && toDateString(new Date(s.date)) === date,
-    ) || [];
+    localShifts.filter((s) => s.userId === employeeId && s.date === date);
 
   const onCreateRota = (data: NewRotaForm) => {
     const start = new Date(data.startDate);
@@ -119,62 +163,137 @@ export function RotaBuilderPage() {
     );
   };
 
+  const addLocalShift = (shift: Omit<LocalShift, "localId">) => {
+    setLocalShifts((prev) => [...prev, { ...shift, localId: genLocalId() }]);
+    setHasUnsavedChanges(true);
+  };
+
+  const updateLocalShift = (localId: string, updates: Partial<LocalShift>) => {
+    setLocalShifts((prev) =>
+      prev.map((s) => (s.localId === localId ? { ...s, ...updates } : s)),
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const deleteLocalShift = (localId: string) => {
+    setLocalShifts((prev) => prev.filter((s) => s.localId !== localId));
+    setHasUnsavedChanges(true);
+  };
+
   const onSaveShift = (data: ShiftForm) => {
-    if (!editingShift || !selectedRotaId) return;
+    if (!editingShift) return;
     if (editingShift.shift) {
-      updateShift.mutate(
-        { id: editingShift.shift.id, data: { ...data, userId: data.userId || null, status: data.status } },
-        { onSuccess: () => setEditingShift(null) },
-      );
+      updateLocalShift(editingShift.shift.localId, {
+        startTime: data.startTime,
+        endTime: data.endTime,
+        userId: data.userId || null,
+        location: data.location || null,
+        notes: data.notes || null,
+        status: data.status,
+      });
     } else {
-      createShift.mutate(
-        { rotaId: selectedRotaId, shift: { ...data, date: editingShift.date, userId: data.userId || null, status: data.status } },
-        { onSuccess: () => setEditingShift(null) },
-      );
+      addLocalShift({
+        date: editingShift.date,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        userId: data.userId || null,
+        location: data.location || null,
+        notes: data.notes || null,
+        status: data.status,
+      });
     }
+    setEditingShift(null);
   };
 
   const handleDrop = useCallback(
     (targetEmployeeId: string, targetDate: string) => {
-      if (!dragShift || !selectedRotaId) return;
-      createShift.mutate({
-        rotaId: selectedRotaId,
-        shift: {
-          date: targetDate,
-          startTime: dragShift.startTime,
-          endTime: dragShift.endTime,
-          userId: targetEmployeeId,
-          location: dragShift.location || "",
-          notes: dragShift.notes || "",
-          status: dragShift.status,
-        },
+      if (!dragShift) return;
+      addLocalShift({
+        date: targetDate,
+        startTime: dragShift.startTime,
+        endTime: dragShift.endTime,
+        userId: targetEmployeeId,
+        location: dragShift.location,
+        notes: dragShift.notes,
+        status: dragShift.status,
       });
       setDragShift(null);
       setDragOverCell(null);
     },
-    [dragShift, selectedRotaId, createShift],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dragShift],
   );
 
-  const handleCopyTodays = () => {
-    if (!editingShift?.shift || !selectedRotaId || copyTargetDays.length === 0) return;
+  const handleCopyToDays = () => {
+    if (!editingShift?.shift || copyTargetDays.length === 0) return;
     const shift = editingShift.shift;
     for (const targetDate of copyTargetDays) {
-      createShift.mutate({
-        rotaId: selectedRotaId,
-        shift: {
-          date: targetDate,
-          startTime: shift.startTime,
-          endTime: shift.endTime,
-          userId: shift.userId || null,
-          location: shift.location || "",
-          notes: shift.notes || "",
-          status: shift.status,
-        },
+      addLocalShift({
+        date: targetDate,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        userId: shift.userId,
+        location: shift.location,
+        notes: shift.notes,
+        status: shift.status,
       });
     }
     setCopyTargetDays([]);
     setShowCopy(false);
     setEditingShift(null);
+  };
+
+  const handleSaveDraft = () => {
+    if (!selectedRotaId) return;
+    syncShifts.mutate(
+      {
+        rotaId: selectedRotaId,
+        shifts: localShifts.map((s) => ({
+          userId: s.userId,
+          date: s.date,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          location: s.location,
+          notes: s.notes,
+          status: s.status,
+        })),
+      },
+      {
+        onSuccess: () => {
+          setHasUnsavedChanges(false);
+          setServerSnapshotKey(null);
+        },
+      },
+    );
+  };
+
+  const handlePublish = () => {
+    if (!selectedRotaId) return;
+    if (hasUnsavedChanges) {
+      syncShifts.mutate(
+        {
+          rotaId: selectedRotaId,
+          shifts: localShifts.map((s) => ({
+            userId: s.userId,
+            date: s.date,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            location: s.location,
+            notes: s.notes,
+            status: s.status,
+          })),
+        },
+        {
+          onSuccess: () => {
+            setHasUnsavedChanges(false);
+            setServerSnapshotKey(null);
+            publishRota.mutate(selectedRotaId);
+          },
+        },
+      );
+    } else {
+      publishRota.mutate(selectedRotaId);
+    }
   };
 
   const employeeOptions = [
@@ -216,8 +335,16 @@ export function RotaBuilderPage() {
             <>
               <Button
                 size="sm"
-                onClick={() => publishRota.mutate(selectedRotaId!)}
-                loading={publishRota.isPending}
+                onClick={handleSaveDraft}
+                loading={syncShifts.isPending}
+                disabled={!hasUnsavedChanges}
+              >
+                <Save className="h-4 w-4 mr-1" /> Save Draft
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePublish}
+                loading={publishRota.isPending || syncShifts.isPending}
               >
                 <Send className="h-4 w-4 mr-1" /> Publish
               </Button>
@@ -234,6 +361,13 @@ export function RotaBuilderPage() {
             </>
           )}
         </div>
+
+        {hasUnsavedChanges && (
+          <div className="flex items-center gap-2 rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-2">
+            <div className="h-2 w-2 rounded-full bg-yellow-400" />
+            <span className="text-xs text-yellow-700 font-medium">You have unsaved changes</span>
+          </div>
+        )}
 
         {selectedRota?.location && (
           <div className="flex items-center gap-2">
@@ -311,7 +445,7 @@ export function RotaBuilderPage() {
                             <div className="space-y-0.5">
                               {shifts.map((s) => (
                                 <button
-                                  key={s.id}
+                                  key={s.localId}
                                   draggable
                                   onDragStart={(e) => {
                                     setDragShift(s);
@@ -471,8 +605,7 @@ export function RotaBuilderPage() {
                     type="button"
                     size="sm"
                     disabled={copyTargetDays.length === 0}
-                    onClick={handleCopyTodays}
-                    loading={createShift.isPending}
+                    onClick={handleCopyToDays}
                   >
                     Copy to {copyTargetDays.length} day{copyTargetDays.length !== 1 ? "s" : ""}
                   </Button>
@@ -487,7 +620,7 @@ export function RotaBuilderPage() {
                 type="button"
                 size="sm"
                 onClick={() => {
-                  deleteShift.mutate(editingShift.shift!.id);
+                  deleteLocalShift(editingShift.shift!.localId);
                   setEditingShift(null);
                 }}
               >
@@ -496,7 +629,7 @@ export function RotaBuilderPage() {
             )}
             <div className="flex gap-2 ml-auto">
               <Button variant="secondary" type="button" onClick={() => setEditingShift(null)}>Cancel</Button>
-              <Button type="submit" loading={createShift.isPending || updateShift.isPending}>Save</Button>
+              <Button type="submit">Save</Button>
             </div>
           </div>
         </form>

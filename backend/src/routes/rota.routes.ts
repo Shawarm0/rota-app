@@ -68,4 +68,10 @@ router.post(
   shiftController.bulkCreateShifts,
 );
 
+router.put(
+  "/:rotaId/shifts/sync",
+  authorize("MANAGER"),
+  shiftController.syncShifts,
+);
+
 export default router;

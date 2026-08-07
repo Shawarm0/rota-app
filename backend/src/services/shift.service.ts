@@ -309,6 +309,42 @@ export async function requestCover(shiftId: string) {
   return { notified: employees.length };
 }
 
+export async function syncShifts(
+  rotaId: string,
+  shifts: { userId?: string | null; date: string; startTime: string; endTime: string; location?: string | null; notes?: string | null; status?: ShiftStatus }[],
+) {
+  const rota = await prisma.rota.findUnique({ where: { id: rotaId } });
+  if (!rota) throw new NotFoundError("Rota");
+  if (rota.status === "PUBLISHED") {
+    throw new AppError(400, "Cannot modify shifts on a published rota");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.shift.deleteMany({ where: { rotaId } });
+
+    if (shifts.length > 0) {
+      await tx.shift.createMany({
+        data: shifts.map((s) => ({
+          rotaId,
+          userId: s.userId || null,
+          date: new Date(s.date),
+          startTime: s.startTime,
+          endTime: s.endTime,
+          location: s.location || null,
+          notes: s.notes || null,
+          status: s.status || "ASSIGNED",
+        })),
+      });
+    }
+
+    return tx.shift.findMany({
+      where: { rotaId },
+      include: { user: { select: { id: true, firstName: true, lastName: true } } },
+      orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    });
+  });
+}
+
 export async function createAdditionalShift(
   businessId: string,
   data: { userId: string; date: string; startTime: string; endTime: string; location?: string | null; notes?: string | null },

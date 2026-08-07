@@ -67,6 +67,23 @@ export function useCopyRota() {
   });
 }
 
+export function useSyncShifts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ rotaId, shifts }: { rotaId: string; shifts: Partial<Shift>[] }) =>
+      rotaApi.syncShifts(rotaId, shifts),
+    onSuccess: (_, { rotaId }) => {
+      qc.invalidateQueries({ queryKey: ["rota", rotaId] });
+      qc.invalidateQueries({ queryKey: ["rotas"] });
+      toast("Rota saved", "success");
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || "Failed to save rota";
+      toast(msg, "error");
+    },
+  });
+}
+
 export function useCreateShift() {
   const qc = useQueryClient();
   return useMutation({

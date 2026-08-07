@@ -34,3 +34,8 @@ export async function copyRota(id: string, newStartDate: string) {
   const { data } = await client.post(`/rotas/${id}/copy`, { newStartDate });
   return data;
 }
+
+export async function syncShifts(rotaId: string, shifts: Partial<import("../types").Shift>[]) {
+  const { data } = await client.put(`/rotas/${rotaId}/shifts/sync`, { shifts });
+  return data;
+}
