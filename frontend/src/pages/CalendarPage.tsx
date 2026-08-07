@@ -255,7 +255,7 @@ export function CalendarPage() {
 
           <div className="border-t px-5 py-3 flex flex-wrap gap-3">
             {Object.entries(STATUS_DOT_COLORS)
-              .filter(([status]) => !isManager || (status !== "CANCELLED" && status !== "HOLIDAY"))
+              .filter(([status]) => !isManager || (status !== "CANCELLED" && status !== "HOLIDAY" && status !== "SWAP" && status !== "REQUESTED_HOLIDAY"))
               .map(([status, color]) => (
               <div key={status} className="flex items-center gap-1.5">
                 <div className={clsx("h-2.5 w-2.5 rounded-full", color)} />
