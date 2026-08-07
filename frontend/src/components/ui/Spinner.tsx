@@ -1,5 +1,4 @@
 import { Loader2 } from "lucide-react";
-import { useUiStore } from "../../stores/uiStore";
 import clsx from "clsx";
 
 interface SpinnerProps {
@@ -14,9 +13,7 @@ const spinnerSizes = {
 };
 
 export function Spinner({ className, size = "md" }: SpinnerProps) {
-  const theme = useUiStore((s) => s.theme);
-  const color = theme === "compact" ? "text-violet-600" : theme === "modern" ? "text-indigo-500" : "text-blue-600";
-  return <Loader2 className={clsx("animate-spin", color, spinnerSizes[size], className)} />;
+  return <Loader2 className={clsx("animate-spin text-violet-600", spinnerSizes[size], className)} />;
 }
 
 export function FullPageSpinner() {

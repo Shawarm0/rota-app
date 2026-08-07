@@ -1,7 +1,6 @@
 import clsx from "clsx";
 import type { ShiftStatus } from "../../types";
 import { SHIFT_STATUS_COLORS, SHIFT_STATUS_LABELS } from "../../lib/constants";
-import { useUiStore } from "../../stores/uiStore";
 
 interface BadgeProps {
   status: ShiftStatus;
@@ -9,13 +8,10 @@ interface BadgeProps {
 }
 
 export function ShiftBadge({ status, className }: BadgeProps) {
-  const theme = useUiStore((s) => s.theme);
-  const rounding = theme === "compact" ? "rounded-md" : "rounded-full";
   return (
     <span
       className={clsx(
-        "inline-flex items-center px-2.5 py-0.5 text-xs font-medium text-white",
-        rounding,
+        "inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-medium text-white",
         SHIFT_STATUS_COLORS[status],
         className,
       )}
@@ -41,13 +37,10 @@ const badgeVariants = {
 };
 
 export function Badge({ children, variant = "gray", className }: GenericBadgeProps) {
-  const theme = useUiStore((s) => s.theme);
-  const rounding = theme === "compact" ? "rounded-md" : "rounded-full";
   return (
     <span
       className={clsx(
-        "inline-flex items-center px-2.5 py-0.5 text-xs font-medium",
-        rounding,
+        "inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-medium",
         badgeVariants[variant],
         className,
       )}
