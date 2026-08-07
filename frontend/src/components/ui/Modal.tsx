@@ -59,7 +59,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
             </button>
           </div>
         )}
-        <div className="px-[22px] py-[22px]">{children}</div>
+        <div className="px-[22px] py-[22px] overflow-x-hidden">{children}</div>
       </div>
     </div>,
     document.body,
