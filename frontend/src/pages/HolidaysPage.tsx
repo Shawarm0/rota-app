@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { TopBar } from "../components/layout/TopBar";
-import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
-import { Badge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
 import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -15,11 +13,18 @@ import { formatDate } from "../lib/dateUtils";
 import { Palmtree, Plus, Check, X, Pencil, Trash2 } from "lucide-react";
 import type { HolidayStatus, HolidayRequest } from "../types";
 
-const statusVariants: Record<HolidayStatus, "yellow" | "green" | "red" | "gray"> = {
-  PENDING: "yellow",
-  APPROVED: "green",
-  REJECTED: "red",
-  CANCELLED: "gray",
+const STATUS_STYLES: Record<HolidayStatus, string> = {
+  PENDING: "bg-yellow-100 text-yellow-700",
+  APPROVED: "bg-emerald-100 text-emerald-700",
+  REJECTED: "bg-red-100 text-red-700",
+  CANCELLED: "bg-gray-100 text-gray-500",
+};
+
+const STATUS_LABELS: Record<HolidayStatus, string> = {
+  PENDING: "Pending",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  CANCELLED: "Cancelled",
 };
 
 interface HolidayForm {
@@ -80,87 +85,101 @@ export function HolidaysPage() {
     );
   };
 
+  const count = requests?.length || 0;
+
   return (
     <>
-      <TopBar title="Holidays" />
-      <div className="p-4 md:p-6 space-y-4">
-        <RoleGate allowedRoles={["EMPLOYEE"]}>
-          <div className="flex justify-end">
-            <Button onClick={() => setShowForm(true)} size="sm">
-              <Plus className="h-4 w-4 mr-1" />
-              Request Holiday
-            </Button>
-          </div>
-        </RoleGate>
-
+      <TopBar
+        title="Holidays"
+        subtitle={`${count} request${count !== 1 ? "s" : ""}`}
+        actions={
+          <RoleGate allowedRoles={["EMPLOYEE"]}>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-[7px] bg-indigo-600 text-white rounded-lg px-4 py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-indigo-700 transition-colors whitespace-nowrap"
+            >
+              <Plus className="h-[15px] w-[15px]" /> Request Holiday
+            </button>
+          </RoleGate>
+        }
+      />
+      <div className="p-4 md:px-7 md:py-5 flex flex-col gap-3 max-w-[1200px]">
         {isLoading ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : !requests?.length ? (
           <EmptyState icon={Palmtree} title="No holiday requests" />
         ) : (
-          <div className="space-y-3">
-            {requests.map((req) => (
-              <Card key={req.id} className="flex items-center justify-between">
-                <div>
-                  {req.user && (
-                    <p className="text-sm font-medium text-gray-900">
-                      {req.user.firstName} {req.user.lastName}
-                    </p>
+          requests.map((req) => (
+            <div
+              key={req.id}
+              className="bg-white border border-gray-200 rounded-xl px-5 py-[18px] flex items-center justify-between gap-4 flex-wrap"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-[10px] flex-wrap">
+                  <div className="text-[14.5px] font-semibold text-gray-900">
+                    {formatDate(req.date)}
+                  </div>
+                  <span className={`text-[11.5px] font-semibold px-[9px] py-[3px] rounded-full ${STATUS_STYLES[req.status]}`}>
+                    {STATUS_LABELS[req.status]}
+                  </span>
+                </div>
+                {req.user && (
+                  <div className="text-[13px] text-gray-500 mt-[4px]">
+                    {req.user.firstName} {req.user.lastName}
+                  </div>
+                )}
+                {req.reason && (
+                  <p className="text-[12px] text-gray-400 mt-1">{req.reason}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <RoleGate allowedRoles={["MANAGER"]}>
+                  {req.status !== "APPROVED" && req.status !== "CANCELLED" && (
+                    <button
+                      onClick={() => updateMutation.mutate({ id: req.id, data: { status: "APPROVED" } })}
+                      className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-green-50 hover:border-green-200 transition-colors"
+                      title="Approve"
+                    >
+                      <Check className="h-[15px] w-[15px] text-green-600" />
+                    </button>
                   )}
-                  <p className="text-sm text-gray-600">{formatDate(req.date)}</p>
-                  {req.reason && <p className="text-xs text-gray-400">{req.reason}</p>}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={statusVariants[req.status]}>{req.status}</Badge>
-                  <RoleGate allowedRoles={["MANAGER"]}>
-                    {req.status !== "APPROVED" && req.status !== "CANCELLED" && (
-                      <button
-                        onClick={() => updateMutation.mutate({ id: req.id, data: { status: "APPROVED" } })}
-                        className="p-1.5 rounded-lg hover:bg-green-50"
-                        title="Approve"
-                      >
-                        <Check className="h-4 w-4 text-green-600" />
-                      </button>
-                    )}
-                    {req.status !== "REJECTED" && req.status !== "CANCELLED" && (
-                      <button
-                        onClick={() => updateMutation.mutate({ id: req.id, data: { status: "REJECTED" } })}
-                        className="p-1.5 rounded-lg hover:bg-red-50"
-                        title="Reject"
-                      >
-                        <X className="h-4 w-4 text-red-600" />
-                      </button>
-                    )}
+                  {req.status !== "REJECTED" && req.status !== "CANCELLED" && (
                     <button
-                      onClick={() => handleEdit(req)}
-                      className="p-1.5 rounded-lg hover:bg-gray-100"
-                      title="Edit"
+                      onClick={() => updateMutation.mutate({ id: req.id, data: { status: "REJECTED" } })}
+                      className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors"
+                      title="Reject"
                     >
-                      <Pencil className="h-4 w-4 text-gray-500" />
+                      <X className="h-[15px] w-[15px] text-red-500" />
                     </button>
+                  )}
+                  <button
+                    onClick={() => handleEdit(req)}
+                    className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil className="h-[15px] w-[15px] text-gray-500" />
+                  </button>
+                  <button
+                    onClick={() => deleteMutation.mutate(req.id)}
+                    className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-[15px] w-[15px] text-red-500" />
+                  </button>
+                </RoleGate>
+                <RoleGate allowedRoles={["EMPLOYEE"]}>
+                  {req.status === "PENDING" && (
                     <button
-                      onClick={() => deleteMutation.mutate(req.id)}
-                      className="p-1.5 rounded-lg hover:bg-red-50"
-                      title="Delete"
+                      onClick={() => cancelMutation.mutate(req.id)}
+                      className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-[14px] py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      Cancel
                     </button>
-                  </RoleGate>
-                  <RoleGate allowedRoles={["EMPLOYEE"]}>
-                    {req.status === "PENDING" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => cancelMutation.mutate(req.id)}
-                      >
-                        Cancel
-                      </Button>
-                    )}
-                  </RoleGate>
-                </div>
-              </Card>
-            ))}
-          </div>
+                  )}
+                </RoleGate>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
