@@ -47,7 +47,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
     >
       <div
         className={clsx(
-          "w-full max-w-[480px] rounded-xl bg-white border border-gray-200 shadow-[0_8px_30px_rgba(0,0,0,0.08)] animate-in fade-in zoom-in-95 duration-200",
+          "w-full max-w-[480px] rounded-xl bg-white border border-gray-200 shadow-[0_8px_30px_rgba(0,0,0,0.08)] animate-in fade-in zoom-in-95 duration-200 overflow-hidden",
           className,
         )}
       >
