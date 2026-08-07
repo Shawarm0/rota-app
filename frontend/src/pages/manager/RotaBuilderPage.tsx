@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { TopBar } from "../../components/layout/TopBar";
 import { Card } from "../../components/ui/Card";
@@ -13,7 +13,7 @@ import { useRotas, useRota, useCreateRota, usePublishRota, useDeleteRota, useCre
 import { useUsers } from "../../hooks/useUsers";
 import { useLocations } from "../../hooks/useLocations";
 import { addDays, toDateString, formatShortDate, formatDay } from "../../lib/dateUtils";
-import { CalendarPlus, Plus, Send, Trash2 } from "lucide-react";
+import { CalendarPlus, Plus, Send, Trash2, Copy } from "lucide-react";
 import type { Shift, ShiftStatus } from "../../types";
 import clsx from "clsx";
 
@@ -68,6 +68,10 @@ export function RotaBuilderPage() {
   const [showNewRota, setShowNewRota] = useState(false);
   const [editingShift, setEditingShift] = useState<{ date: string; shift?: Shift } | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showCopy, setShowCopy] = useState(false);
+  const [copyTargetDays, setCopyTargetDays] = useState<string[]>([]);
+  const [dragShift, setDragShift] = useState<Shift | null>(null);
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
   const newRotaForm = useForm<NewRotaForm>();
   const shiftForm = useForm<ShiftForm>();
 
@@ -128,6 +132,49 @@ export function RotaBuilderPage() {
         { onSuccess: () => setEditingShift(null) },
       );
     }
+  };
+
+  const handleDrop = useCallback(
+    (targetEmployeeId: string, targetDate: string) => {
+      if (!dragShift || !selectedRotaId) return;
+      createShift.mutate({
+        rotaId: selectedRotaId,
+        shift: {
+          date: targetDate,
+          startTime: dragShift.startTime,
+          endTime: dragShift.endTime,
+          userId: targetEmployeeId,
+          location: dragShift.location || "",
+          notes: dragShift.notes || "",
+          status: dragShift.status,
+        },
+      });
+      setDragShift(null);
+      setDragOverCell(null);
+    },
+    [dragShift, selectedRotaId, createShift],
+  );
+
+  const handleCopyTodays = () => {
+    if (!editingShift?.shift || !selectedRotaId || copyTargetDays.length === 0) return;
+    const shift = editingShift.shift;
+    for (const targetDate of copyTargetDays) {
+      createShift.mutate({
+        rotaId: selectedRotaId,
+        shift: {
+          date: targetDate,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          userId: shift.userId || null,
+          location: shift.location || "",
+          notes: shift.notes || "",
+          status: shift.status,
+        },
+      });
+    }
+    setCopyTargetDays([]);
+    setShowCopy(false);
+    setEditingShift(null);
   };
 
   const employeeOptions = [
@@ -245,14 +292,37 @@ export function RotaBuilderPage() {
                         const dateStr = toDateString(day);
                         const shifts = getShiftsForCell(emp.id, dateStr);
                         return (
-                          <td key={dateStr} className="px-1 py-1 text-center">
+                          <td
+                            key={dateStr}
+                            className={clsx(
+                              "px-1 py-1 text-center",
+                              dragOverCell === `${emp.id}-${dateStr}` && "bg-blue-50 ring-2 ring-inset ring-blue-300 rounded",
+                            )}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setDragOverCell(`${emp.id}-${dateStr}`);
+                            }}
+                            onDragLeave={() => setDragOverCell(null)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              handleDrop(emp.id, dateStr);
+                            }}
+                          >
                             <div className="space-y-0.5">
                               {shifts.map((s) => (
                                 <button
                                   key={s.id}
+                                  draggable
+                                  onDragStart={(e) => {
+                                    setDragShift(s);
+                                    e.dataTransfer.effectAllowed = "copy";
+                                  }}
+                                  onDragEnd={() => { setDragShift(null); setDragOverCell(null); }}
                                   onClick={() => {
                                     setEditingShift({ date: dateStr, shift: s });
                                     setShowAdvanced(false);
+                                    setShowCopy(false);
+                                    setCopyTargetDays([]);
                                     shiftForm.reset({
                                       startTime: s.startTime,
                                       endTime: s.endTime,
@@ -263,7 +333,7 @@ export function RotaBuilderPage() {
                                     });
                                   }}
                                   className={clsx(
-                                    "block w-full rounded px-1 py-0.5 text-[10px] font-medium border truncate",
+                                    "block w-full rounded px-1 py-0.5 text-[10px] font-medium border truncate cursor-grab active:cursor-grabbing",
                                     STATUS_COLORS[s.status],
                                   )}
                                 >
@@ -274,6 +344,8 @@ export function RotaBuilderPage() {
                                 onClick={() => {
                                   setEditingShift({ date: dateStr });
                                   setShowAdvanced(false);
+                                  setShowCopy(false);
+                                  setCopyTargetDays([]);
                                   shiftForm.reset({
                                     startTime: "09:00",
                                     endTime: "17:00",
@@ -356,6 +428,58 @@ export function RotaBuilderPage() {
               </div>
             )}
           </div>
+          {editingShift?.shift && (
+            <div>
+              <button
+                type="button"
+                onClick={() => { setShowCopy(!showCopy); setCopyTargetDays([]); }}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+              >
+                <Copy className="h-3 w-3" /> {showCopy ? "Hide Copy" : "Copy to other days"}
+              </button>
+              {showCopy && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-xs text-gray-500">Select days to copy this shift to:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {days.map((day) => {
+                      const ds = toDateString(day);
+                      const isSelected = copyTargetDays.includes(ds);
+                      const isCurrent = ds === editingShift.date;
+                      return (
+                        <button
+                          key={ds}
+                          type="button"
+                          disabled={isCurrent}
+                          onClick={() =>
+                            setCopyTargetDays((prev) =>
+                              isSelected ? prev.filter((d) => d !== ds) : [...prev, ds],
+                            )
+                          }
+                          className={clsx(
+                            "px-2 py-1 rounded text-[11px] font-medium border transition-colors",
+                            isCurrent && "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed",
+                            !isCurrent && isSelected && "bg-blue-100 text-blue-800 border-blue-300",
+                            !isCurrent && !isSelected && "bg-white text-gray-600 border-gray-200 hover:border-blue-300",
+                          )}
+                        >
+                          {formatDay(day)} {day.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={copyTargetDays.length === 0}
+                    onClick={handleCopyTodays}
+                    loading={createShift.isPending}
+                  >
+                    Copy to {copyTargetDays.length} day{copyTargetDays.length !== 1 ? "s" : ""}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex justify-between">
             {editingShift?.shift && (
               <Button
