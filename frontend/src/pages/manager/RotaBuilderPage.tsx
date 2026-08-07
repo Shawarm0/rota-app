@@ -1,19 +1,17 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { TopBar } from "../../components/layout/TopBar";
-import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Modal } from "../../components/ui/Modal";
 import { Select } from "../../components/ui/Select";
-import { Badge } from "../../components/ui/Badge";
 import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useRotas, useRota, useCreateRota, usePublishRota, useDeleteRota, useSyncShifts } from "../../hooks/useRotas";
 import { useUsers } from "../../hooks/useUsers";
 import { useLocations } from "../../hooks/useLocations";
 import { addDays, toDateString, formatShortDate, formatDay } from "../../lib/dateUtils";
-import { CalendarPlus, Plus, Send, Trash2, Copy, Save } from "lucide-react";
+import { CalendarPlus, Plus, Send, Trash2, Copy, Save, ChevronDown } from "lucide-react";
 import type { Shift, ShiftStatus } from "../../types";
 import clsx from "clsx";
 
@@ -305,51 +303,57 @@ export function RotaBuilderPage() {
 
   return (
     <>
-      <TopBar title="Rota Builder" />
-      <div className="p-4 md:p-6 space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Select
-            options={[
-              { value: "", label: "Select a rota..." },
-              ...draftRotas.map((r) => ({
-                value: r.id,
-                label: `${r.name || `${formatShortDate(r.startDate)} - ${formatShortDate(r.endDate)}`}${r.location ? ` · ${r.location.name}` : ""}`,
-              })),
-            ]}
-            value={selectedRotaId || ""}
-            onChange={(e) => setSelectedRotaId(e.target.value || null)}
-            className="w-72"
-          />
-          <Button variant="secondary" size="sm" onClick={() => setShowNewRota(true)}>
-            <Plus className="h-4 w-4 mr-1" /> New Rota
-          </Button>
+      <TopBar title="Rota Builder" subtitle="Two-week schedule" />
+      <div className="p-4 md:px-7 md:py-5 flex flex-col gap-5 max-w-[1600px]">
+        {/* Toolbar */}
+        <div className="flex items-center gap-[10px] flex-wrap">
+          <div className="relative">
+            <select
+              value={selectedRotaId || ""}
+              onChange={(e) => setSelectedRotaId(e.target.value || null)}
+              className="appearance-none py-[9px] pl-[14px] pr-8 border border-gray-200 rounded-lg text-[13.5px] font-semibold text-gray-900 bg-white cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">Select a rota...</option>
+              {draftRotas.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name || `${formatShortDate(r.startDate)} - ${formatShortDate(r.endDate)}`}
+                  {r.location ? ` · ${r.location.name}` : ""}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-[10px] top-1/2 -translate-y-1/2 h-3 w-3 text-gray-500 pointer-events-none" />
+          </div>
+          <button
+            onClick={() => setShowNewRota(true)}
+            className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-[14px] py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-150 transition-colors whitespace-nowrap"
+          >
+            <Plus className="h-[15px] w-[15px]" /> New Rota
+          </button>
           {selectedRota && selectedRota.status === "DRAFT" && (
             <>
-              <Button
-                size="sm"
+              <button
                 onClick={handleSaveDraft}
-                loading={syncShifts.isPending}
-                disabled={!hasUnsavedChanges}
+                disabled={!hasUnsavedChanges || syncShifts.isPending}
+                className="flex items-center gap-[7px] bg-indigo-100 text-indigo-700 rounded-lg px-[14px] py-[9px] text-[13.5px] font-semibold cursor-pointer disabled:opacity-50 hover:bg-indigo-200 transition-colors whitespace-nowrap"
               >
-                <Save className="h-4 w-4 mr-1" /> Save Draft
-              </Button>
-              <Button
-                size="sm"
+                <Save className="h-[15px] w-[15px]" /> Save Draft
+              </button>
+              <button
                 onClick={handlePublish}
-                loading={publishRota.isPending || syncShifts.isPending}
+                disabled={publishRota.isPending || syncShifts.isPending}
+                className="flex items-center gap-[7px] bg-indigo-600 text-white rounded-lg px-4 py-[9px] text-[13.5px] font-semibold cursor-pointer disabled:opacity-50 hover:bg-indigo-700 transition-colors whitespace-nowrap"
               >
-                <Send className="h-4 w-4 mr-1" /> Publish
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
+                <Send className="h-[15px] w-[15px]" /> Publish
+              </button>
+              <button
                 onClick={() => {
                   deleteRota.mutate(selectedRotaId!, { onSuccess: () => setSelectedRotaId(null) });
                 }}
-                loading={deleteRota.isPending}
+                disabled={deleteRota.isPending}
+                className="flex items-center gap-[7px] bg-red-500 text-white rounded-lg px-[14px] py-[9px] text-[13.5px] font-semibold cursor-pointer disabled:opacity-50 hover:bg-red-600 transition-colors whitespace-nowrap"
               >
-                <Trash2 className="h-4 w-4 mr-1" /> Delete
-              </Button>
+                <Trash2 className="h-[15px] w-[15px]" /> Delete
+              </button>
             </>
           )}
         </div>
@@ -363,7 +367,7 @@ export function RotaBuilderPage() {
 
         {selectedRota?.location && (
           <div className="flex items-center gap-2">
-            <Badge variant="blue">{selectedRota.location.name}</Badge>
+            <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">{selectedRota.location.name}</span>
             <span className="text-xs text-gray-500">
               Showing {employees.length} employee{employees.length !== 1 ? "s" : ""} at this location
             </span>
@@ -379,39 +383,37 @@ export function RotaBuilderPage() {
         ) : rotaLoading ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : selectedRota && selectedRota.status === "PUBLISHED" ? (
-          <Card>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="green">Published</Badge>
-              <p className="text-sm text-gray-500">This rota is published and cannot be edited</p>
-            </div>
-          </Card>
+          <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">Published</span>
+            <p className="text-sm text-gray-500">This rota is published and cannot be edited</p>
+          </div>
         ) : (
-          <Card padding={false}>
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="border-collapse w-full text-[13px]">
                 <thead>
-                  <tr className="border-b">
-                    <th className="sticky left-0 bg-white px-3 py-2 text-left font-medium text-gray-600 min-w-[120px]">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-[12px] font-semibold text-gray-500 sticky left-0 bg-white min-w-[160px] z-[2]">
                       Employee
                     </th>
                     {days.map((day) => (
                       <th
                         key={day.toISOString()}
-                        className="px-1 py-2 text-center font-medium text-gray-600 min-w-[80px]"
+                        className="px-[10px] py-3 text-center text-[12px] font-semibold text-gray-500 min-w-[64px] border-l border-gray-100 whitespace-nowrap"
                       >
                         <div>{formatDay(day)}</div>
-                        <div className="text-gray-400">{day.getDate()}</div>
+                        <div className="font-normal text-gray-400 mt-0.5">{day.getDate()}</div>
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {employees?.map((emp) => (
-                    <tr key={emp.id} className="border-b hover:bg-gray-50/50">
-                      <td className="sticky left-0 bg-white px-3 py-2 font-medium text-gray-900">
-                        <div>{emp.firstName} {emp.lastName}</div>
+                    <tr key={emp.id} className="border-t border-gray-100">
+                      <td className="px-5 py-[14px] sticky left-0 bg-white min-w-[160px] z-[1]">
+                        <div className="text-[13.5px] font-semibold text-gray-900">{emp.firstName} {emp.lastName}</div>
                         {emp.location && (
-                          <div className="text-[10px] text-gray-400">{emp.location.name}</div>
+                          <div className="text-[11.5px] text-gray-500">{emp.location.name}</div>
                         )}
                       </td>
                       {days.map((day) => {
@@ -421,7 +423,7 @@ export function RotaBuilderPage() {
                           <td
                             key={dateStr}
                             className={clsx(
-                              "px-1 py-1 text-center",
+                              "px-2 py-2 text-center border-l border-gray-100",
                               dragOverCell === `${emp.id}-${dateStr}` && "bg-indigo-50 ring-2 ring-inset ring-indigo-300 rounded",
                             )}
                             onDragOver={(e) => {
@@ -434,7 +436,7 @@ export function RotaBuilderPage() {
                               handleDrop(emp.id, dateStr);
                             }}
                           >
-                            <div className="space-y-0.5">
+                            <div className="space-y-1">
                               {shifts.map((s) => (
                                 <button
                                   key={s.localId}
@@ -459,7 +461,7 @@ export function RotaBuilderPage() {
                                     });
                                   }}
                                   className={clsx(
-                                    "block w-full rounded px-1 py-0.5 text-[10px] font-medium border truncate cursor-grab active:cursor-grabbing",
+                                    "block w-full rounded-[5px] px-1.5 py-1 text-[10px] font-semibold border truncate cursor-grab active:cursor-grabbing",
                                     STATUS_COLORS[s.status],
                                   )}
                                 >
@@ -481,7 +483,7 @@ export function RotaBuilderPage() {
                                     status: "ASSIGNED",
                                   });
                                 }}
-                                className="block w-full rounded border border-dashed border-gray-200 py-0.5 text-[10px] text-gray-400 hover:bg-gray-50 hover:border-gray-300"
+                                className="block w-full h-8 rounded-[7px] border-[1.5px] border-dashed border-gray-200 text-[15px] text-gray-400 hover:bg-gray-50 hover:border-gray-300 transition-colors flex items-center justify-center"
                               >
                                 +
                               </button>
@@ -494,7 +496,7 @@ export function RotaBuilderPage() {
                 </tbody>
               </table>
             </div>
-          </Card>
+          </div>
         )}
       </div>
 
