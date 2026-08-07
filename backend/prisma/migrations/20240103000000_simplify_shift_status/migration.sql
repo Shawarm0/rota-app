@@ -1,10 +1,9 @@
--- Migrate existing shifts with removed statuses
-UPDATE "Shift" SET "status" = 'ADDITIONAL' WHERE "status" = 'SWAP';
-UPDATE "Shift" SET "status" = 'AVAILABLE' WHERE "status" IN ('CANCELLED', 'HOLIDAY', 'REQUESTED_HOLIDAY');
+-- Remove all shifts with old statuses and recreate enum
+DELETE FROM "Shift" WHERE "status" IN ('SWAP', 'HOLIDAY', 'REQUESTED_HOLIDAY', 'CANCELLED');
 
--- Recreate the enum without removed values
-CREATE TYPE "ShiftStatus_new" AS ENUM ('ASSIGNED', 'ADDITIONAL', 'AVAILABLE');
-ALTER TABLE "Shift" ALTER COLUMN "status" TYPE "ShiftStatus_new" USING ("status"::text::"ShiftStatus_new");
-ALTER TYPE "ShiftStatus" RENAME TO "ShiftStatus_old";
-ALTER TYPE "ShiftStatus_new" RENAME TO "ShiftStatus";
-DROP TYPE "ShiftStatus_old";
+ALTER TABLE "Shift" ALTER COLUMN "status" DROP DEFAULT;
+ALTER TABLE "Shift" ALTER COLUMN "status" TYPE text;
+DROP TYPE "ShiftStatus";
+CREATE TYPE "ShiftStatus" AS ENUM ('ASSIGNED', 'ADDITIONAL', 'AVAILABLE');
+ALTER TABLE "Shift" ALTER COLUMN "status" TYPE "ShiftStatus" USING ("status"::"ShiftStatus");
+ALTER TABLE "Shift" ALTER COLUMN "status" SET DEFAULT 'ASSIGNED';
