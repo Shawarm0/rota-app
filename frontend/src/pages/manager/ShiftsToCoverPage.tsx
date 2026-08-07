@@ -134,14 +134,8 @@ export function ShiftsToCoverPage() {
 
       <Modal open={!!editingShift} onClose={() => setEditingShift(null)} title="Assign / Edit Shift">
         <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="flex flex-col gap-4">
-          <div className="flex gap-4">
-            <div className="flex-1 min-w-0">
-              <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
-            </div>
-          </div>
+          <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
+          <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
           <Select id="userId" label="Assign Employee" options={employeeOptions} {...shiftForm.register("userId")} />
           <Select
             id="location"
