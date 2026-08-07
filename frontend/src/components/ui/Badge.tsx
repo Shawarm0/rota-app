@@ -11,7 +11,7 @@ export function ShiftBadge({ status, className }: BadgeProps) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-medium text-white",
+        "inline-flex items-center rounded-full px-3 py-[5px] text-xs font-semibold",
         SHIFT_STATUS_COLORS[status],
         className,
       )}
