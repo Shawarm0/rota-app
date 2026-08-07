@@ -128,6 +128,33 @@ export async function updateHoliday(requestId: string, data: { date?: string; re
   const request = await prisma.holidayRequest.findUnique({ where: { id: requestId } });
   if (!request) throw new NotFoundError("Holiday request");
 
+  if (data.date) {
+    const newDate = new Date(data.date);
+
+    const existingHoliday = await prisma.holidayRequest.findFirst({
+      where: {
+        userId: request.userId,
+        date: newDate,
+        status: { in: ["PENDING", "APPROVED"] },
+        id: { not: requestId },
+      },
+    });
+    if (existingHoliday) {
+      throw new AppError(400, "This person already has a holiday request on that date");
+    }
+
+    const assignedShift = await prisma.shift.findFirst({
+      where: {
+        userId: request.userId,
+        date: newDate,
+        status: { notIn: ["CANCELLED", "AVAILABLE"] },
+      },
+    });
+    if (assignedShift) {
+      throw new AppError(400, "This person has a shift on that date — please unassign it before moving their holiday");
+    }
+  }
+
   return prisma.holidayRequest.update({
     where: { id: requestId },
     data: {
