@@ -26,8 +26,28 @@ interface AdditionalShiftForm {
   notes: string;
 }
 
-function initials(first: string, last: string) {
+function getInitials(first: string, last: string) {
   return `${first[0] || ""}${last[0] || ""}`.toUpperCase();
+}
+
+function getTodayFormatted() {
+  return new Date().toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+}
+
+function getWeekRange() {
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  const fmt = (d: Date) => d.getDate();
+  const monName = mon.toLocaleDateString("en-GB", { month: "short" });
+  const sunName = sun.toLocaleDateString("en-GB", { month: "short" });
+  if (monName === sunName) return `Week of ${fmt(mon)}–${fmt(sun)} ${monName}`;
+  return `Week of ${fmt(mon)} ${monName}–${fmt(sun)} ${sunName}`;
 }
 
 function formatActivityDate(dateStr: string) {
@@ -42,18 +62,15 @@ function formatActivityDate(dateStr: string) {
 }
 
 function formatActivityTime(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return new Date(dateStr).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
 function getActivityStyle(action: string) {
   const lower = action.toLowerCase();
-  if (lower.includes("delete") || lower.includes("reject")) {
+  if (lower.includes("delete") || lower.includes("reject"))
     return { bg: "bg-red-50", color: "text-red-500", Icon: Trash2 };
-  }
-  if (lower.includes("approv")) {
+  if (lower.includes("approv"))
     return { bg: "bg-green-50", color: "text-green-600", Icon: Check };
-  }
   return { bg: "bg-green-50", color: "text-green-600", Icon: FileText };
 }
 
@@ -90,10 +107,12 @@ export function ManagerDashboardPage() {
     return Object.entries(groups).map(([date, items]) => ({ date, items }));
   }, [dashboard?.recentActivity]);
 
+  const totalHours = employees ? employees.reduce((s, e) => s + e.totalHours, 0) : 0;
+
   if (isLoading) {
     return (
       <>
-        <TopBar title="Manager Dashboard" />
+        <TopBar title="Manager Dashboard" subtitle={getTodayFormatted()} />
         <div className="flex justify-center py-12"><Spinner /></div>
       </>
     );
@@ -105,7 +124,7 @@ export function ManagerDashboardPage() {
       value: dashboard?.pendingHolidays || 0,
       Icon: Palmtree,
       iconBg: "bg-amber-50",
-      iconColor: "text-amber-600",
+      iconColor: "text-amber-500",
     },
     {
       label: "Shifts to Cover",
@@ -119,14 +138,12 @@ export function ManagerDashboardPage() {
       label: "Active Employees",
       value: dashboard?.totalEmployees || 0,
       Icon: Users,
-      iconBg: "bg-violet-50",
-      iconColor: "text-violet-600",
+      iconBg: "bg-indigo-50",
+      iconColor: "text-indigo-500",
     },
     {
-      label: "Total Hours (wk)",
-      value: employees
-        ? `${employees.reduce((s, e) => s + e.totalHours, 0)}h`
-        : "—",
+      label: "Labor Hours (wk)",
+      value: `${totalHours}h`,
       Icon: BarChart3,
       iconBg: "bg-green-50",
       iconColor: "text-green-600",
@@ -135,32 +152,41 @@ export function ManagerDashboardPage() {
 
   return (
     <>
-      <TopBar title="Manager Dashboard" />
-      <div className="p-3 md:p-5 space-y-4 max-w-[1400px]">
-        {/* Additional Shift button */}
-        <div className="flex justify-end">
+      <TopBar
+        title="Manager Dashboard"
+        subtitle={getTodayFormatted()}
+        actions={
           <button
             onClick={() => setShowAddShift(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-violet-700 transition-colors"
+            className="hidden sm:inline-flex items-center gap-[7px] rounded-lg bg-indigo-600 px-4 py-[9px] text-[13.5px] font-semibold text-white hover:bg-indigo-700 transition-colors"
           >
-            <Plus className="h-4 w-4" /> Additional Shift
+            <Plus className="h-[15px] w-[15px]" /> Additional Shift
           </button>
-        </div>
+        }
+      />
+      <div className="p-4 md:px-7 md:py-5 flex flex-col gap-5 max-w-[1400px]">
+        {/* Mobile add shift button */}
+        <button
+          onClick={() => setShowAddShift(true)}
+          className="sm:hidden inline-flex items-center justify-center gap-[7px] rounded-lg bg-indigo-600 px-4 py-[9px] text-[13.5px] font-semibold text-white hover:bg-indigo-700 transition-colors w-full"
+        >
+          <Plus className="h-[15px] w-[15px]" /> Additional Shift
+        </button>
 
         {/* KPI cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {kpis.map(({ label, value, Icon, iconBg, iconColor, onClick }) => (
             <div
               key={label}
               onClick={onClick}
-              className={`bg-white border border-gray-200 rounded-xl p-4 ${onClick ? "cursor-pointer hover:border-gray-300 transition-colors" : ""}`}
+              className={`bg-white border border-gray-200 rounded-xl px-5 py-[18px] ${onClick ? "cursor-pointer hover:border-gray-300 transition-colors" : ""}`}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{label}</div>
-                  <div className="text-[28px] font-bold text-gray-900 mt-1.5 tracking-tight leading-none">{value}</div>
+                  <div className="text-[12px] font-semibold text-gray-500 uppercase tracking-[0.04em]">{label}</div>
+                  <div className="text-[30px] font-bold text-gray-900 mt-2 tracking-[-0.02em] leading-none">{value}</div>
                 </div>
-                <div className={`h-9 w-9 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>
+                <div className={`h-9 w-9 rounded-[9px] ${iconBg} flex items-center justify-center flex-shrink-0`}>
                   <Icon className={`h-[18px] w-[18px] ${iconColor}`} />
                 </div>
               </div>
@@ -171,26 +197,26 @@ export function ManagerDashboardPage() {
         {/* Pending Holiday Requests */}
         {holidays && holidays.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <div className="text-[14px] font-bold text-gray-900">Pending Holiday Requests</div>
+            <div className="px-5 py-[18px] border-b border-gray-100">
+              <div className="text-[15px] font-bold text-gray-900">Pending Holiday Requests</div>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div>
               {holidays.map((req) => (
-                <div key={req.id} className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="h-7 w-7 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
-                      {initials(req.user?.firstName || "", req.user?.lastName || "")}
+                <div key={req.id} className="flex items-center justify-between px-5 py-[13px] border-t first:border-t-0 border-gray-100">
+                  <div className="flex items-center gap-[10px] min-w-0">
+                    <div className="h-[30px] w-[30px] rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-[12px] font-bold flex-shrink-0">
+                      {getInitials(req.user?.firstName || "", req.user?.lastName || "")}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[13px] font-semibold text-gray-900 truncate">{req.user?.firstName} {req.user?.lastName}</div>
+                      <div className="text-[13.5px] font-semibold text-gray-900">{req.user?.firstName} {req.user?.lastName}</div>
                       <div className="text-[12px] text-gray-500">{formatDate(req.date)}</div>
                     </div>
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={() => approveHoliday.mutate(req.id)} className="p-1.5 rounded-md hover:bg-green-50 transition-colors">
+                    <button onClick={() => approveHoliday.mutate(req.id)} className="p-1.5 rounded-lg hover:bg-green-50 transition-colors">
                       <Check className="h-4 w-4 text-green-600" />
                     </button>
-                    <button onClick={() => rejectHoliday.mutate({ id: req.id })} className="p-1.5 rounded-md hover:bg-red-50 transition-colors">
+                    <button onClick={() => rejectHoliday.mutate({ id: req.id })} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors">
                       <X className="h-4 w-4 text-red-500" />
                     </button>
                   </div>
@@ -203,40 +229,41 @@ export function ManagerDashboardPage() {
         {/* Employee Summary */}
         {employees && employees.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 gap-3 flex-wrap">
+            <div className="flex items-center justify-between px-5 py-[18px] border-b border-gray-100 gap-3 flex-wrap">
               <div>
-                <div className="text-[14px] font-bold text-gray-900">Employee Summary</div>
+                <div className="text-[15px] font-bold text-gray-900">Employee Summary</div>
+                <div className="text-[12.5px] text-gray-500 mt-0.5">{getWeekRange()}</div>
               </div>
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 h-[14px] w-[14px] text-gray-400 pointer-events-none" />
                 <input
                   value={empFilter}
                   onChange={(e) => setEmpFilter(e.target.value)}
                   placeholder="Search employees"
-                  className="pl-8 pr-3 py-1.5 border border-gray-200 rounded-md text-[13px] w-44 outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                  className="pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-[13px] w-[180px] outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder:text-gray-400"
                 />
               </div>
             </div>
 
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-[13px]">
+              <table className="w-full text-[13.5px]">
                 <thead>
                   <tr>
-                    <th className="text-left px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Employee</th>
-                    <th className="text-right px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Shifts</th>
-                    <th className="text-right px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Hours</th>
-                    <th className="text-right px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Extra</th>
-                    <th className="text-right px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Holidays</th>
+                    <th className="text-left px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Employee</th>
+                    <th className="text-right px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Shifts</th>
+                    <th className="text-right px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Hours</th>
+                    <th className="text-right px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Extra</th>
+                    <th className="text-right px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Holidays</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredEmployees.map((emp) => (
                     <tr key={emp.id} className="border-t border-gray-100">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-7 w-7 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
-                            {initials(emp.firstName, emp.lastName)}
+                      <td className="px-5 py-[13px]">
+                        <div className="flex items-center gap-[10px]">
+                          <div className="h-[30px] w-[30px] rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-[12px] font-bold flex-shrink-0">
+                            {getInitials(emp.firstName, emp.lastName)}
                           </div>
                           <div>
                             <div className="font-semibold text-gray-900">{emp.firstName} {emp.lastName}</div>
@@ -244,14 +271,14 @@ export function ManagerDashboardPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-800">{emp.totalShifts}</td>
-                      <td className="px-4 py-3 text-right text-gray-800 font-semibold">{emp.totalHours}h</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-5 py-[13px] text-right text-gray-800">{emp.totalShifts}</td>
+                      <td className="px-5 py-[13px] text-right text-gray-800 font-semibold">{emp.totalHours}h</td>
+                      <td className="px-5 py-[13px] text-right">
                         {emp.additionalCount > 0
-                          ? <span className="text-amber-600">+{emp.additionalCount}h</span>
+                          ? <span className="text-amber-600 font-medium">+{emp.additionalCount}h</span>
                           : <span className="text-gray-400">&mdash;</span>}
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-800">{emp.holidaysUsed}</td>
+                      <td className="px-5 py-[13px] text-right text-gray-800">{emp.holidaysUsed}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -259,27 +286,23 @@ export function ManagerDashboardPage() {
             </div>
 
             {/* Mobile cards */}
-            <div className="md:hidden divide-y divide-gray-100">
+            <div className="md:hidden">
               {filteredEmployees.map((emp) => (
-                <div key={emp.id} className="px-4 py-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="h-8 w-8 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
-                        {initials(emp.firstName, emp.lastName)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold text-gray-900 text-[13px] truncate">{emp.firstName} {emp.lastName}</div>
-                        <div className="text-[12px] text-gray-500">{emp.email}</div>
-                      </div>
+                <div key={emp.id} className="px-5 py-[14px] border-t border-gray-100">
+                  <div className="flex items-center gap-[10px] min-w-0">
+                    <div className="h-8 w-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-[12px] font-bold flex-shrink-0">
+                      {getInitials(emp.firstName, emp.lastName)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-gray-900 text-[14px]">{emp.firstName} {emp.lastName}</div>
+                      <div className="text-[12px] text-gray-500">{emp.email}</div>
                     </div>
                   </div>
-                  <div className="flex gap-4 mt-2 text-[12px] text-gray-500">
-                    <div><span className="font-semibold text-gray-900">{emp.totalShifts}</span> shifts</div>
-                    <div><span className="font-semibold text-gray-900">{emp.totalHours}h</span></div>
-                    {emp.additionalCount > 0 && (
-                      <div className="text-amber-600">+{emp.additionalCount}h extra</div>
-                    )}
-                    <div><span className="font-semibold text-gray-900">{emp.holidaysUsed}</span> hol.</div>
+                  <div className="flex gap-[18px] mt-[10px] text-[12.5px] text-gray-500">
+                    <div><span className="text-gray-900 font-semibold">{emp.totalShifts}</span> shifts</div>
+                    <div><span className="text-gray-900 font-semibold">{emp.totalHours}h</span></div>
+                    {emp.additionalCount > 0 && <div className="text-amber-600">+{emp.additionalCount}h</div>}
+                    <div><span className="text-gray-900 font-semibold">{emp.holidaysUsed}</span> hol.</div>
                   </div>
                 </div>
               ))}
@@ -290,28 +313,28 @@ export function ManagerDashboardPage() {
         {/* Recent Activity */}
         {groupedActivity.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-xl">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <div className="text-[14px] font-bold text-gray-900">Recent Activity</div>
+            <div className="px-5 py-[18px] border-b border-gray-100">
+              <div className="text-[15px] font-bold text-gray-900">Recent Activity</div>
             </div>
-            <div className="px-4 py-1">
+            <div className="px-5 py-[6px]">
               {groupedActivity.map((group) => (
                 <div key={group.date}>
-                  <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider pt-3 pb-1.5">
+                  <div className="text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em] pt-3 pb-[6px]">
                     {group.date}
                   </div>
                   {group.items.map((log) => {
                     const style = getActivityStyle(log.action);
                     return (
-                      <div key={log.id} className="flex items-start gap-3 py-2.5 border-t border-gray-50">
-                        <div className={`h-7 w-7 rounded-full ${style.bg} ${style.color} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-                          <style.Icon className="h-3.5 w-3.5" />
+                      <div key={log.id} className="flex items-start gap-3 py-[10px] border-t border-gray-50">
+                        <div className={`h-7 w-7 rounded-full ${style.bg} ${style.color} flex items-center justify-center flex-shrink-0 mt-[1px]`}>
+                          <style.Icon className="h-[14px] w-[14px]" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[13px] text-gray-700">
+                          <div className="text-[13.5px] text-gray-700">
                             <span className="font-semibold text-gray-900">{log.user.firstName} {log.user.lastName}</span>{" "}
                             {log.action.toLowerCase()} {log.entity.toLowerCase()}
                           </div>
-                          <div className="text-[12px] text-gray-400 mt-0.5">{formatActivityTime(log.createdAt)}</div>
+                          <div className="text-[12px] text-gray-400 mt-[2px]">{formatActivityTime(log.createdAt)}</div>
                         </div>
                       </div>
                     );
