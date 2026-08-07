@@ -54,9 +54,7 @@ export function Sidebar() {
       )}
     >
       <div className="flex items-center gap-[10px] px-6 h-16 border-b border-gray-200 flex-shrink-0">
-        <div className="h-[30px] w-[30px] rounded-lg bg-indigo-600 flex items-center justify-center flex-shrink-0">
-          <div className="h-3 w-3 bg-white rounded-[3px]" />
-        </div>
+        <img src="/icon.png" alt="Logo" className="h-[30px] w-[30px] rounded-lg object-cover flex-shrink-0" />
         <span className="text-base font-bold text-gray-900 tracking-[-0.01em]">Rota</span>
       </div>
 
