@@ -20,6 +20,7 @@ interface CreateManagerForm {
 
 export function AdminPage() {
   const { data: managers, isLoading: managersLoading } = useUsers("MANAGER");
+  const { data: employees, isLoading: employeesLoading } = useUsers("EMPLOYEE");
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const [showCreateManager, setShowCreateManager] = useState(false);
@@ -69,6 +70,46 @@ export function AdminPage() {
                   >
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <Users className="h-4 w-4" /> Employees
+            </h3>
+          </div>
+          {employeesLoading ? (
+            <Spinner />
+          ) : !employees?.length ? (
+            <p className="text-sm text-gray-500">No employees</p>
+          ) : (
+            <div className="space-y-2">
+              {employees.map((e) => (
+                <div key={e.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{e.firstName} {e.lastName}</p>
+                    <p className="text-xs text-gray-500">{e.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={e.active ? "green" : "red"}>
+                      {e.active ? "Active" : "Disabled"}
+                    </Badge>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete ${e.firstName} ${e.lastName}? This cannot be undone.`)) {
+                          deleteUser.mutate(e.id);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-red-50"
+                      title="Delete user"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
