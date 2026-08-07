@@ -18,7 +18,7 @@ import type { Shift, ShiftStatus } from "../../types";
 import clsx from "clsx";
 
 const STATUS_COLORS: Record<ShiftStatus, string> = {
-  ASSIGNED: "bg-blue-100 text-blue-800 border-blue-200",
+  ASSIGNED: "bg-indigo-100 text-indigo-800 border-indigo-200",
   ADDITIONAL: "bg-green-100 text-green-800 border-green-200",
   AVAILABLE: "bg-gray-100 text-gray-800 border-gray-200",
 };
@@ -422,7 +422,7 @@ export function RotaBuilderPage() {
                             key={dateStr}
                             className={clsx(
                               "px-1 py-1 text-center",
-                              dragOverCell === `${emp.id}-${dateStr}` && "bg-blue-50 ring-2 ring-inset ring-blue-300 rounded",
+                              dragOverCell === `${emp.id}-${dateStr}` && "bg-indigo-50 ring-2 ring-inset ring-indigo-300 rounded",
                             )}
                             onDragOver={(e) => {
                               e.preventDefault();
@@ -499,7 +499,7 @@ export function RotaBuilderPage() {
       </div>
 
       <Modal open={showNewRota} onClose={() => setShowNewRota(false)} title="New Rota">
-        <form onSubmit={newRotaForm.handleSubmit(onCreateRota)} className="space-y-4">
+        <form onSubmit={newRotaForm.handleSubmit(onCreateRota)} className="flex flex-col gap-4">
           <Input id="rotaName" label="Name (optional)" {...newRotaForm.register("name")} />
           <Input id="startDate" label="Start Date (Monday)" type="date" {...newRotaForm.register("startDate", { required: true })} />
           <Select
@@ -508,10 +508,10 @@ export function RotaBuilderPage() {
             options={locationOptions}
             {...newRotaForm.register("locationId")}
           />
-          <p className="text-xs text-gray-500">
+          <p className="text-[12.5px] text-gray-500">
             Rota will span 2 weeks. If a location is set, only employees at that store will be shown.
           </p>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setShowNewRota(false)}>Cancel</Button>
             <Button type="submit" loading={createRota.isPending}>Create</Button>
           </div>
@@ -519,8 +519,8 @@ export function RotaBuilderPage() {
       </Modal>
 
       <Modal open={!!editingShift} onClose={() => setEditingShift(null)} title={editingShift?.shift ? "Edit Shift" : "Add Shift"}>
-        <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
             <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
           </div>
@@ -539,12 +539,12 @@ export function RotaBuilderPage() {
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              className="text-[13px] text-indigo-600 hover:text-indigo-800 font-semibold"
             >
               {showAdvanced ? "Hide Advanced" : "Advanced"}
             </button>
             {showAdvanced && (
-              <div className="mt-2">
+              <div className="mt-3">
                 <Select
                   id="status"
                   label="Status"
@@ -559,7 +559,7 @@ export function RotaBuilderPage() {
               <button
                 type="button"
                 onClick={() => { setShowCopy(!showCopy); setCopyTargetDays([]); }}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
               >
                 <Copy className="h-3 w-3" /> {showCopy ? "Hide Copy" : "Copy to other days"}
               </button>
@@ -584,8 +584,8 @@ export function RotaBuilderPage() {
                           className={clsx(
                             "px-2 py-1 rounded text-[11px] font-medium border transition-colors",
                             isCurrent && "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed",
-                            !isCurrent && isSelected && "bg-blue-100 text-blue-800 border-blue-300",
-                            !isCurrent && !isSelected && "bg-white text-gray-600 border-gray-200 hover:border-blue-300",
+                            !isCurrent && isSelected && "bg-indigo-100 text-indigo-800 border-indigo-300",
+                            !isCurrent && !isSelected && "bg-white text-gray-600 border-gray-200 hover:border-indigo-300",
                           )}
                         >
                           {formatDay(day)} {day.getDate()}
@@ -605,21 +605,20 @@ export function RotaBuilderPage() {
               )}
             </div>
           )}
-          <div className="flex justify-between">
+          <div className="flex justify-between border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             {editingShift?.shift && (
               <Button
                 variant="danger"
                 type="button"
-                size="sm"
                 onClick={() => {
                   deleteLocalShift(editingShift.shift!.localId);
                   setEditingShift(null);
                 }}
               >
-                <Trash2 className="h-4 w-4 mr-1" /> Delete
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
               </Button>
             )}
-            <div className="flex gap-2 ml-auto">
+            <div className="flex gap-2.5 ml-auto">
               <Button variant="secondary" type="button" onClick={() => setEditingShift(null)}>Cancel</Button>
               <Button type="submit">Save</Button>
             </div>

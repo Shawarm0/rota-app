@@ -13,7 +13,7 @@ const spinnerSizes = {
 };
 
 export function Spinner({ className, size = "md" }: SpinnerProps) {
-  return <Loader2 className={clsx("animate-spin text-violet-600", spinnerSizes[size], className)} />;
+  return <Loader2 className={clsx("animate-spin text-indigo-600", spinnerSizes[size], className)} />;
 }
 
 export function FullPageSpinner() {

@@ -32,7 +32,7 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
-          <div className="h-12 w-12 rounded-lg bg-violet-600 flex items-center justify-center mb-4 shadow-lg shadow-violet-200">
+          <div className="h-12 w-12 rounded-lg bg-indigo-600 flex items-center justify-center mb-4 shadow-lg shadow-indigo-200">
             <Clock className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-xl font-bold text-gray-900">Welcome back</h1>

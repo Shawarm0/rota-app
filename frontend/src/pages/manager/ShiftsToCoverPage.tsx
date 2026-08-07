@@ -136,8 +136,8 @@ export function ShiftsToCoverPage() {
       </div>
 
       <Modal open={!!editingShift} onClose={() => setEditingShift(null)} title="Assign / Edit Shift">
-        <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
             <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
           </div>
@@ -152,12 +152,12 @@ export function ShiftsToCoverPage() {
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              className="text-[13px] text-indigo-600 hover:text-indigo-800 font-semibold"
             >
               {showAdvanced ? "Hide Advanced" : "Advanced"}
             </button>
             {showAdvanced && (
-              <div className="mt-2">
+              <div className="mt-3">
                 <Select
                   id="status"
                   label="Status"
@@ -167,19 +167,18 @@ export function ShiftsToCoverPage() {
               </div>
             )}
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button
               variant="danger"
               type="button"
-              size="sm"
               onClick={() => {
                 deleteShift.mutate(editingShift!.id);
                 setEditingShift(null);
               }}
             >
-              <Trash2 className="h-4 w-4 mr-1" /> Delete
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
             </Button>
-            <div className="flex gap-2">
+            <div className="flex gap-2.5">
               <Button variant="secondary" type="button" onClick={() => setEditingShift(null)}>Cancel</Button>
               <Button type="submit" loading={updateShift.isPending}>Save</Button>
             </div>

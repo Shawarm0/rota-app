@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { TopBar } from "../components/layout/TopBar";
-import { Card } from "../components/ui/Card";
 import { ShiftBadge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
 import { Input } from "../components/ui/Input";
@@ -16,21 +15,33 @@ import { useLocations } from "../hooks/useLocations";
 import { useAuthStore } from "../stores/authStore";
 import * as shiftApi from "../api/shift.api";
 import * as userApi from "../api/user.api";
-import { getDaysInMonth, isSameDay, toDateString, formatDate } from "../lib/dateUtils";
+import { isSameDay, toDateString, formatDate } from "../lib/dateUtils";
 import type { Shift, ShiftStatus } from "../types";
 import clsx from "clsx";
-
-const STATUS_DOT_COLORS: Record<ShiftStatus, string> = {
-  ASSIGNED: "bg-shift-assigned",
-  ADDITIONAL: "bg-shift-additional",
-  AVAILABLE: "bg-shift-available",
-};
 
 const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
   { value: "ASSIGNED", label: "Assigned" },
   { value: "ADDITIONAL", label: "Additional" },
   { value: "AVAILABLE", label: "Available" },
 ];
+
+const LEGEND = [
+  { label: "Assigned", color: "bg-indigo-500" },
+  { label: "Additional", color: "bg-emerald-500" },
+  { label: "Available", color: "bg-gray-400" },
+  { label: "Approved holiday", color: "bg-red-400" },
+  { label: "Requested holiday", color: "bg-amber-400" },
+];
+
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function getShiftDotColor(status: ShiftStatus): string {
+  switch (status) {
+    case "ASSIGNED": return "bg-indigo-500";
+    case "ADDITIONAL": return "bg-emerald-500";
+    case "AVAILABLE": return "bg-gray-400";
+  }
+}
 
 interface ShiftEditForm {
   startTime: string;
@@ -82,7 +93,6 @@ export function CalendarPage() {
   const shifts = isManager ? allShifts : myShifts;
   const isLoading = isManager ? allLoading : myLoading;
 
-  const days = useMemo(() => getDaysInMonth(year, month), [year, month]);
   const startPadding = (firstDay.getDay() + 6) % 7;
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
@@ -90,12 +100,13 @@ export function CalendarPage() {
 
   const getShiftsForDay = (day: Date) => shifts?.filter((s) => isSameDay(s.date, day)) || [];
   const getHolidaysForDay = (day: Date) => holidays?.filter((h) => isSameDay(h.date, day)) || [];
-  const isHolidayDay = (day: Date) => holidays?.some((h) => isSameDay(h.date, day)) || false;
 
   const today = new Date();
+  const monthLabel = currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
   const handleDayClick = (day: Date, dayShifts: Shift[]) => {
-    if (dayShifts.length > 0 || isHolidayDay(day)) {
+    const dayHolidays = getHolidaysForDay(day);
+    if (dayShifts.length > 0 || dayHolidays.length > 0) {
       setSelectedShifts(dayShifts);
       setSelectedDay(day);
     }
@@ -133,140 +144,190 @@ export function CalendarPage() {
     ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
   ];
 
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // Build week grid for desktop
+  const weeks = useMemo(() => {
+    const cells: (number | null)[] = [];
+    for (let i = 0; i < startPadding; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    while (cells.length % 7 !== 0) cells.push(null);
+    const result: (number | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) result.push(cells.slice(i, i + 7));
+    return result;
+  }, [startPadding, daysInMonth]);
+
   return (
     <>
-      <TopBar title="Calendar" />
-      <div className="p-4 md:p-6">
-        <Card padding={false}>
-          <div className="flex items-center justify-between px-5 py-4 border-b">
-            <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-gray-100">
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <div className="flex items-center gap-3">
-              <h2 className="text-base font-semibold">
-                {currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-              </h2>
-              {isManager && locations && locations.length > 0 && (
+      <TopBar title="Calendar" subtitle="Rota & holiday overview" />
+      <div className="p-4 md:p-7 max-w-[1400px]">
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={prevMonth}
+                className="w-[30px] h-[30px] rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 text-gray-600"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="text-base font-bold text-gray-900 min-w-[150px] text-center">
+                {monthLabel}
+              </div>
+              <button
+                onClick={nextMonth}
+                className="w-[30px] h-[30px] rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 text-gray-600"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+            {isManager && locations && locations.length > 0 && (
+              <div className="relative">
                 <select
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
-                  className="text-xs border rounded-lg px-2 py-1.5 text-gray-600 bg-white"
+                  className="appearance-none px-3 py-2 pr-8 border border-gray-200 rounded-lg text-[13px] text-gray-800 bg-white cursor-pointer outline-none"
                 >
                   {locationOptions.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
-              )}
-            </div>
-            <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-gray-100">
-              <ChevronRight className="h-5 w-5" />
-            </button>
+                <ChevronRight className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 rotate-90 pointer-events-none" />
+              </div>
+            )}
           </div>
 
           {isLoading ? (
-            <div className="flex justify-center py-12">
+            <div className="flex justify-center py-16">
               <Spinner />
             </div>
           ) : (
-            <div className="p-2">
-              <div className="grid grid-cols-7 text-center text-xs font-medium text-gray-500 mb-1">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
-                  <div key={d} className="py-2">{d}</div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-7">
-                {Array.from({ length: startPadding }).map((_, i) => (
-                  <div key={`pad-${i}`} className="p-1 min-h-[60px]" />
-                ))}
-                {days.map((day) => {
+            <>
+              {/* Mobile agenda view */}
+              <div className="md:hidden px-5 py-2">
+                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((dayNum) => {
+                  const day = new Date(year, month, dayNum);
                   const dayShifts = getShiftsForDay(day);
                   const dayHolidays = getHolidaysForDay(day);
                   const isToday = isSameDay(day, today);
                   const hasApprovedHoliday = dayHolidays.some((h) => h.status === "APPROVED");
-                  const hasPendingHoliday = dayHolidays.some((h) => h.status === "PENDING");
-                  const hasHoliday = dayHolidays.length > 0;
+                  const wd = WEEKDAYS[(day.getDay() + 6) % 7];
+
                   return (
                     <div
-                      key={day.toISOString()}
+                      key={dayNum}
                       className={clsx(
-                        "p-1 min-h-[60px] border border-gray-50 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors",
-                        isToday && "bg-blue-50",
-                        hasApprovedHoliday && !isToday && "bg-red-50",
-                        hasPendingHoliday && !hasApprovedHoliday && !isToday && "bg-yellow-50",
+                        "py-2.5 border-t border-gray-100 cursor-pointer",
+                        hasApprovedHoliday && "bg-red-50 -mx-5 px-5",
                       )}
                       onClick={() => handleDayClick(day, dayShifts)}
                     >
-                      <span
-                        className={clsx(
-                          "text-xs font-medium",
-                          isToday ? "text-blue-600" : hasApprovedHoliday ? "text-red-600" : hasPendingHoliday ? "text-yellow-600" : "text-gray-700",
-                        )}
-                      >
-                        {day.getDate()}
-                      </span>
-                      {isManager && dayHolidays.length > 0 && (
-                        <div className="space-y-px">
-                          {dayHolidays.slice(0, 2).map((h) => (
-                            <div
-                              key={h.id}
-                              className={clsx(
-                                "text-[9px] font-medium leading-tight truncate",
-                                h.status === "APPROVED" ? "text-red-500" : "text-yellow-600",
-                              )}
-                            >
-                              {h.user ? `${h.user.firstName}` : "Holiday"} {h.status === "PENDING" ? "⏳" : ""}
+                      <div className="flex items-baseline gap-2">
+                        <span className={clsx(
+                          "text-sm font-bold min-w-[20px]",
+                          isToday ? "text-indigo-600" : hasApprovedHoliday ? "text-red-500" : "text-gray-900"
+                        )}>
+                          {dayNum}
+                        </span>
+                        <span className="text-xs text-gray-500">{wd}</span>
+                      </div>
+                      {(dayShifts.length > 0 || dayHolidays.length > 0) && (
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {dayHolidays.map((h) => (
+                            <div key={h.id} className="flex items-center gap-1.5 text-xs text-gray-600">
+                              <span className={clsx(
+                                "w-1.5 h-1.5 rounded-full",
+                                h.status === "APPROVED" ? "bg-red-400" : "bg-amber-400",
+                              )} />
+                              {h.user ? h.user.firstName : "Holiday"}
                             </div>
                           ))}
-                          {dayHolidays.length > 2 && (
-                            <div className="text-[8px] text-gray-400">+{dayHolidays.length - 2} more</div>
-                          )}
+                          {dayShifts.slice(0, 3).map((s) => (
+                            <span key={s.id} className={clsx("w-1.5 h-1.5 rounded-full", getShiftDotColor(s.status))} />
+                          ))}
                         </div>
                       )}
-                      {!isManager && hasHoliday && (
-                        <div className="text-[9px] text-red-500 font-medium leading-tight">Holiday</div>
-                      )}
-                      <div className="flex flex-wrap gap-0.5 mt-0.5">
-                        {dayShifts.slice(0, 4).map((s) => (
-                          <div
-                            key={s.id}
-                            className={clsx("h-2 w-2 rounded-full", STATUS_DOT_COLORS[s.status])}
-                            title={`${s.user ? `${s.user.firstName} ` : ""}${s.startTime}-${s.endTime}${s.location ? ` · ${s.location}` : ""}`}
-                          />
-                        ))}
-                        {dayShifts.length > 4 && (
-                          <span className="text-[8px] text-gray-400">+{dayShifts.length - 4}</span>
-                        )}
-                      </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
+
+              {/* Desktop grid view */}
+              <div className="hidden md:block">
+                <div className="grid grid-cols-7 border-b border-gray-200">
+                  {WEEKDAYS.map((wd) => (
+                    <div key={wd} className="py-2.5 text-center text-xs font-semibold text-gray-500">
+                      {wd}
+                    </div>
+                  ))}
+                </div>
+                {weeks.map((week, wi) => (
+                  <div key={wi} className="grid grid-cols-7 border-b border-gray-100 last:border-0">
+                    {week.map((dayNum, di) => {
+                      if (!dayNum) {
+                        return <div key={`empty-${di}`} className="p-2.5 min-h-[80px] bg-white" />;
+                      }
+                      const day = new Date(year, month, dayNum);
+                      const dayShifts = getShiftsForDay(day);
+                      const dayHolidays = getHolidaysForDay(day);
+                      const isToday = isSameDay(day, today);
+                      const hasApprovedHoliday = dayHolidays.some((h) => h.status === "APPROVED");
+                      const hasPendingHoliday = dayHolidays.some((h) => h.status === "PENDING");
+
+                      let bg = "bg-white";
+                      if (isToday) bg = "bg-indigo-50/60";
+                      if (hasApprovedHoliday) bg = "bg-red-50/80";
+
+                      return (
+                        <div
+                          key={dayNum}
+                          className={clsx(
+                            "p-2.5 min-h-[80px] border-l border-gray-100 first:border-l-0 cursor-pointer hover:bg-gray-50/50 transition-colors",
+                            bg,
+                          )}
+                          onClick={() => handleDayClick(day, dayShifts)}
+                        >
+                          <div className={clsx(
+                            "text-[13px]",
+                            isToday ? "font-bold text-indigo-600" : hasApprovedHoliday ? "font-bold text-red-500" : "font-medium text-gray-800",
+                          )}>
+                            {dayNum}
+                          </div>
+                          {dayHolidays.slice(0, 1).map((h) => (
+                            <div key={h.id} className="text-[11.5px] font-semibold text-red-500 mt-0.5">
+                              {h.user ? h.user.firstName : "Holiday"}
+                            </div>
+                          ))}
+                          <div className="flex gap-1 mt-1">
+                            {dayShifts.slice(0, 4).map((s) => (
+                              <span key={s.id} className={clsx("w-1.5 h-1.5 rounded-full", getShiftDotColor(s.status))} />
+                            ))}
+                            {hasPendingHoliday && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
-          <div className="border-t px-5 py-3 flex flex-wrap gap-3">
-            {Object.entries(STATUS_DOT_COLORS)
-              .map(([status, color]) => (
-              <div key={status} className="flex items-center gap-1.5">
-                <div className={clsx("h-2.5 w-2.5 rounded-full", color)} />
-                <span className="text-xs text-gray-500 capitalize">{status.toLowerCase().replace("_", " ")}</span>
+          {/* Legend */}
+          <div className="flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
+            {LEGEND.map((l) => (
+              <div key={l.label} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
+                <span className={clsx("w-2 h-2 rounded-full shrink-0", l.color)} />
+                {l.label}
               </div>
             ))}
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-red-300" />
-              <span className="text-xs text-gray-500">Approved holiday</span>
-            </div>
-            {isManager && (
-              <div className="flex items-center gap-1.5">
-                <div className="h-2.5 w-2.5 rounded-full bg-yellow-300" />
-                <span className="text-xs text-gray-500">Requested holiday</span>
-              </div>
-            )}
           </div>
-        </Card>
+        </div>
       </div>
 
+      {/* Shift details modal */}
       <Modal
         open={!!selectedShifts}
         onClose={() => { setSelectedShifts(null); setSelectedDay(null); }}
@@ -330,10 +391,11 @@ export function CalendarPage() {
         )}
       </Modal>
 
+      {/* Edit shift modal */}
       {isManager && (
         <Modal open={!!editingShift} onClose={() => setEditingShift(null)} title="Edit Shift">
-          <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+          <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
               <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
             </div>
@@ -352,12 +414,12 @@ export function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                className="text-[13px] text-indigo-600 hover:text-indigo-800 font-semibold"
               >
                 {showAdvanced ? "Hide Advanced" : "Advanced"}
               </button>
               {showAdvanced && (
-                <div className="mt-2">
+                <div className="mt-3">
                   <Select
                     id="status"
                     label="Status"
@@ -367,19 +429,18 @@ export function CalendarPage() {
                 </div>
               )}
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
               <Button
                 variant="danger"
                 type="button"
-                size="sm"
                 onClick={() => {
                   deleteShift.mutate(editingShift!.id);
                   setEditingShift(null);
                 }}
               >
-                <Trash2 className="h-4 w-4 mr-1" /> Delete
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
               </Button>
-              <div className="flex gap-2">
+              <div className="flex gap-2.5">
                 <Button variant="secondary" type="button" onClick={() => setEditingShift(null)}>Cancel</Button>
                 <Button type="submit" loading={updateShift.isPending}>Save</Button>
               </div>

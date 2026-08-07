@@ -165,7 +165,7 @@ export function HolidaysPage() {
       </div>
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Request Holiday">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Input id="date" label="Start Date" type="date" {...register("date", { required: true })} />
           <Select
             id="days"
@@ -179,15 +179,15 @@ export function HolidaysPage() {
             ]}
             {...register("days")}
           />
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Reason (optional)</label>
+          <div className="space-y-1.5">
+            <label className="block text-[13px] font-semibold text-gray-700">Reason (optional)</label>
             <textarea
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full rounded-lg border border-gray-300 px-3 py-[9px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               rows={3}
               {...register("reason")}
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setShowForm(false)}>Cancel</Button>
             <Button type="submit" loading={requestMutation.isPending}>Submit</Button>
           </div>
@@ -195,13 +195,12 @@ export function HolidaysPage() {
       </Modal>
 
       <Modal open={!!editingHoliday} onClose={() => setEditingHoliday(null)} title="Edit Holiday">
-        <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+        <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="flex flex-col gap-4">
           <Input id="editDate" label="Date" type="date" {...editForm.register("date", { required: true })} />
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Reason</label>
+          <div className="space-y-1.5">
+            <label className="block text-[13px] font-semibold text-gray-700">Reason</label>
             <textarea
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              rows={3}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-[9px] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[70px] resize-y"
               {...editForm.register("reason")}
             />
           </div>
@@ -218,11 +217,11 @@ export function HolidaysPage() {
             />
           </RoleGate>
           {editingHoliday?.user && (
-            <p className="text-xs text-gray-400">
+            <p className="text-[13px] text-gray-500">
               {editingHoliday.user.firstName} {editingHoliday.user.lastName}
             </p>
           )}
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setEditingHoliday(null)}>Cancel</Button>
             <Button type="submit" loading={updateMutation.isPending}>Save</Button>
           </div>

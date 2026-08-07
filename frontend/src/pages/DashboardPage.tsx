@@ -22,7 +22,7 @@ export function DashboardPage() {
   const nextShift = upcomingShifts[0];
 
   const quickActions = [
-    { label: "Calendar", icon: Calendar, to: "/calendar", color: "bg-blue-50 text-blue-600" },
+    { label: "Calendar", icon: Calendar, to: "/calendar", color: "bg-indigo-50 text-indigo-600" },
     { label: "My Shifts", icon: Clock, to: "/my-shifts", color: "bg-green-50 text-green-600" },
     { label: "Shift Pot", icon: ShoppingBag, to: "/shift-pot", color: "bg-purple-50 text-purple-600" },
     { label: "Holidays", icon: Palmtree, to: "/holidays", color: "bg-amber-50 text-amber-600" },
@@ -73,8 +73,8 @@ export function DashboardPage() {
           <Card>
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Next Shift</h3>
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-blue-600" />
+              <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-indigo-600" />
               </div>
               <div>
                 <p className="font-medium text-gray-900">

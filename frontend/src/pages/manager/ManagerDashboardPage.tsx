@@ -274,8 +274,8 @@ export function ManagerDashboardPage() {
                       <td className="px-5 py-[13px] text-right text-gray-800">{emp.totalShifts}</td>
                       <td className="px-5 py-[13px] text-right text-gray-800 font-semibold">{emp.totalHours}h</td>
                       <td className="px-5 py-[13px] text-right">
-                        {emp.additionalCount > 0
-                          ? <span className="text-amber-600 font-medium">+{emp.additionalCount}h</span>
+                        {emp.additionalHours > 0
+                          ? <span className="text-amber-600 font-medium">+{emp.additionalHours}h</span>
                           : <span className="text-gray-400">&mdash;</span>}
                       </td>
                       <td className="px-5 py-[13px] text-right text-gray-800">{emp.holidaysUsed}</td>
@@ -301,7 +301,7 @@ export function ManagerDashboardPage() {
                   <div className="flex gap-[18px] mt-[10px] text-[12.5px] text-gray-500">
                     <div><span className="text-gray-900 font-semibold">{emp.totalShifts}</span> shifts</div>
                     <div><span className="text-gray-900 font-semibold">{emp.totalHours}h</span></div>
-                    {emp.additionalCount > 0 && <div className="text-amber-600">+{emp.additionalCount}h</div>}
+                    {emp.additionalHours > 0 && <div className="text-amber-600">+{emp.additionalHours}h</div>}
                     <div><span className="text-gray-900 font-semibold">{emp.holidaysUsed}</span> hol.</div>
                   </div>
                 </div>
@@ -354,7 +354,7 @@ export function ManagerDashboardPage() {
               { onSuccess: () => { setShowAddShift(false); shiftForm.reset(); } },
             );
           })}
-          className="space-y-4"
+          className="flex flex-col gap-4"
         >
           <Select
             id="userId"
@@ -369,7 +369,7 @@ export function ManagerDashboardPage() {
             {...shiftForm.register("userId", { required: true })}
           />
           <Input id="date" label="Date" type="date" {...shiftForm.register("date", { required: true })} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
             <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
           </div>
@@ -383,7 +383,7 @@ export function ManagerDashboardPage() {
             {...shiftForm.register("location")}
           />
           <Input id="notes" label="Notes (optional)" {...shiftForm.register("notes")} />
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setShowAddShift(false)}>Cancel</Button>
             <Button type="submit" loading={createAdditionalShift.isPending}>Create</Button>
           </div>

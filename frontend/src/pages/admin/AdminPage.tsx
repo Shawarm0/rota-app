@@ -118,13 +118,13 @@ export function AdminPage() {
       </div>
 
       <Modal open={showCreateManager} onClose={() => setShowCreateManager(false)} title="Add Manager">
-        <form onSubmit={managerForm.handleSubmit(onCreateManager)} className="space-y-4">
+        <form onSubmit={managerForm.handleSubmit(onCreateManager)} className="flex flex-col gap-4">
           <Input id="mFirstName" label="First Name" {...managerForm.register("firstName", { required: true })} />
           <Input id="mLastName" label="Last Name" {...managerForm.register("lastName", { required: true })} />
           <Input id="mEmail" label="Email" type="email" {...managerForm.register("email", { required: true })} />
           <Input id="mPassword" label="Password" type="password" {...managerForm.register("password", { required: true, minLength: 8 })} />
           <Input id="mBusinessId" label="Business ID" {...managerForm.register("businessId", { required: true })} />
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setShowCreateManager(false)}>Cancel</Button>
             <Button type="submit" loading={createUser.isPending}>Create</Button>
           </div>

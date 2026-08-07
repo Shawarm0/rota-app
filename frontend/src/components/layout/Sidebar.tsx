@@ -22,7 +22,7 @@ import clsx from "clsx";
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   clsx(
     "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] font-medium transition-colors",
-    isActive ? "bg-violet-50 text-violet-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+    isActive ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
   );
 
 export function Sidebar() {
@@ -32,7 +32,7 @@ export function Sidebar() {
   return (
     <aside className="flex h-screen w-56 flex-col border-r border-gray-200 bg-white">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
-        <div className="h-7 w-7 rounded-md bg-violet-600 flex items-center justify-center">
+        <div className="h-7 w-7 rounded-md bg-indigo-600 flex items-center justify-center">
           <Clock className="h-4 w-4 text-white" />
         </div>
         <span className="text-base font-bold text-gray-900">Rota</span>

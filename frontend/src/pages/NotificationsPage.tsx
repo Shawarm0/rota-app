@@ -43,7 +43,7 @@ export function NotificationsPage() {
                 key={n.id}
                 className={clsx(
                   "cursor-pointer transition-colors",
-                  !n.read && "border-l-4 border-l-blue-500 bg-blue-50/50",
+                  !n.read && "border-l-4 border-l-indigo-500 bg-indigo-50/50",
                 )}
                 onClick={() => {
                   if (!n.read) markRead.mutate(n.id);

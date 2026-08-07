@@ -23,6 +23,7 @@ export interface EmployeeSummary {
   totalHours: number;
   assignedCount: number;
   additionalCount: number;
+  additionalHours: number;
   holidaysUsed: number;
 }
 

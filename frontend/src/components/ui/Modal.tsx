@@ -47,19 +47,19 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
     >
       <div
         className={clsx(
-          "w-full max-w-lg rounded-lg bg-white shadow-xl animate-in fade-in zoom-in-95 duration-200",
+          "w-full max-w-[480px] rounded-xl bg-white border border-gray-200 shadow-[0_8px_30px_rgba(0,0,0,0.08)] animate-in fade-in zoom-in-95 duration-200",
           className,
         )}
       >
         {title && (
-          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-            <h2 className="text-sm font-semibold">{title}</h2>
+          <div className="flex items-center justify-between border-b border-gray-200 px-[22px] py-[18px]">
+            <h2 className="text-base font-bold text-gray-900">{title}</h2>
             <button onClick={onClose} className="rounded-md p-1 hover:bg-gray-100 transition-colors">
-              <X className="h-4 w-4 text-gray-500" />
+              <X className="h-[22px] w-[22px] text-gray-400" />
             </button>
           </div>
         )}
-        <div className="p-4">{children}</div>
+        <div className="px-[22px] py-[22px]">{children}</div>
       </div>
     </div>,
     document.body,

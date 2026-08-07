@@ -91,14 +91,19 @@ export async function getEmployeeSummaries(businessId: string) {
     let totalHours = 0;
     let assignedCount = 0;
     let additionalCount = 0;
+    let additionalHours = 0;
 
     for (const shift of emp.shifts) {
       const [startH, startM] = shift.startTime.split(":").map(Number);
       const [endH, endM] = shift.endTime.split(":").map(Number);
-      totalHours += endH - startH + (endM - startM) / 60;
+      const hours = endH - startH + (endM - startM) / 60;
+      totalHours += hours;
 
       if (shift.status === "ASSIGNED") assignedCount++;
-      else if (shift.status === "ADDITIONAL") additionalCount++;
+      else if (shift.status === "ADDITIONAL") {
+        additionalCount++;
+        additionalHours += hours;
+      }
     }
 
     return {
@@ -110,6 +115,7 @@ export async function getEmployeeSummaries(businessId: string) {
       totalHours: Math.round(totalHours * 10) / 10,
       assignedCount,
       additionalCount,
+      additionalHours: Math.round(additionalHours * 10) / 10,
       holidaysUsed: emp.holidayRequests.length,
     };
   });
