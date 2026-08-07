@@ -522,9 +522,13 @@ export function RotaBuilderPage() {
 
       <Modal open={!!editingShift} onClose={() => setEditingShift(null)} title={editingShift?.shift ? "Edit Shift" : "Add Shift"}>
         <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
-            <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
+          <div className="flex gap-4">
+            <div className="flex-1 min-w-0">
+              <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
+            </div>
           </div>
           <Select id="userId" label="Employee" options={employeeOptions} {...shiftForm.register("userId")} />
           <Select

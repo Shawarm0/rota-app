@@ -372,9 +372,13 @@ export function ManagerDashboardPage() {
             {...shiftForm.register("userId", { required: true })}
           />
           <Input id="date" label="Date" type="date" {...shiftForm.register("date", { required: true })} />
-          <div className="grid grid-cols-2 gap-4">
-            <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
-            <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
+          <div className="flex gap-4">
+            <div className="flex-1 min-w-0">
+              <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
+            </div>
           </div>
           <Select
             id="location"
