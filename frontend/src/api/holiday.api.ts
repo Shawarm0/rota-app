@@ -1,8 +1,8 @@
 import client from "./client";
 import type { HolidayRequest } from "../types";
 
-export async function requestHoliday(input: { date: string; shiftId?: string; reason?: string }): Promise<HolidayRequest> {
-  const { data } = await client.post<HolidayRequest>("/holidays", input);
+export async function requestHoliday(input: { date: string; days?: number; shiftId?: string; reason?: string }): Promise<HolidayRequest[]> {
+  const { data } = await client.post<HolidayRequest[]>("/holidays", input);
   return data;
 }
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const createHolidaySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  days: z.number().int().min(1).max(5).optional(),
   shiftId: z.string().optional().nullable(),
   reason: z.string().optional().nullable(),
 });

@@ -4,6 +4,7 @@ import { TopBar } from "../components/layout/TopBar";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
+import { Select } from "../components/ui/Select";
 import { Badge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
 import { Spinner } from "../components/ui/Spinner";
@@ -23,6 +24,7 @@ const statusVariants: Record<HolidayStatus, "yellow" | "green" | "red" | "gray">
 
 interface HolidayForm {
   date: string;
+  days: string;
   reason: string;
 }
 
@@ -45,8 +47,9 @@ export function HolidaysPage() {
   const editForm = useForm<EditHolidayForm>();
 
   const onSubmit = (data: HolidayForm) => {
+    const days = parseInt(data.days) || 1;
     requestMutation.mutate(
-      { date: data.date, reason: data.reason || undefined },
+      { date: data.date, days, reason: data.reason || undefined },
       { onSuccess: () => { setShowForm(false); reset(); } },
     );
   };
@@ -156,7 +159,19 @@ export function HolidaysPage() {
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Request Holiday">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Input id="date" label="Date" type="date" {...register("date", { required: true })} />
+          <Input id="date" label="Start Date" type="date" {...register("date", { required: true })} />
+          <Select
+            id="days"
+            label="Number of Days"
+            options={[
+              { value: "1", label: "1 day" },
+              { value: "2", label: "2 days" },
+              { value: "3", label: "3 days" },
+              { value: "4", label: "4 days" },
+              { value: "5", label: "5 days" },
+            ]}
+            {...register("days")}
+          />
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">Reason (optional)</label>
             <textarea

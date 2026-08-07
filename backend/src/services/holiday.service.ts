@@ -1,29 +1,44 @@
 import prisma from "../lib/db.js";
 import { AppError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 
-export async function requestHoliday(userId: string, data: { date: string; shiftId?: string | null; reason?: string | null }) {
+export async function requestHoliday(userId: string, data: { date: string; days?: number; shiftId?: string | null; reason?: string | null }) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { businessId: true, firstName: true, lastName: true } });
   if (!user) throw new NotFoundError("User");
 
-  const existing = await prisma.holidayRequest.findFirst({
-    where: { userId, date: new Date(data.date), status: { in: ["PENDING", "APPROVED"] } },
-  });
-  if (existing) {
-    throw new AppError(400, "You already have a holiday request for this date");
+  const numDays = data.days || 1;
+  const startDate = new Date(data.date);
+  const dates: Date[] = [];
+  for (let i = 0; i < numDays; i++) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    dates.push(d);
   }
 
-  const request = await prisma.holidayRequest.create({
-    data: {
-      userId,
-      date: new Date(data.date),
-      shiftId: data.shiftId || null,
-      reason: data.reason || null,
-    },
-    include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
-      shift: true,
-    },
-  });
+  for (const date of dates) {
+    const existing = await prisma.holidayRequest.findFirst({
+      where: { userId, date, status: { in: ["PENDING", "APPROVED"] } },
+    });
+    if (existing) {
+      throw new AppError(400, `You already have a holiday request for ${date.toISOString().split("T")[0]}`);
+    }
+  }
+
+  const requests: Awaited<ReturnType<typeof prisma.holidayRequest.create>>[] = [];
+  for (const date of dates) {
+    const request = await prisma.holidayRequest.create({
+      data: {
+        userId,
+        date,
+        shiftId: data.shiftId || null,
+        reason: data.reason || null,
+      },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true } },
+        shift: true,
+      },
+    });
+    requests.push(request);
+  }
 
   const managers = await prisma.user.findMany({
     where: { businessId: user.businessId, role: "MANAGER", active: true },
@@ -31,17 +46,20 @@ export async function requestHoliday(userId: string, data: { date: string; shift
   });
 
   if (managers.length > 0) {
+    const dateRange = numDays === 1
+      ? data.date
+      : `${data.date} to ${dates[dates.length - 1].toISOString().split("T")[0]}`;
     await prisma.notification.createMany({
       data: managers.map((m) => ({
         userId: m.id,
         title: "Holiday Request",
-        body: `${user.firstName} ${user.lastName} requested holiday on ${data.date}.`,
-        data: { type: "HOLIDAY_REQUEST", holidayRequestId: request.id },
+        body: `${user.firstName} ${user.lastName} requested ${numDays} day${numDays > 1 ? "s" : ""} holiday (${dateRange}).`,
+        data: { type: "HOLIDAY_REQUEST", holidayRequestId: requests[0].id },
       })),
     });
   }
 
-  return request;
+  return requests;
 }
 
 export async function approveHoliday(requestId: string) {

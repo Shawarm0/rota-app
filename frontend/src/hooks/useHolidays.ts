@@ -20,9 +20,10 @@ export function useRequestHoliday() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: holidayApi.requestHoliday,
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["holidays"] });
-      toast("Holiday request submitted", "success");
+      const count = Array.isArray(data) ? data.length : 1;
+      toast(`${count} holiday request${count > 1 ? "s" : ""} submitted`, "success");
     },
     onError: (err: any) => {
       const msg = err.response?.data?.error?.message || "Failed to request holiday";
