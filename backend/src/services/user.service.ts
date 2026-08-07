@@ -131,6 +131,28 @@ export async function enableUser(id: string) {
   });
 }
 
+export async function deleteUser(id: string, callerRole: Role) {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new NotFoundError("User");
+  if (callerRole !== "SYSTEM_ADMIN") {
+    throw new ForbiddenError("Only system admins can delete users");
+  }
+  if (user.role === "SYSTEM_ADMIN") {
+    throw new ForbiddenError("Cannot delete a system admin");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.notification.deleteMany({ where: { userId: id } });
+    await tx.pushToken.deleteMany({ where: { userId: id } });
+    await tx.auditLog.deleteMany({ where: { userId: id } });
+    await tx.session.deleteMany({ where: { userId: id } });
+    await tx.swapRequest.deleteMany({ where: { OR: [{ requesterId: id }, { acceptorId: id }] } });
+    await tx.holidayRequest.deleteMany({ where: { userId: id } });
+    await tx.shift.updateMany({ where: { userId: id }, data: { userId: null, status: "AVAILABLE" } });
+    await tx.user.delete({ where: { id } });
+  });
+}
+
 export async function resetPassword(id: string, newPassword: string) {
   const passwordHash = await hashPassword(newPassword);
   await prisma.user.update({

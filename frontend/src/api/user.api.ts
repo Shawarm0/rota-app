@@ -44,6 +44,10 @@ export async function resetPassword(id: string, newPassword: string) {
   return data;
 }
 
+export async function deleteUser(id: string) {
+  await client.delete(`/users/${id}`);
+}
+
 export async function changePassword(currentPassword: string, newPassword: string) {
   const { data } = await client.post("/users/change-password", { currentPassword, newPassword });
   return data;

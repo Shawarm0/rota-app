@@ -7,8 +7,8 @@ import { Input } from "../../components/ui/Input";
 import { Modal } from "../../components/ui/Modal";
 import { Badge } from "../../components/ui/Badge";
 import { Spinner } from "../../components/ui/Spinner";
-import { useUsers, useCreateUser } from "../../hooks/useUsers";
-import { Plus, Users } from "lucide-react";
+import { useUsers, useCreateUser, useDeleteUser } from "../../hooks/useUsers";
+import { Plus, Users, Trash2 } from "lucide-react";
 
 interface CreateManagerForm {
   email: string;
@@ -21,6 +21,7 @@ interface CreateManagerForm {
 export function AdminPage() {
   const { data: managers, isLoading: managersLoading } = useUsers("MANAGER");
   const createUser = useCreateUser();
+  const deleteUser = useDeleteUser();
   const [showCreateManager, setShowCreateManager] = useState(false);
   const managerForm = useForm<CreateManagerForm>();
 
@@ -57,6 +58,17 @@ export function AdminPage() {
                   <Badge variant={m.active ? "green" : "red"}>
                     {m.active ? "Active" : "Disabled"}
                   </Badge>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete ${m.firstName} ${m.lastName}? This cannot be undone.`)) {
+                        deleteUser.mutate(m.id);
+                      }
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-red-50"
+                    title="Delete user"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </button>
                 </div>
               ))}
             </div>

@@ -55,6 +55,21 @@ export function useEnableUser() {
   });
 }
 
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: userApi.deleteUser,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      toast("User deleted", "success");
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || "Failed to delete user";
+      toast(msg, "error");
+    },
+  });
+}
+
 export function useResetPassword() {
   return useMutation({
     mutationFn: ({ id, newPassword }: { id: string; newPassword: string }) =>

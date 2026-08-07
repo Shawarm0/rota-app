@@ -9,8 +9,9 @@ import { Modal } from "../../components/ui/Modal";
 import { Badge } from "../../components/ui/Badge";
 import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { useUsers, useCreateUser, useDisableUser, useEnableUser, useResetPassword, useUpdateUser } from "../../hooks/useUsers";
+import { useUsers, useCreateUser, useDisableUser, useEnableUser, useResetPassword, useUpdateUser, useDeleteUser } from "../../hooks/useUsers";
 import { useLocations, useCreateLocation, useDeleteLocation } from "../../hooks/useLocations";
+import { useAuthStore } from "../../stores/authStore";
 import { Users, Plus, UserX, UserCheck, KeyRound, MapPin, Trash2 } from "lucide-react";
 
 interface CreateEmployeeForm {
@@ -22,6 +23,7 @@ interface CreateEmployeeForm {
 }
 
 export function EmployeesPage() {
+  const currentUser = useAuthStore((s) => s.user);
   const { data: users, isLoading } = useUsers("EMPLOYEE");
   const { data: locations } = useLocations();
   const createUser = useCreateUser();
@@ -29,6 +31,7 @@ export function EmployeesPage() {
   const disableUser = useDisableUser();
   const enableUser = useEnableUser();
   const resetPassword = useResetPassword();
+  const deleteUserMut = useDeleteUser();
   const createLocation = useCreateLocation();
   const deleteLocation = useDeleteLocation();
   const [showCreate, setShowCreate] = useState(false);
@@ -140,6 +143,19 @@ export function EmployeesPage() {
                       title="Enable"
                     >
                       <UserCheck className="h-4 w-4 text-green-500" />
+                    </button>
+                  )}
+                  {currentUser?.role === "SYSTEM_ADMIN" && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`)) {
+                          deleteUserMut.mutate(user.id);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-red-50"
+                      title="Delete user"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
                     </button>
                   )}
                 </div>

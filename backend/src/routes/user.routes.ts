@@ -43,6 +43,13 @@ router.post(
   userController.enableUser,
 );
 
+router.delete(
+  "/:id",
+  authorize("SYSTEM_ADMIN"),
+  auditLog("DELETE", "User"),
+  userController.deleteUser,
+);
+
 router.post(
   "/:id/reset-password",
   authorize("MANAGER", "SYSTEM_ADMIN"),

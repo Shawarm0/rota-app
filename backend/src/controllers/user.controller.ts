@@ -71,6 +71,15 @@ export const resetPassword: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const deleteUser: RequestHandler = async (req, res, next) => {
+  try {
+    await userService.deleteUser(param(req, "id"), req.user!.role);
+    res.json({ message: "User deleted" });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const changePassword: RequestHandler = async (req, res, next) => {
   try {
     await userService.changePassword(req.user!.userId, req.body.currentPassword, req.body.newPassword);
