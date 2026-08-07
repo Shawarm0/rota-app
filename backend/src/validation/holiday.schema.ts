@@ -10,6 +10,7 @@ export const createHolidaySchema = z.object({
 export const updateHolidaySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   reason: z.string().nullable().optional(),
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
 });
 
 export const rejectHolidaySchema = z.object({

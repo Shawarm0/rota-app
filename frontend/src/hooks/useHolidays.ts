@@ -36,12 +36,27 @@ export function useApproveHoliday() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: holidayApi.approveHoliday,
-    onSuccess: () => {
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ["holidays", "PENDING"] });
+      const prev = qc.getQueryData<any[]>(["holidays", "PENDING"]);
+      if (prev) {
+        qc.setQueryData(["holidays", "PENDING"], prev.filter((h: any) => h.id !== id));
+      }
+      return { prev };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["holidays", "PENDING"], ctx.prev);
+      toast("Failed to approve holiday", "error");
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["holidays"] });
+      qc.invalidateQueries({ queryKey: ["approvedHolidays"] });
       qc.invalidateQueries({ queryKey: ["availableShifts"] });
       qc.invalidateQueries({ queryKey: ["shiftsToCover"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["allShifts"] });
+    },
+    onSuccess: () => {
       toast("Holiday approved", "success");
     },
   });
@@ -52,8 +67,23 @@ export function useRejectHoliday() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       holidayApi.rejectHoliday(id, reason),
-    onSuccess: () => {
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ["holidays", "PENDING"] });
+      const prev = qc.getQueryData<any[]>(["holidays", "PENDING"]);
+      if (prev) {
+        qc.setQueryData(["holidays", "PENDING"], prev.filter((h: any) => h.id !== id));
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["holidays", "PENDING"], ctx.prev);
+      toast("Failed to reject holiday", "error");
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["holidays"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onSuccess: () => {
       toast("Holiday rejected", "success");
     },
   });
@@ -62,11 +92,14 @@ export function useRejectHoliday() {
 export function useUpdateHoliday() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { date?: string; reason?: string | null } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { date?: string; reason?: string | null; status?: string } }) =>
       holidayApi.updateHoliday(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["holidays"] });
       qc.invalidateQueries({ queryKey: ["approvedHolidays"] });
+      qc.invalidateQueries({ queryKey: ["availableShifts"] });
+      qc.invalidateQueries({ queryKey: ["shiftsToCover"] });
+      qc.invalidateQueries({ queryKey: ["allShifts"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       toast("Holiday updated", "success");
     },

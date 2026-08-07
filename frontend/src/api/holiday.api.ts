@@ -26,7 +26,7 @@ export async function cancelHoliday(id: string) {
   return data;
 }
 
-export async function updateHoliday(id: string, input: { date?: string; reason?: string | null }): Promise<HolidayRequest> {
+export async function updateHoliday(id: string, input: { date?: string; reason?: string | null; status?: string }): Promise<HolidayRequest> {
   const { data } = await client.patch<HolidayRequest>(`/holidays/${id}`, input);
   return data;
 }

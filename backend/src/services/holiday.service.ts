@@ -142,7 +142,7 @@ export async function cancelHoliday(requestId: string, userId: string) {
   });
 }
 
-export async function updateHoliday(requestId: string, data: { date?: string; reason?: string | null }) {
+export async function updateHoliday(requestId: string, data: { date?: string; reason?: string | null; status?: "PENDING" | "APPROVED" | "REJECTED" }) {
   const request = await prisma.holidayRequest.findUnique({ where: { id: requestId } });
   if (!request) throw new NotFoundError("Holiday request");
 
@@ -173,11 +173,39 @@ export async function updateHoliday(requestId: string, data: { date?: string; re
     }
   }
 
+  const effectiveDate = data.date ? new Date(data.date) : request.date;
+
+  if (data.status === "APPROVED" && request.status !== "APPROVED") {
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.holidayRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "APPROVED",
+          ...(data.date ? { date: new Date(data.date) } : {}),
+          ...(data.reason !== undefined ? { reason: data.reason } : {}),
+        },
+        include: { user: { select: { id: true, firstName: true, lastName: true } } },
+      });
+
+      await tx.shift.updateMany({
+        where: {
+          userId: request.userId,
+          date: effectiveDate,
+          status: { notIn: ["CANCELLED", "AVAILABLE"] },
+        },
+        data: { status: "AVAILABLE", userId: null },
+      });
+
+      return updated;
+    });
+  }
+
   return prisma.holidayRequest.update({
     where: { id: requestId },
     data: {
       ...(data.date ? { date: new Date(data.date) } : {}),
       ...(data.reason !== undefined ? { reason: data.reason } : {}),
+      ...(data.status ? { status: data.status } : {}),
     },
     include: {
       user: { select: { id: true, firstName: true, lastName: true } },

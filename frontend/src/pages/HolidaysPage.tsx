@@ -10,7 +10,7 @@ import { Modal } from "../components/ui/Modal";
 import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
 import { RoleGate } from "../components/auth/RoleGate";
-import { useHolidayRequests, useRequestHoliday, useApproveHoliday, useRejectHoliday, useCancelHoliday, useUpdateHoliday, useDeleteHoliday } from "../hooks/useHolidays";
+import { useHolidayRequests, useRequestHoliday, useCancelHoliday, useUpdateHoliday, useDeleteHoliday } from "../hooks/useHolidays";
 import { formatDate } from "../lib/dateUtils";
 import { Palmtree, Plus, Check, X, Pencil, Trash2 } from "lucide-react";
 import type { HolidayStatus, HolidayRequest } from "../types";
@@ -31,13 +31,12 @@ interface HolidayForm {
 interface EditHolidayForm {
   date: string;
   reason: string;
+  status: string;
 }
 
 export function HolidaysPage() {
   const { data: requests, isLoading } = useHolidayRequests();
   const requestMutation = useRequestHoliday();
-  const approveMutation = useApproveHoliday();
-  const rejectMutation = useRejectHoliday();
   const cancelMutation = useCancelHoliday();
   const updateMutation = useUpdateHoliday();
   const deleteMutation = useDeleteHoliday();
@@ -62,13 +61,21 @@ export function HolidaysPage() {
     editForm.reset({
       date: dateStr,
       reason: req.reason || "",
+      status: req.status,
     });
   };
 
   const onEditSubmit = (data: EditHolidayForm) => {
     if (!editingHoliday) return;
     updateMutation.mutate(
-      { id: editingHoliday.id, data: { date: data.date, reason: data.reason || null } },
+      {
+        id: editingHoliday.id,
+        data: {
+          date: data.date,
+          reason: data.reason || null,
+          ...(data.status !== editingHoliday.status ? { status: data.status } : {}),
+        },
+      },
       { onSuccess: () => setEditingHoliday(null) },
     );
   };
@@ -106,23 +113,23 @@ export function HolidaysPage() {
                 <div className="flex items-center gap-2">
                   <Badge variant={statusVariants[req.status]}>{req.status}</Badge>
                   <RoleGate allowedRoles={["MANAGER"]}>
-                    {req.status === "PENDING" && (
-                      <>
-                        <button
-                          onClick={() => approveMutation.mutate(req.id)}
-                          className="p-1.5 rounded-lg hover:bg-green-50"
-                          title="Approve"
-                        >
-                          <Check className="h-4 w-4 text-green-600" />
-                        </button>
-                        <button
-                          onClick={() => rejectMutation.mutate({ id: req.id })}
-                          className="p-1.5 rounded-lg hover:bg-red-50"
-                          title="Reject"
-                        >
-                          <X className="h-4 w-4 text-red-600" />
-                        </button>
-                      </>
+                    {req.status !== "APPROVED" && req.status !== "CANCELLED" && (
+                      <button
+                        onClick={() => updateMutation.mutate({ id: req.id, data: { status: "APPROVED" } })}
+                        className="p-1.5 rounded-lg hover:bg-green-50"
+                        title="Approve"
+                      >
+                        <Check className="h-4 w-4 text-green-600" />
+                      </button>
+                    )}
+                    {req.status !== "REJECTED" && req.status !== "CANCELLED" && (
+                      <button
+                        onClick={() => updateMutation.mutate({ id: req.id, data: { status: "REJECTED" } })}
+                        className="p-1.5 rounded-lg hover:bg-red-50"
+                        title="Reject"
+                      >
+                        <X className="h-4 w-4 text-red-600" />
+                      </button>
                     )}
                     <button
                       onClick={() => handleEdit(req)}
@@ -198,10 +205,21 @@ export function HolidaysPage() {
               {...editForm.register("reason")}
             />
           </div>
-          {editingHoliday && (
+          <RoleGate allowedRoles={["MANAGER"]}>
+            <Select
+              id="editStatus"
+              label="Status"
+              options={[
+                { value: "PENDING", label: "Pending" },
+                { value: "APPROVED", label: "Approved" },
+                { value: "REJECTED", label: "Rejected" },
+              ]}
+              {...editForm.register("status")}
+            />
+          </RoleGate>
+          {editingHoliday?.user && (
             <p className="text-xs text-gray-400">
-              Status: {editingHoliday.status}
-              {editingHoliday.user && ` — ${editingHoliday.user.firstName} ${editingHoliday.user.lastName}`}
+              {editingHoliday.user.firstName} {editingHoliday.user.lastName}
             </p>
           )}
           <div className="flex justify-end gap-2">
