@@ -17,6 +17,17 @@ import { useLocations } from "../../hooks/useLocations";
 import { formatDate, formatDay } from "../../lib/dateUtils";
 import { AlertCircle, Clock, MapPin, Trash2, Megaphone } from "lucide-react";
 import type { ShiftToCover } from "../../api/dashboard.api";
+import type { ShiftStatus } from "../../types";
+
+const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
+  { value: "ASSIGNED", label: "Assigned" },
+  { value: "ADDITIONAL", label: "Additional" },
+  { value: "AVAILABLE", label: "Available" },
+  { value: "SWAP", label: "Swap" },
+  { value: "HOLIDAY", label: "Holiday" },
+  { value: "REQUESTED_HOLIDAY", label: "Requested Holiday" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
 
 interface ShiftEditForm {
   startTime: string;
@@ -24,6 +35,7 @@ interface ShiftEditForm {
   userId: string;
   location: string;
   notes: string;
+  status: ShiftStatus;
 }
 
 export function ShiftsToCoverPage() {
@@ -34,23 +46,26 @@ export function ShiftsToCoverPage() {
   const deleteShift = useDeleteShift();
   const requestCover = useRequestCover();
   const [editingShift, setEditingShift] = useState<ShiftToCover | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const shiftForm = useForm<ShiftEditForm>();
 
   const handleEdit = (shift: ShiftToCover) => {
     setEditingShift(shift);
+    setShowAdvanced(false);
     shiftForm.reset({
       startTime: shift.startTime,
       endTime: shift.endTime,
       userId: "",
       location: shift.location || "",
       notes: "",
+      status: "AVAILABLE",
     });
   };
 
   const onSaveShift = (data: ShiftEditForm) => {
     if (!editingShift) return;
     updateShift.mutate(
-      { id: editingShift.id, data: { ...data, userId: data.userId || null } },
+      { id: editingShift.id, data: { ...data, userId: data.userId || null, status: data.status } },
       { onSuccess: () => setEditingShift(null) },
     );
   };
@@ -137,6 +152,25 @@ export function ShiftsToCoverPage() {
             options={locationSelectOptions}
             {...shiftForm.register("location")}
           />
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              {showAdvanced ? "Hide Advanced" : "Advanced"}
+            </button>
+            {showAdvanced && (
+              <div className="mt-2">
+                <Select
+                  id="status"
+                  label="Status"
+                  options={ALL_STATUSES}
+                  {...shiftForm.register("status")}
+                />
+              </div>
+            )}
+          </div>
           <div className="flex justify-between">
             <Button
               variant="danger"

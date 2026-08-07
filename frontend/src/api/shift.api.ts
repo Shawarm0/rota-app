@@ -40,6 +40,18 @@ export async function claimShift(id: string): Promise<Shift> {
   return data;
 }
 
+export async function createAdditionalShift(input: {
+  userId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location?: string;
+  notes?: string;
+}): Promise<Shift> {
+  const { data } = await client.post<Shift>("/shifts/additional", input);
+  return data;
+}
+
 export async function requestCover(id: string): Promise<{ notified: number }> {
   const { data } = await client.post<{ notified: number }>(`/shifts/${id}/request-cover`);
   return data;

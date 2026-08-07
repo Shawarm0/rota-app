@@ -11,6 +11,7 @@ import { Button } from "../components/ui/Button";
 import { Spinner } from "../components/ui/Spinner";
 import { useQuery } from "@tanstack/react-query";
 import { useApprovedHolidays } from "../hooks/useHolidays";
+import { Badge } from "../components/ui/Badge";
 import { useUpdateShift, useDeleteShift } from "../hooks/useRotas";
 import { useLocations } from "../hooks/useLocations";
 import { useAuthStore } from "../stores/authStore";
@@ -23,11 +24,22 @@ import clsx from "clsx";
 const STATUS_DOT_COLORS: Record<ShiftStatus, string> = {
   ASSIGNED: "bg-shift-assigned",
   ADDITIONAL: "bg-shift-additional",
+  SWAP: "bg-purple-500",
   HOLIDAY: "bg-shift-holiday",
   REQUESTED_HOLIDAY: "bg-shift-requested",
   AVAILABLE: "bg-shift-available",
   CANCELLED: "bg-shift-cancelled",
 };
+
+const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
+  { value: "ASSIGNED", label: "Assigned" },
+  { value: "ADDITIONAL", label: "Additional" },
+  { value: "AVAILABLE", label: "Available" },
+  { value: "SWAP", label: "Swap" },
+  { value: "HOLIDAY", label: "Holiday" },
+  { value: "REQUESTED_HOLIDAY", label: "Requested Holiday" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
 
 interface ShiftEditForm {
   startTime: string;
@@ -35,6 +47,7 @@ interface ShiftEditForm {
   userId: string;
   location: string;
   notes: string;
+  status: ShiftStatus;
 }
 
 export function CalendarPage() {
@@ -42,6 +55,7 @@ export function CalendarPage() {
   const [selectedShifts, setSelectedShifts] = useState<Shift[] | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [locationFilter, setLocationFilter] = useState<string>("");
 
   const role = useAuthStore((s) => s.user?.role);
@@ -84,6 +98,7 @@ export function CalendarPage() {
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
   const getShiftsForDay = (day: Date) => shifts?.filter((s) => isSameDay(s.date, day)) || [];
+  const getHolidaysForDay = (day: Date) => holidays?.filter((h) => isSameDay(h.date, day)) || [];
   const isHolidayDay = (day: Date) => holidays?.some((h) => isSameDay(h.date, day)) || false;
 
   const today = new Date();
@@ -103,14 +118,16 @@ export function CalendarPage() {
       userId: shift.userId || "",
       location: shift.location || "",
       notes: shift.notes || "",
+      status: shift.status,
     });
+    setShowAdvanced(false);
     setSelectedShifts(null);
   };
 
   const onSaveShift = (data: ShiftEditForm) => {
     if (!editingShift) return;
     updateShift.mutate(
-      { id: editingShift.id, data: { ...data, userId: data.userId || null } },
+      { id: editingShift.id, data: { ...data, userId: data.userId || null, status: data.status } },
       { onSuccess: () => setEditingShift(null) },
     );
   };
@@ -173,27 +190,49 @@ export function CalendarPage() {
                 ))}
                 {days.map((day) => {
                   const dayShifts = getShiftsForDay(day);
+                  const dayHolidays = getHolidaysForDay(day);
                   const isToday = isSameDay(day, today);
-                  const hasHoliday = isHolidayDay(day);
+                  const hasApprovedHoliday = dayHolidays.some((h) => h.status === "APPROVED");
+                  const hasPendingHoliday = dayHolidays.some((h) => h.status === "PENDING");
+                  const hasHoliday = dayHolidays.length > 0;
                   return (
                     <div
                       key={day.toISOString()}
                       className={clsx(
                         "p-1 min-h-[60px] border border-gray-50 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors",
                         isToday && "bg-blue-50",
-                        hasHoliday && !isToday && "bg-red-50",
+                        hasApprovedHoliday && !isToday && "bg-red-50",
+                        hasPendingHoliday && !hasApprovedHoliday && !isToday && "bg-yellow-50",
                       )}
                       onClick={() => handleDayClick(day, dayShifts)}
                     >
                       <span
                         className={clsx(
                           "text-xs font-medium",
-                          isToday ? "text-blue-600" : hasHoliday ? "text-red-600" : "text-gray-700",
+                          isToday ? "text-blue-600" : hasApprovedHoliday ? "text-red-600" : hasPendingHoliday ? "text-yellow-600" : "text-gray-700",
                         )}
                       >
                         {day.getDate()}
                       </span>
-                      {hasHoliday && (
+                      {isManager && dayHolidays.length > 0 && (
+                        <div className="space-y-px">
+                          {dayHolidays.slice(0, 2).map((h) => (
+                            <div
+                              key={h.id}
+                              className={clsx(
+                                "text-[9px] font-medium leading-tight truncate",
+                                h.status === "APPROVED" ? "text-red-500" : "text-yellow-600",
+                              )}
+                            >
+                              {h.user ? `${h.user.firstName}` : "Holiday"} {h.status === "PENDING" ? "⏳" : ""}
+                            </div>
+                          ))}
+                          {dayHolidays.length > 2 && (
+                            <div className="text-[8px] text-gray-400">+{dayHolidays.length - 2} more</div>
+                          )}
+                        </div>
+                      )}
+                      {!isManager && hasHoliday && (
                         <div className="text-[9px] text-red-500 font-medium leading-tight">Holiday</div>
                       )}
                       <div className="flex flex-wrap gap-0.5 mt-0.5">
@@ -216,7 +255,9 @@ export function CalendarPage() {
           )}
 
           <div className="border-t px-5 py-3 flex flex-wrap gap-3">
-            {Object.entries(STATUS_DOT_COLORS).map(([status, color]) => (
+            {Object.entries(STATUS_DOT_COLORS)
+              .filter(([status]) => !isManager || (status !== "CANCELLED" && status !== "HOLIDAY"))
+              .map(([status, color]) => (
               <div key={status} className="flex items-center gap-1.5">
                 <div className={clsx("h-2.5 w-2.5 rounded-full", color)} />
                 <span className="text-xs text-gray-500 capitalize">{status.toLowerCase().replace("_", " ")}</span>
@@ -226,6 +267,12 @@ export function CalendarPage() {
               <div className="h-2.5 w-2.5 rounded-full bg-red-300" />
               <span className="text-xs text-gray-500">Approved holiday</span>
             </div>
+            {isManager && (
+              <div className="flex items-center gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-yellow-300" />
+                <span className="text-xs text-gray-500">Requested holiday</span>
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -235,9 +282,27 @@ export function CalendarPage() {
         onClose={() => { setSelectedShifts(null); setSelectedDay(null); }}
         title={selectedDay ? `Shifts — ${formatDate(selectedDay)}` : "Shift Details"}
       >
-        {selectedDay && isHolidayDay(selectedDay) && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
-            <p className="text-sm font-medium text-red-700">Approved Holiday</p>
+        {selectedDay && getHolidaysForDay(selectedDay).length > 0 && (
+          <div className="mb-4 space-y-2">
+            {getHolidaysForDay(selectedDay).map((h) => (
+              <div
+                key={h.id}
+                className={clsx(
+                  "rounded-lg border px-3 py-2",
+                  h.status === "APPROVED" ? "bg-red-50 border-red-200" : "bg-yellow-50 border-yellow-200",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <p className={clsx("text-sm font-medium", h.status === "APPROVED" ? "text-red-700" : "text-yellow-700")}>
+                    {h.status === "APPROVED" ? "Approved Holiday" : "Requested Holiday"}
+                  </p>
+                  {h.user && (
+                    <span className="text-xs text-gray-500">— {h.user.firstName} {h.user.lastName}</span>
+                  )}
+                </div>
+                {h.reason && <p className="text-xs text-gray-500 mt-0.5">{h.reason}</p>}
+              </div>
+            ))}
           </div>
         )}
         {selectedShifts && selectedShifts.length > 0 ? (
@@ -293,6 +358,25 @@ export function CalendarPage() {
               {...shiftForm.register("location")}
             />
             <Input id="notes" label="Notes" {...shiftForm.register("notes")} />
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              >
+                {showAdvanced ? "Hide Advanced" : "Advanced"}
+              </button>
+              {showAdvanced && (
+                <div className="mt-2">
+                  <Select
+                    id="status"
+                    label="Status"
+                    options={ALL_STATUSES}
+                    {...shiftForm.register("status")}
+                  />
+                </div>
+              )}
+            </div>
             <div className="flex justify-between">
               <Button
                 variant="danger"

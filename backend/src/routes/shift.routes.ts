@@ -12,6 +12,7 @@ router.use(authenticate);
 router.get("/mine", shiftController.getMyShifts);
 router.get("/all", authorize("MANAGER", "SYSTEM_ADMIN"), shiftController.getAllShifts);
 router.get("/available", shiftController.getAvailableShifts);
+router.post("/additional", authorize("MANAGER", "SYSTEM_ADMIN"), shiftController.createAdditionalShift);
 router.patch("/:id", validate(updateShiftSchema), shiftController.updateShift);
 router.delete("/:id", shiftController.deleteShift);
 router.post("/:id/claim", shiftController.claimShift);

@@ -85,6 +85,15 @@ export const requestCover: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const createAdditionalShift: RequestHandler = async (req, res, next) => {
+  try {
+    const shift = await shiftService.createAdditionalShift(req.user!.businessId!, req.body);
+    res.status(201).json(shift);
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const claimShift: RequestHandler = async (req, res, next) => {
   try {
     const shift = await shiftService.claimShift(param(req, "id"), req.user!.userId);

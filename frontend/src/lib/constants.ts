@@ -3,6 +3,7 @@ import type { ShiftStatus } from "../types";
 export const SHIFT_STATUS_COLORS: Record<ShiftStatus, string> = {
   ASSIGNED: "bg-shift-assigned",
   ADDITIONAL: "bg-shift-additional",
+  SWAP: "bg-purple-500",
   HOLIDAY: "bg-shift-holiday",
   REQUESTED_HOLIDAY: "bg-shift-requested",
   AVAILABLE: "bg-shift-available",
@@ -12,6 +13,7 @@ export const SHIFT_STATUS_COLORS: Record<ShiftStatus, string> = {
 export const SHIFT_STATUS_LABELS: Record<ShiftStatus, string> = {
   ASSIGNED: "Assigned",
   ADDITIONAL: "Additional",
+  SWAP: "Swap",
   HOLIDAY: "Holiday",
   REQUESTED_HOLIDAY: "Requested Holiday",
   AVAILABLE: "Available",

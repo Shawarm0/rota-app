@@ -20,11 +20,22 @@ import clsx from "clsx";
 const STATUS_COLORS: Record<ShiftStatus, string> = {
   ASSIGNED: "bg-blue-100 text-blue-800 border-blue-200",
   ADDITIONAL: "bg-green-100 text-green-800 border-green-200",
+  SWAP: "bg-purple-100 text-purple-800 border-purple-200",
   HOLIDAY: "bg-red-100 text-red-800 border-red-200",
   REQUESTED_HOLIDAY: "bg-yellow-100 text-yellow-800 border-yellow-200",
   AVAILABLE: "bg-gray-100 text-gray-800 border-gray-200",
   CANCELLED: "bg-gray-50 text-gray-500 border-gray-200",
 };
+
+const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
+  { value: "ASSIGNED", label: "Assigned" },
+  { value: "ADDITIONAL", label: "Additional" },
+  { value: "AVAILABLE", label: "Available" },
+  { value: "SWAP", label: "Swap" },
+  { value: "HOLIDAY", label: "Holiday" },
+  { value: "REQUESTED_HOLIDAY", label: "Requested Holiday" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
 
 interface ShiftForm {
   startTime: string;
@@ -32,6 +43,7 @@ interface ShiftForm {
   userId: string;
   location: string;
   notes: string;
+  status: ShiftStatus;
 }
 
 interface NewRotaForm {
@@ -55,6 +67,7 @@ export function RotaBuilderPage() {
 
   const [showNewRota, setShowNewRota] = useState(false);
   const [editingShift, setEditingShift] = useState<{ date: string; shift?: Shift } | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const newRotaForm = useForm<NewRotaForm>();
   const shiftForm = useForm<ShiftForm>();
 
@@ -106,12 +119,12 @@ export function RotaBuilderPage() {
     if (!editingShift || !selectedRotaId) return;
     if (editingShift.shift) {
       updateShift.mutate(
-        { id: editingShift.shift.id, data: { ...data, userId: data.userId || null } },
+        { id: editingShift.shift.id, data: { ...data, userId: data.userId || null, status: data.status } },
         { onSuccess: () => setEditingShift(null) },
       );
     } else {
       createShift.mutate(
-        { rotaId: selectedRotaId, shift: { ...data, date: editingShift.date, userId: data.userId || null } },
+        { rotaId: selectedRotaId, shift: { ...data, date: editingShift.date, userId: data.userId || null, status: data.status } },
         { onSuccess: () => setEditingShift(null) },
       );
     }
@@ -239,12 +252,14 @@ export function RotaBuilderPage() {
                                   key={s.id}
                                   onClick={() => {
                                     setEditingShift({ date: dateStr, shift: s });
+                                    setShowAdvanced(false);
                                     shiftForm.reset({
                                       startTime: s.startTime,
                                       endTime: s.endTime,
                                       userId: s.userId || "",
                                       location: s.location || "",
                                       notes: s.notes || "",
+                                      status: s.status,
                                     });
                                   }}
                                   className={clsx(
@@ -258,12 +273,14 @@ export function RotaBuilderPage() {
                               <button
                                 onClick={() => {
                                   setEditingShift({ date: dateStr });
+                                  setShowAdvanced(false);
                                   shiftForm.reset({
                                     startTime: "09:00",
                                     endTime: "17:00",
                                     userId: emp.id,
                                     location: rotaLocationName || "",
                                     notes: "",
+                                    status: "ASSIGNED",
                                   });
                                 }}
                                 className="block w-full rounded border border-dashed border-gray-200 py-0.5 text-[10px] text-gray-400 hover:bg-gray-50 hover:border-gray-300"
@@ -320,6 +337,25 @@ export function RotaBuilderPage() {
             {...shiftForm.register("location")}
           />
           <Input id="notes" label="Notes" {...shiftForm.register("notes")} />
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              {showAdvanced ? "Hide Advanced" : "Advanced"}
+            </button>
+            {showAdvanced && (
+              <div className="mt-2">
+                <Select
+                  id="status"
+                  label="Status"
+                  options={ALL_STATUSES}
+                  {...shiftForm.register("status")}
+                />
+              </div>
+            )}
+          </div>
           <div className="flex justify-between">
             {editingShift?.shift && (
               <Button

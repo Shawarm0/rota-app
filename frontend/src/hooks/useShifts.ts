@@ -38,6 +38,24 @@ export function useRequestCover() {
   });
 }
 
+export function useCreateAdditionalShift() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: shiftApi.createAdditionalShift,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["allShifts"] });
+      qc.invalidateQueries({ queryKey: ["myShifts"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["employeeSummaries"] });
+      toast("Additional shift created", "success");
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error?.message || "Failed to create shift";
+      toast(msg, "error");
+    },
+  });
+}
+
 export function useClaimShift() {
   const qc = useQueryClient();
   return useMutation({

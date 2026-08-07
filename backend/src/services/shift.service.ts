@@ -234,7 +234,7 @@ export async function claimShift(shiftId: string, userId: string) {
 
     await checkTimeConflictTx(tx, userId, dateStr, shift.startTime, shift.endTime);
 
-    const newStatus: ShiftStatus = "ASSIGNED";
+    const newStatus: ShiftStatus = "ADDITIONAL";
 
     const claimed = await tx.shift.update({
       where: { id: shiftId },
@@ -307,6 +307,58 @@ export async function requestCover(shiftId: string) {
   }
 
   return { notified: employees.length };
+}
+
+export async function createAdditionalShift(
+  businessId: string,
+  data: { userId: string; date: string; startTime: string; endTime: string; location?: string | null; notes?: string | null },
+) {
+  await checkApprovedHoliday(data.userId, data.date);
+  await checkTimeConflict(data.userId, data.date, data.startTime, data.endTime);
+
+  const shiftDate = new Date(data.date);
+
+  let rota = await prisma.rota.findFirst({
+    where: {
+      businessId,
+      status: "PUBLISHED",
+      startDate: { lte: shiftDate },
+      endDate: { gte: shiftDate },
+    },
+  });
+
+  if (!rota) {
+    const start = new Date(shiftDate);
+    start.setDate(start.getDate() - start.getDay() + 1);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 13);
+
+    rota = await prisma.rota.create({
+      data: {
+        businessId,
+        name: "Additional Shifts",
+        startDate: start,
+        endDate: end,
+        status: "PUBLISHED",
+      },
+    });
+  }
+
+  return prisma.shift.create({
+    data: {
+      rotaId: rota.id,
+      userId: data.userId,
+      date: shiftDate,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      location: data.location || null,
+      notes: data.notes || null,
+      status: "ADDITIONAL",
+    },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true } },
+    },
+  });
 }
 
 async function checkTimeConflict(

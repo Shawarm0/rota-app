@@ -47,12 +47,21 @@ export const rejectHoliday: RequestHandler = async (req, res, next) => {
 export const getApprovedHolidays: RequestHandler = async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const holidays = await holidayService.getApprovedHolidays(
-      req.user!.userId,
-      from as string | undefined,
-      to as string | undefined,
-    );
-    res.json(holidays);
+    if ((req.user!.role === "MANAGER" || req.user!.role === "SYSTEM_ADMIN") && req.user!.businessId) {
+      const holidays = await holidayService.getBusinessHolidays(
+        req.user!.businessId,
+        from as string | undefined,
+        to as string | undefined,
+      );
+      res.json(holidays);
+    } else {
+      const holidays = await holidayService.getApprovedHolidays(
+        req.user!.userId,
+        from as string | undefined,
+        to as string | undefined,
+      );
+      res.json(holidays);
+    }
   } catch (err) {
     next(err);
   }

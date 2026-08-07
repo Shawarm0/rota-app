@@ -179,6 +179,27 @@ export async function getApprovedHolidays(userId: string, from?: string, to?: st
   });
 }
 
+export async function getBusinessHolidays(businessId: string, from?: string, to?: string) {
+  return prisma.holidayRequest.findMany({
+    where: {
+      user: { businessId },
+      status: { in: ["PENDING", "APPROVED"] },
+      ...(from || to
+        ? {
+            date: {
+              ...(from ? { gte: new Date(from) } : {}),
+              ...(to ? { lte: new Date(to) } : {}),
+            },
+          }
+        : {}),
+    },
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true } },
+    },
+    orderBy: { date: "asc" },
+  });
+}
+
 export async function getMyHolidayRequests(userId: string) {
   return prisma.holidayRequest.findMany({
     where: { userId },

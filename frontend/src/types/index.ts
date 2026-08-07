@@ -5,6 +5,7 @@ export type RotaStatus = "DRAFT" | "PUBLISHED";
 export type ShiftStatus =
   | "ASSIGNED"
   | "ADDITIONAL"
+  | "SWAP"
   | "HOLIDAY"
   | "REQUESTED_HOLIDAY"
   | "AVAILABLE"
