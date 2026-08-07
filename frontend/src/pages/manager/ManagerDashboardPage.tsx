@@ -108,6 +108,7 @@ export function ManagerDashboardPage() {
   }, [dashboard?.recentActivity]);
 
   const totalHours = employees ? employees.reduce((s, e) => s + e.totalHours, 0) : 0;
+  const totalAdditionalHours = employees ? employees.reduce((s, e) => s + e.additionalHours, 0) : 0;
 
   if (isLoading) {
     return (
@@ -144,6 +145,7 @@ export function ManagerDashboardPage() {
     {
       label: "Labor Hours (wk)",
       value: `${totalHours}h`,
+      sub: totalAdditionalHours > 0 ? `incl. ${Math.round(totalAdditionalHours * 10) / 10}h extra` : undefined,
       Icon: BarChart3,
       iconBg: "bg-green-50",
       iconColor: "text-green-600",
@@ -175,7 +177,7 @@ export function ManagerDashboardPage() {
 
         {/* KPI cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {kpis.map(({ label, value, Icon, iconBg, iconColor, onClick }) => (
+          {kpis.map(({ label, value, sub, Icon, iconBg, iconColor, onClick }) => (
             <div
               key={label}
               onClick={onClick}
@@ -185,6 +187,7 @@ export function ManagerDashboardPage() {
                 <div>
                   <div className="text-[12px] font-semibold text-gray-500 uppercase tracking-[0.04em]">{label}</div>
                   <div className="text-[30px] font-bold text-gray-900 mt-2 tracking-[-0.02em] leading-none">{value}</div>
+                  {sub && <div className="text-[12px] text-amber-600 font-medium mt-1">{sub}</div>}
                 </div>
                 <div className={`h-9 w-9 rounded-[9px] ${iconBg} flex items-center justify-center flex-shrink-0`}>
                   <Icon className={`h-[18px] w-[18px] ${iconColor}`} />
