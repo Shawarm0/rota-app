@@ -28,8 +28,9 @@ export function useUpdateUser() {
       userApi.updateUser(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["users"] });
+      toast("Employee updated", "success");
     },
-    onError: () => toast("Failed to update user", "error"),
+    onError: () => toast("Failed to update employee", "error"),
   });
 }
 

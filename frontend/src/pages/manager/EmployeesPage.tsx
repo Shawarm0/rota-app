@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { TopBar } from "../../components/layout/TopBar";
 import { Button } from "../../components/ui/Button";
@@ -10,14 +10,22 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { useUsers, useCreateUser, useDisableUser, useEnableUser, useResetPassword, useUpdateUser, useDeleteUser } from "../../hooks/useUsers";
 import { useLocations, useCreateLocation, useDeleteLocation } from "../../hooks/useLocations";
 import { useAuthStore } from "../../stores/authStore";
-import { Users, Plus, UserX, UserCheck, KeyRound, MapPin, Trash2, Search, ChevronDown } from "lucide-react";
+import { Users, Plus, UserX, UserCheck, KeyRound, MapPin, Trash2, Search, ChevronDown, Pencil } from "lucide-react";
 import clsx from "clsx";
+import type { User } from "../../types";
 
 interface CreateEmployeeForm {
   email: string;
   password: string;
   firstName: string;
   lastName: string;
+  locationId: string;
+}
+
+interface EditEmployeeForm {
+  firstName: string;
+  lastName: string;
+  email: string;
   locationId: string;
 }
 
@@ -38,12 +46,25 @@ export function EmployeesPage() {
   const createLocation = useCreateLocation();
   const deleteLocation = useDeleteLocation();
   const [showCreate, setShowCreate] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [resetUserId, setResetUserId] = useState<string | null>(null);
   const [showLocations, setShowLocations] = useState(false);
   const [newLocationName, setNewLocationName] = useState("");
   const [filter, setFilter] = useState("");
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateEmployeeForm>();
+  const editForm = useForm<EditEmployeeForm>();
   const resetForm = useForm<{ newPassword: string }>();
+
+  useEffect(() => {
+    if (editingUser) {
+      editForm.reset({
+        firstName: editingUser.firstName,
+        lastName: editingUser.lastName,
+        email: editingUser.email,
+        locationId: editingUser.locationId || "",
+      });
+    }
+  }, [editingUser, editForm]);
 
   const onCreateSubmit = (data: CreateEmployeeForm) => {
     createUser.mutate(
@@ -174,6 +195,13 @@ export function EmployeesPage() {
                       {user.active ? "Active" : "Disabled"}
                     </span>
                     <button
+                      onClick={() => setEditingUser(user)}
+                      className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-indigo-50 text-gray-500 hover:text-indigo-600"
+                      title="Edit employee"
+                    >
+                      <Pencil className="h-[15px] w-[15px]" />
+                    </button>
+                    <button
                       onClick={() => setResetUserId(user.id)}
                       className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 text-gray-500"
                       title="Reset password"
@@ -245,6 +273,13 @@ export function EmployeesPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => setEditingUser(user)}
+                        className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-gray-500"
+                        title="Edit employee"
+                      >
+                        <Pencil className="h-[15px] w-[15px]" />
+                      </button>
+                      <button
                         onClick={() => setResetUserId(user.id)}
                         className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-gray-500"
                         title="Reset password"
@@ -288,6 +323,51 @@ export function EmployeesPage() {
           <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button type="submit" loading={createUser.isPending}>Create</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Employee modal */}
+      <Modal open={!!editingUser} onClose={() => setEditingUser(null)} title="Edit Employee">
+        <form
+          onSubmit={editForm.handleSubmit((data) => {
+            if (editingUser) {
+              updateUser.mutate(
+                { id: editingUser.id, data: { ...data, locationId: data.locationId || null } },
+                { onSuccess: () => setEditingUser(null) },
+              );
+            }
+          })}
+          className="flex flex-col gap-4"
+        >
+          <Input
+            id="editFirstName"
+            label="First Name"
+            error={editForm.formState.errors.firstName?.message}
+            {...editForm.register("firstName", { required: "Required" })}
+          />
+          <Input
+            id="editLastName"
+            label="Last Name"
+            error={editForm.formState.errors.lastName?.message}
+            {...editForm.register("lastName", { required: "Required" })}
+          />
+          <Input
+            id="editEmail"
+            label="Email"
+            type="email"
+            error={editForm.formState.errors.email?.message}
+            {...editForm.register("email", { required: "Required" })}
+          />
+          <Select
+            id="editLocationId"
+            label="Store Location"
+            options={locationOptions}
+            {...editForm.register("locationId")}
+          />
+          <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
+            <Button variant="secondary" type="button" onClick={() => setEditingUser(null)}>Cancel</Button>
+            <Button type="submit" loading={updateUser.isPending}>Save</Button>
           </div>
         </form>
       </Modal>
