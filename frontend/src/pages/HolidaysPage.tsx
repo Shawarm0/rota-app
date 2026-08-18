@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { TopBar } from "../components/layout/TopBar";
 import { Button } from "../components/ui/Button";
@@ -87,6 +87,25 @@ export function HolidaysPage() {
 
   const count = requests?.length || 0;
 
+  const groupedRequests = useMemo(() => {
+    if (!requests?.length) return [];
+    const groups: Record<string, { name: string; requests: HolidayRequest[] }> = {};
+    for (const req of requests) {
+      const key = req.userId;
+      if (!groups[key]) {
+        groups[key] = {
+          name: req.user ? `${req.user.firstName} ${req.user.lastName}` : "",
+          requests: [],
+        };
+      }
+      groups[key].requests.push(req);
+    }
+    for (const g of Object.values(groups)) {
+      g.requests.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+    return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+  }, [requests]);
+
   return (
     <>
       <TopBar
@@ -103,80 +122,84 @@ export function HolidaysPage() {
           </RoleGate>
         }
       />
-      <div className="p-4 md:px-7 md:py-5 flex flex-col gap-3 max-w-[1200px]">
+      <div className="p-4 md:px-7 md:py-5 max-w-[1200px] space-y-5">
         {isLoading ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : !requests?.length ? (
           <EmptyState icon={Palmtree} title="No holiday requests" />
         ) : (
-          requests.map((req) => (
-            <div
-              key={req.id}
-              className="bg-white border border-gray-200 rounded-xl px-5 py-[18px] flex items-center justify-between gap-4 flex-wrap"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-[10px] flex-wrap">
-                  <div className="text-[14.5px] font-semibold text-gray-900">
-                    {formatDate(req.date)}
-                  </div>
-                  <span className={`text-[11.5px] font-semibold px-[9px] py-[3px] rounded-full ${STATUS_STYLES[req.status]}`}>
-                    {STATUS_LABELS[req.status]}
-                  </span>
-                </div>
-                {req.user && (
-                  <div className="text-[13px] text-gray-500 mt-[4px]">
-                    {req.user.firstName} {req.user.lastName}
-                  </div>
-                )}
-                {req.reason && (
-                  <p className="text-[12px] text-gray-400 mt-1">{req.reason}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <RoleGate allowedRoles={["MANAGER"]}>
-                  {req.status !== "APPROVED" && req.status !== "CANCELLED" && (
-                    <button
-                      onClick={() => updateMutation.mutate({ id: req.id, data: { status: "APPROVED" } })}
-                      className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-green-50 hover:border-green-200 transition-colors"
-                      title="Approve"
-                    >
-                      <Check className="h-[15px] w-[15px] text-green-600" />
-                    </button>
-                  )}
-                  {req.status !== "REJECTED" && req.status !== "CANCELLED" && (
-                    <button
-                      onClick={() => updateMutation.mutate({ id: req.id, data: { status: "REJECTED" } })}
-                      className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors"
-                      title="Reject"
-                    >
-                      <X className="h-[15px] w-[15px] text-red-500" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleEdit(req)}
-                    className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                    title="Edit"
+          groupedRequests.map((group) => (
+            <div key={group.name || "me"}>
+              {group.name && (
+                <h3 className="text-[15px] font-bold text-gray-900 mb-2.5">{group.name}</h3>
+              )}
+              <div className="flex flex-col gap-3">
+                {group.requests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-white border border-gray-200 rounded-xl px-5 py-[18px] flex items-center justify-between gap-4 flex-wrap"
                   >
-                    <Pencil className="h-[15px] w-[15px] text-gray-500" />
-                  </button>
-                  <button
-                    onClick={() => deleteMutation.mutate(req.id)}
-                    className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-[15px] w-[15px] text-red-500" />
-                  </button>
-                </RoleGate>
-                <RoleGate allowedRoles={["EMPLOYEE"]}>
-                  {req.status === "PENDING" && (
-                    <button
-                      onClick={() => cancelMutation.mutate(req.id)}
-                      className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-[14px] py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </RoleGate>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-[10px] flex-wrap">
+                        <div className="text-[14.5px] font-semibold text-gray-900">
+                          {formatDate(req.date)}
+                        </div>
+                        <span className={`text-[11.5px] font-semibold px-[9px] py-[3px] rounded-full ${STATUS_STYLES[req.status]}`}>
+                          {STATUS_LABELS[req.status]}
+                        </span>
+                      </div>
+                      {req.reason && (
+                        <p className="text-[12px] text-gray-400 mt-1">{req.reason}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <RoleGate allowedRoles={["MANAGER"]}>
+                        {req.status !== "APPROVED" && req.status !== "CANCELLED" && (
+                          <button
+                            onClick={() => updateMutation.mutate({ id: req.id, data: { status: "APPROVED" } })}
+                            className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-green-50 hover:border-green-200 transition-colors"
+                            title="Approve"
+                          >
+                            <Check className="h-[15px] w-[15px] text-green-600" />
+                          </button>
+                        )}
+                        {req.status !== "REJECTED" && req.status !== "CANCELLED" && (
+                          <button
+                            onClick={() => updateMutation.mutate({ id: req.id, data: { status: "REJECTED" } })}
+                            className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors"
+                            title="Reject"
+                          >
+                            <X className="h-[15px] w-[15px] text-red-500" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleEdit(req)}
+                          className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil className="h-[15px] w-[15px] text-gray-500" />
+                        </button>
+                        <button
+                          onClick={() => deleteMutation.mutate(req.id)}
+                          className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-[15px] w-[15px] text-red-500" />
+                        </button>
+                      </RoleGate>
+                      <RoleGate allowedRoles={["EMPLOYEE"]}>
+                        {req.status === "PENDING" && (
+                          <button
+                            onClick={() => cancelMutation.mutate(req.id)}
+                            className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-[14px] py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </RoleGate>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))
