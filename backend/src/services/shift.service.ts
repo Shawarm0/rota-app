@@ -78,7 +78,7 @@ export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
   if (data.userId !== undefined) {
     if (!data.userId) {
       autoStatus = "AVAILABLE";
-    } else if (!autoStatus && shift.status === "AVAILABLE") {
+    } else if (autoStatus === "AVAILABLE" || (!autoStatus && shift.status === "AVAILABLE")) {
       autoStatus = "ASSIGNED";
     }
   }
@@ -193,7 +193,6 @@ export async function getAvailableShifts(businessId: string, userId: string) {
   });
 
   const locationName = user?.location?.name;
-
   return prisma.shift.findMany({
     where: {
       rota: { businessId, status: "PUBLISHED" },
