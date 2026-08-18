@@ -27,7 +27,52 @@ const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
 ];
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DEFAULT_DOT_COLOR = "#9CA3AF";
+const DEFAULT_CAT_COLOR = "#9CA3AF";
+
+function getInitials(s: Shift): string {
+  if (!s.user) return "—";
+  return `${s.user.firstName[0]}${s.user.lastName[0]}`;
+}
+
+function getCatColor(s: Shift): string {
+  return (s.user as any)?.category?.color || DEFAULT_CAT_COLOR;
+}
+
+function ShiftPill({ shift }: { shift: Shift }) {
+  const catColor = getCatColor(shift);
+
+  if (shift.status === "AVAILABLE") {
+    return (
+      <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[10px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-tight">
+        Open
+      </span>
+    );
+  }
+
+  if (shift.status === "ADDITIONAL") {
+    return (
+      <span
+        className="inline-flex items-center gap-[2px] rounded px-1.5 py-[1px] text-[10px] font-semibold leading-tight"
+        style={{
+          backgroundColor: `${catColor}18`,
+          color: catColor,
+          border: `1px solid ${catColor}40`,
+        }}
+      >
+        +{getInitials(shift)}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex items-center rounded px-1.5 py-[1px] text-[10px] font-bold text-white leading-tight"
+      style={{ backgroundColor: catColor }}
+    >
+      {getInitials(shift)}
+    </span>
+  );
+}
 
 interface ShiftEditForm {
   startTime: string;
@@ -219,9 +264,9 @@ export function CalendarPage() {
                         <span className="text-xs text-gray-500">{wd}</span>
                       </div>
                       {(dayShifts.length > 0 || dayHolidays.length > 0) && (
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           {dayHolidays.filter((h) => h.status === "APPROVED").map((h) => (
-                            <div key={h.id} className="flex items-center gap-1.5 text-xs text-gray-600">
+                            <div key={h.id} className="flex items-center gap-1 text-xs text-gray-600">
                               <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
                               {h.user ? h.user.firstName : "Holiday"}
                             </div>
@@ -229,13 +274,14 @@ export function CalendarPage() {
                           {dayHolidays.some((h) => h.status === "PENDING") && (
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                           )}
-                          {dayShifts.slice(0, 3).map((s) => (
-                            <span
-                              key={s.id}
-                              className="w-1.5 h-1.5 rounded-full"
-                              style={{ backgroundColor: (s.user as any)?.category?.color || DEFAULT_DOT_COLOR }}
-                            />
+                          {dayShifts.slice(0, 2).map((s) => (
+                            <ShiftPill key={s.id} shift={s} />
                           ))}
+                          {dayShifts.length > 2 && (
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              +{dayShifts.length - 2}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -289,18 +335,21 @@ export function CalendarPage() {
                               {h.user ? h.user.firstName : "Holiday"}
                             </div>
                           ))}
-                          <div className="flex gap-1 mt-1">
-                            {dayShifts.slice(0, 4).map((s) => (
-                              <span
-                                key={s.id}
-                                className="w-1.5 h-1.5 rounded-full"
-                                style={{ backgroundColor: (s.user as any)?.category?.color || DEFAULT_DOT_COLOR }}
-                              />
-                            ))}
-                            {hasPendingHoliday && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                            )}
-                          </div>
+                          {dayShifts.length > 0 && (
+                            <div className="flex flex-col gap-[3px] mt-1">
+                              {dayShifts.slice(0, 3).map((s) => (
+                                <ShiftPill key={s.id} shift={s} />
+                              ))}
+                              {dayShifts.length > 3 && (
+                                <span className="text-[10px] text-gray-400 font-medium">
+                                  +{dayShifts.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {hasPendingHoliday && dayShifts.length === 0 && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1 block" />
+                          )}
                         </div>
                       );
                     })}
@@ -314,13 +363,29 @@ export function CalendarPage() {
           <div className="flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
             {categories?.map((c) => (
               <div key={c.id} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[9px] font-bold text-white leading-tight" style={{ backgroundColor: c.color }}>
+                  AB
+                </span>
                 {c.name}
               </div>
             ))}
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: DEFAULT_DOT_COLOR }} />
+              <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[9px] font-bold text-white leading-tight" style={{ backgroundColor: DEFAULT_CAT_COLOR }}>
+                AB
+              </span>
               Uncategorized
+            </div>
+            <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
+              <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[9px] font-semibold leading-tight" style={{ backgroundColor: `${DEFAULT_CAT_COLOR}18`, color: DEFAULT_CAT_COLOR, border: `1px solid ${DEFAULT_CAT_COLOR}40` }}>
+                +AB
+              </span>
+              Additional
+            </div>
+            <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
+              <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[9px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-tight">
+                Open
+              </span>
+              Available
             </div>
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
               <span className="w-2 h-2 rounded-full shrink-0 bg-red-400" />
