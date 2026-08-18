@@ -75,11 +75,11 @@ export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
   }
 
   let autoStatus = data.status;
-  if (!autoStatus && data.userId !== undefined) {
-    if (data.userId && shift.status === "AVAILABLE") {
-      autoStatus = "ASSIGNED";
-    } else if (!data.userId && shift.status !== "AVAILABLE") {
+  if (data.userId !== undefined) {
+    if (!data.userId) {
       autoStatus = "AVAILABLE";
+    } else if (!autoStatus && shift.status === "AVAILABLE") {
+      autoStatus = "ASSIGNED";
     }
   }
 
