@@ -50,7 +50,7 @@ export async function createShift(rotaId: string, data: CreateShiftInput) {
       status: data.status || "ASSIGNED",
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
+      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
     },
   });
 }
@@ -95,7 +95,7 @@ export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
       ...(autoStatus ? { status: autoStatus } : {}),
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
+      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
     },
   });
 }
@@ -179,7 +179,7 @@ export async function getAllShifts(businessId: string, from?: string, to?: strin
         : {}),
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
+      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
       rota: { select: { id: true, startDate: true, endDate: true, status: true } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
@@ -204,7 +204,7 @@ export async function getAvailableShifts(businessId: string, userId: string) {
         : {}),
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
+      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
       rota: { select: { id: true, startDate: true, endDate: true } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
@@ -240,7 +240,7 @@ export async function claimShift(shiftId: string, userId: string) {
       where: { id: shiftId },
       data: { userId, status: newStatus },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true } },
+        user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
       },
     });
 
@@ -392,7 +392,7 @@ export async function createAdditionalShift(
       status: "ADDITIONAL",
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
+      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
     },
   });
 }

@@ -20,6 +20,7 @@ import holidayRoutes from "./routes/holiday.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import locationRoutes from "./routes/location.routes.js";
+import categoryRoutes from "./routes/category.routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -40,6 +41,7 @@ app.use("/api/v1/holidays", holidayRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/locations", locationRoutes);
+app.use("/api/v1/categories", categoryRoutes);
 
 app.use(errorHandler);
 

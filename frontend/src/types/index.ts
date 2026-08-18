@@ -16,6 +16,14 @@ export interface Location {
   _count?: { users: number };
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  color: string;
+  businessId?: string;
+  _count?: { users: number };
+}
+
 export interface User {
   id: string;
   email: string;
@@ -25,6 +33,8 @@ export interface User {
   businessId: string | null;
   locationId: string | null;
   location?: { id: string; name: string } | null;
+  categoryId: string | null;
+  category?: { id: string; name: string; color: string } | null;
   active?: boolean;
 }
 

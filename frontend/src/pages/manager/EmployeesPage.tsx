@@ -9,10 +9,22 @@ import { Spinner } from "../../components/ui/Spinner";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { useUsers, useCreateUser, useDisableUser, useEnableUser, useResetPassword, useUpdateUser, useDeleteUser } from "../../hooks/useUsers";
 import { useLocations, useCreateLocation, useDeleteLocation } from "../../hooks/useLocations";
+import { useCategories, useCreateCategory, useDeleteCategory } from "../../hooks/useCategories";
 import { useAuthStore } from "../../stores/authStore";
-import { Users, Plus, UserX, UserCheck, KeyRound, MapPin, Trash2, Search, ChevronDown, Pencil } from "lucide-react";
+import { Users, Plus, UserX, UserCheck, KeyRound, MapPin, Trash2, Search, ChevronDown, Pencil, Tag } from "lucide-react";
 import clsx from "clsx";
 import type { User } from "../../types";
+
+const PRESET_COLORS = [
+  "#4F46E5",
+  "#059669",
+  "#DC2626",
+  "#D97706",
+  "#7C3AED",
+  "#0891B2",
+  "#EA580C",
+  "#DB2777",
+];
 
 interface CreateEmployeeForm {
   email: string;
@@ -20,6 +32,7 @@ interface CreateEmployeeForm {
   firstName: string;
   lastName: string;
   locationId: string;
+  categoryId: string;
 }
 
 interface EditEmployeeForm {
@@ -27,6 +40,7 @@ interface EditEmployeeForm {
   lastName: string;
   email: string;
   locationId: string;
+  categoryId: string;
 }
 
 function initials(firstName: string, lastName: string) {
@@ -37,6 +51,7 @@ export function EmployeesPage() {
   const currentUser = useAuthStore((s) => s.user);
   const { data: users, isLoading } = useUsers("EMPLOYEE");
   const { data: locations } = useLocations();
+  const { data: categories } = useCategories();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const disableUser = useDisableUser();
@@ -45,11 +60,16 @@ export function EmployeesPage() {
   const deleteUserMut = useDeleteUser();
   const createLocation = useCreateLocation();
   const deleteLocation = useDeleteLocation();
+  const createCategory = useCreateCategory();
+  const deleteCategory = useDeleteCategory();
   const [showCreate, setShowCreate] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [resetUserId, setResetUserId] = useState<string | null>(null);
   const [showLocations, setShowLocations] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
   const [newLocationName, setNewLocationName] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryColor, setNewCategoryColor] = useState(PRESET_COLORS[0]);
   const [filter, setFilter] = useState("");
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateEmployeeForm>();
   const editForm = useForm<EditEmployeeForm>();
@@ -62,13 +82,14 @@ export function EmployeesPage() {
         lastName: editingUser.lastName,
         email: editingUser.email,
         locationId: editingUser.locationId || "",
+        categoryId: editingUser.categoryId || "",
       });
     }
   }, [editingUser, editForm]);
 
   const onCreateSubmit = (data: CreateEmployeeForm) => {
     createUser.mutate(
-      { ...data, role: "EMPLOYEE", locationId: data.locationId || undefined },
+      { ...data, role: "EMPLOYEE", locationId: data.locationId || undefined, categoryId: data.categoryId || undefined },
       {
         onSuccess: () => {
           setShowCreate(false);
@@ -81,6 +102,11 @@ export function EmployeesPage() {
   const locationOptions = [
     { value: "", label: "No location" },
     ...(locations?.map((l) => ({ value: l.id, label: l.name })) || []),
+  ];
+
+  const categoryOptions = [
+    { value: "", label: "No category" },
+    ...(categories?.map((c) => ({ value: c.id, label: c.name })) || []),
   ];
 
   const handleLocationChange = (userId: string, locationId: string) => {
@@ -110,6 +136,13 @@ export function EmployeesPage() {
             />
           </div>
           <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setShowCategories(true)}
+              className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-3.5 py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-200 transition-colors"
+            >
+              <Tag className="h-[15px] w-[15px]" />
+              Categories
+            </button>
             <button
               onClick={() => setShowLocations(true)}
               className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-3.5 py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-200 transition-colors"
@@ -161,8 +194,18 @@ export function EmployeesPage() {
                       {initials(user.firstName, user.lastName)}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[14.5px] font-semibold text-gray-900">
-                        {user.firstName} {user.lastName}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[14.5px] font-semibold text-gray-900">
+                          {user.firstName} {user.lastName}
+                        </span>
+                        {user.category && (
+                          <span
+                            className="text-[11px] font-semibold px-2 py-0.5 rounded-full text-white"
+                            style={{ backgroundColor: user.category.color }}
+                          >
+                            {user.category.name}
+                          </span>
+                        )}
                       </div>
                       <div className="text-[12.5px] text-gray-500">{user.email}</div>
                       {user.location && (
@@ -252,8 +295,18 @@ export function EmployeesPage() {
                       {initials(user.firstName, user.lastName)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[15px] font-semibold text-gray-900">
-                        {user.firstName} {user.lastName}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[15px] font-semibold text-gray-900">
+                          {user.firstName} {user.lastName}
+                        </span>
+                        {user.category && (
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white"
+                            style={{ backgroundColor: user.category.color }}
+                          >
+                            {user.category.name}
+                          </span>
+                        )}
                       </div>
                       <div className="text-[12.5px] text-gray-500">{user.email}</div>
                     </div>
@@ -320,6 +373,7 @@ export function EmployeesPage() {
           <Input id="email" label="Email" type="email" error={errors.email?.message} {...register("email", { required: "Required" })} />
           <Input id="password" label="Password" type="password" error={errors.password?.message} {...register("password", { required: "Required", minLength: { value: 8, message: "Min 8 characters" } })} />
           <Select id="locationId" label="Store Location" options={locationOptions} {...register("locationId")} />
+          <Select id="categoryId" label="Category" options={categoryOptions} {...register("categoryId")} />
           <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button type="submit" loading={createUser.isPending}>Create</Button>
@@ -333,7 +387,7 @@ export function EmployeesPage() {
           onSubmit={editForm.handleSubmit((data) => {
             if (editingUser) {
               updateUser.mutate(
-                { id: editingUser.id, data: { ...data, locationId: data.locationId || null } },
+                { id: editingUser.id, data: { ...data, locationId: data.locationId || null, categoryId: data.categoryId || null } },
                 { onSuccess: () => setEditingUser(null) },
               );
             }
@@ -364,6 +418,12 @@ export function EmployeesPage() {
             label="Store Location"
             options={locationOptions}
             {...editForm.register("locationId")}
+          />
+          <Select
+            id="editCategoryId"
+            label="Category"
+            options={categoryOptions}
+            {...editForm.register("categoryId")}
           />
           <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setEditingUser(null)}>Cancel</Button>
@@ -443,6 +503,74 @@ export function EmployeesPage() {
             </div>
           ) : (
             <p className="text-sm text-gray-500">No locations yet. Add one above.</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* Manage Categories modal */}
+      <Modal open={showCategories} onClose={() => setShowCategories(false)} title="Manage Categories">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2.5">
+            <div className="flex gap-2.5">
+              <Input
+                id="newCategory"
+                placeholder="New category name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={() => {
+                  if (newCategoryName.trim()) {
+                    createCategory.mutate(
+                      { name: newCategoryName.trim(), color: newCategoryColor },
+                      { onSuccess: () => setNewCategoryName("") },
+                    );
+                  }
+                }}
+                loading={createCategory.isPending}
+              >
+                Add
+              </Button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setNewCategoryColor(c)}
+                  className={clsx(
+                    "w-7 h-7 rounded-full cursor-pointer transition-all",
+                    newCategoryColor === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : "hover:scale-105",
+                  )}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+          {categories && categories.length > 0 ? (
+            <div className="space-y-0">
+              {categories.map((cat) => (
+                <div key={cat.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{cat.name}</p>
+                      <p className="text-xs text-gray-400">{cat._count?.users || 0} employees</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => deleteCategory.mutate(cat.id)}
+                    className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-red-50 text-red-500"
+                    title="Delete category"
+                  >
+                    <Trash2 className="h-[15px] w-[15px]" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No categories yet. Add one above.</p>
           )}
         </div>
       </Modal>

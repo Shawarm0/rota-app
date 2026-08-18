@@ -40,13 +40,14 @@ enum SwapStatus {
 }
 
 model Business {
-  id        String     @id @default(cuid())
-  name      String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  users     User[]
-  rotas     Rota[]
-  locations Location[]
+  id         String     @id @default(cuid())
+  name       String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  users      User[]
+  rotas      Rota[]
+  locations  Location[]
+  categories Category[]
 }
 
 model Location {
@@ -58,6 +59,19 @@ model Location {
   updatedAt  DateTime @updatedAt
   users      User[]
   rotas      Rota[]
+
+  @@unique([businessId, name])
+}
+
+model Category {
+  id         String   @id @default(cuid())
+  name       String
+  color      String
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  users      User[]
 
   @@unique([businessId, name])
 }
@@ -74,6 +88,8 @@ model User {
   business     Business? @relation(fields: [businessId], references: [id])
   locationId   String?
   location     Location? @relation(fields: [locationId], references: [id])
+  categoryId   String?
+  category     Category? @relation(fields: [categoryId], references: [id])
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

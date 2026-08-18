@@ -11,6 +11,7 @@ interface CreateUserInput {
   role: "MANAGER" | "EMPLOYEE";
   businessId?: string;
   locationId?: string;
+  categoryId?: string;
 }
 
 export async function createUser(input: CreateUserInput, creatorRole: Role, creatorBusinessId: string | null) {
@@ -38,6 +39,7 @@ export async function createUser(input: CreateUserInput, creatorRole: Role, crea
       role: input.role,
       businessId,
       locationId: input.locationId || null,
+      categoryId: input.categoryId || null,
     },
     select: {
       id: true,
@@ -48,6 +50,8 @@ export async function createUser(input: CreateUserInput, creatorRole: Role, crea
       businessId: true,
       locationId: true,
       location: { select: { id: true, name: true } },
+      categoryId: true,
+      category: { select: { id: true, name: true, color: true } },
       active: true,
       createdAt: true,
     },
@@ -70,6 +74,8 @@ export async function listUsers(businessId: string | null, role?: Role, location
       businessId: true,
       locationId: true,
       location: { select: { id: true, name: true } },
+      categoryId: true,
+      category: { select: { id: true, name: true, color: true } },
       active: true,
       createdAt: true,
     },
@@ -89,6 +95,8 @@ export async function getUser(id: string) {
       businessId: true,
       locationId: true,
       location: { select: { id: true, name: true } },
+      categoryId: true,
+      category: { select: { id: true, name: true, color: true } },
       active: true,
       createdAt: true,
     },
@@ -97,7 +105,7 @@ export async function getUser(id: string) {
   return user;
 }
 
-export async function updateUser(id: string, data: { firstName?: string; lastName?: string; email?: string; locationId?: string | null }) {
+export async function updateUser(id: string, data: { firstName?: string; lastName?: string; email?: string; locationId?: string | null; categoryId?: string | null }) {
   return prisma.user.update({
     where: { id },
     data,
@@ -110,6 +118,8 @@ export async function updateUser(id: string, data: { firstName?: string; lastNam
       businessId: true,
       locationId: true,
       location: { select: { id: true, name: true } },
+      categoryId: true,
+      category: { select: { id: true, name: true, color: true } },
       active: true,
     },
   });

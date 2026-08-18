@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useApprovedHolidays } from "../hooks/useHolidays";
 import { useUpdateShift, useDeleteShift } from "../hooks/useRotas";
 import { useLocations } from "../hooks/useLocations";
+import { useCategories } from "../hooks/useCategories";
 import { useAuthStore } from "../stores/authStore";
 import * as shiftApi from "../api/shift.api";
 import * as userApi from "../api/user.api";
@@ -25,23 +26,8 @@ const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
   { value: "AVAILABLE", label: "Available" },
 ];
 
-const LEGEND = [
-  { label: "Assigned", color: "bg-indigo-500" },
-  { label: "Additional", color: "bg-emerald-500" },
-  { label: "Available", color: "bg-gray-400" },
-  { label: "Approved holiday", color: "bg-red-400" },
-  { label: "Requested holiday", color: "bg-amber-400" },
-];
-
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function getShiftDotColor(status: ShiftStatus): string {
-  switch (status) {
-    case "ASSIGNED": return "bg-indigo-500";
-    case "ADDITIONAL": return "bg-emerald-500";
-    case "AVAILABLE": return "bg-gray-400";
-  }
-}
+const DEFAULT_DOT_COLOR = "#9CA3AF";
 
 interface ShiftEditForm {
   startTime: string;
@@ -86,6 +72,7 @@ export function CalendarPage() {
     enabled: isManager,
   });
   const { data: locations } = useLocations();
+  const { data: categories } = useCategories();
   const updateShift = useUpdateShift();
   const deleteShift = useDeleteShift();
   const shiftForm = useForm<ShiftEditForm>();
@@ -233,17 +220,21 @@ export function CalendarPage() {
                       </div>
                       {(dayShifts.length > 0 || dayHolidays.length > 0) && (
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {dayHolidays.map((h) => (
+                          {dayHolidays.filter((h) => h.status === "APPROVED").map((h) => (
                             <div key={h.id} className="flex items-center gap-1.5 text-xs text-gray-600">
-                              <span className={clsx(
-                                "w-1.5 h-1.5 rounded-full",
-                                h.status === "APPROVED" ? "bg-red-400" : "bg-amber-400",
-                              )} />
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
                               {h.user ? h.user.firstName : "Holiday"}
                             </div>
                           ))}
+                          {dayHolidays.some((h) => h.status === "PENDING") && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          )}
                           {dayShifts.slice(0, 3).map((s) => (
-                            <span key={s.id} className={clsx("w-1.5 h-1.5 rounded-full", getShiftDotColor(s.status))} />
+                            <span
+                              key={s.id}
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: (s.user as any)?.category?.color || DEFAULT_DOT_COLOR }}
+                            />
                           ))}
                         </div>
                       )}
@@ -293,14 +284,18 @@ export function CalendarPage() {
                           )}>
                             {dayNum}
                           </div>
-                          {dayHolidays.slice(0, 1).map((h) => (
-                            <div key={h.id} className="text-[11.5px] font-semibold text-red-500 mt-0.5">
+                          {dayHolidays.filter((h) => h.status === "APPROVED").map((h) => (
+                            <div key={h.id} className="text-[11.5px] font-semibold text-red-500 mt-0.5 truncate">
                               {h.user ? h.user.firstName : "Holiday"}
                             </div>
                           ))}
                           <div className="flex gap-1 mt-1">
                             {dayShifts.slice(0, 4).map((s) => (
-                              <span key={s.id} className={clsx("w-1.5 h-1.5 rounded-full", getShiftDotColor(s.status))} />
+                              <span
+                                key={s.id}
+                                className="w-1.5 h-1.5 rounded-full"
+                                style={{ backgroundColor: (s.user as any)?.category?.color || DEFAULT_DOT_COLOR }}
+                              />
                             ))}
                             {hasPendingHoliday && (
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
@@ -317,12 +312,24 @@ export function CalendarPage() {
 
           {/* Legend */}
           <div className="flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
-            {LEGEND.map((l) => (
-              <div key={l.label} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-                <span className={clsx("w-2 h-2 rounded-full shrink-0", l.color)} />
-                {l.label}
+            {categories?.map((c) => (
+              <div key={c.id} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                {c.name}
               </div>
             ))}
+            <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: DEFAULT_DOT_COLOR }} />
+              Uncategorized
+            </div>
+            <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
+              <span className="w-2 h-2 rounded-full shrink-0 bg-red-400" />
+              Approved holiday
+            </div>
+            <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
+              <span className="w-2 h-2 rounded-full shrink-0 bg-amber-400" />
+              Requested holiday
+            </div>
           </div>
         </div>
       </div>

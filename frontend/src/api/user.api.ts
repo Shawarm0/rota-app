@@ -19,12 +19,13 @@ export async function createUser(input: {
   role: "MANAGER" | "EMPLOYEE";
   businessId?: string;
   locationId?: string;
+  categoryId?: string;
 }): Promise<User> {
   const { data } = await client.post<User>("/users", input);
   return data;
 }
 
-export async function updateUser(id: string, input: Partial<Pick<User, "firstName" | "lastName" | "email" | "locationId">>): Promise<User> {
+export async function updateUser(id: string, input: Partial<Pick<User, "firstName" | "lastName" | "email" | "locationId" | "categoryId">>): Promise<User> {
   const { data } = await client.patch<User>(`/users/${id}`, input);
   return data;
 }
