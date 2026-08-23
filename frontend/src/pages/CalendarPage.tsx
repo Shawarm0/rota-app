@@ -210,33 +210,11 @@ export function CalendarPage() {
 
   return (
     <>
-      <div className="hidden md:block">
-        <TopBar title="Calendar" subtitle="Rota & holiday overview" />
-      </div>
-
-      {/* Mobile header */}
-      <div className="md:hidden px-5 pt-4 pb-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <button onClick={prevMonth} className="text-indigo-600 text-[14px] font-semibold">
-              <ChevronLeft className="h-4 w-4 inline -mt-0.5" />
-              {new Date(year, month - 1).toLocaleDateString("en-GB", { month: "short" })}
-            </button>
-          </div>
-          <button onClick={nextMonth} className="text-indigo-600 text-[14px] font-semibold">
-            {new Date(year, month + 1).toLocaleDateString("en-GB", { month: "short" })}
-            <ChevronRight className="h-4 w-4 inline -mt-0.5" />
-          </button>
-        </div>
-        <h1 className="text-[28px] font-bold text-gray-900 mt-1">
-          {currentDate.toLocaleDateString("en-GB", { month: "long" })}
-        </h1>
-      </div>
-
-      <div className="md:p-7 max-w-[1400px]">
-        <div className="bg-white md:border md:border-gray-200 md:rounded-xl overflow-hidden">
-          {/* Desktop toolbar */}
-          <div className="hidden md:flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 flex-wrap">
+      <TopBar title="Calendar" subtitle="Rota & holiday overview" />
+      <div className="p-4 md:p-7 max-w-[1400px]">
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 flex-wrap">
             <div className="flex items-center gap-1.5">
               <button
                 onClick={prevMonth}
@@ -305,14 +283,14 @@ export function CalendarPage() {
                           className="min-h-[90px] pt-1.5 pb-2 cursor-pointer"
                           onClick={() => handleDayClick(day, dayShifts)}
                         >
-                          <div className="flex justify-center mb-1.5">
+                          <div className="flex justify-center mb-1">
                             {isToday ? (
-                              <span className="w-[30px] h-[30px] rounded-full bg-red-500 text-white text-[15px] font-bold flex items-center justify-center">
+                              <span className="w-[28px] h-[28px] rounded-full bg-indigo-600 text-white text-[14px] font-bold flex items-center justify-center">
                                 {dayNum}
                               </span>
                             ) : (
                               <span className={clsx(
-                                "w-[30px] h-[30px] text-[15px] font-semibold flex items-center justify-center",
+                                "w-[28px] h-[28px] text-[14px] font-semibold flex items-center justify-center",
                                 isWeekend ? "text-gray-400" : hasApprovedHoliday ? "text-red-500" : "text-gray-800",
                               )}>
                                 {dayNum}
@@ -414,8 +392,8 @@ export function CalendarPage() {
             </>
           )}
 
-          {/* Legend (desktop only) */}
-          <div className="hidden md:flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
+          {/* Legend */}
+          <div className="flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
             {categories?.map((c) => (
               <div key={c.id} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
                 <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: c.color }}>
