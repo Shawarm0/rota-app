@@ -192,11 +192,33 @@ export function CalendarPage() {
 
   return (
     <>
-      <TopBar title="Calendar" subtitle="Rota & holiday overview" />
-      <div className="p-4 md:p-7 max-w-[1400px]">
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          {/* Toolbar */}
-          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 flex-wrap">
+      <div className="hidden md:block">
+        <TopBar title="Calendar" subtitle="Rota & holiday overview" />
+      </div>
+
+      {/* Mobile header */}
+      <div className="md:hidden px-5 pt-4 pb-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <button onClick={prevMonth} className="text-indigo-600 text-[14px] font-semibold">
+              <ChevronLeft className="h-4 w-4 inline -mt-0.5" />
+              {new Date(year, month - 1).toLocaleDateString("en-GB", { month: "short" })}
+            </button>
+          </div>
+          <button onClick={nextMonth} className="text-indigo-600 text-[14px] font-semibold">
+            {new Date(year, month + 1).toLocaleDateString("en-GB", { month: "short" })}
+            <ChevronRight className="h-4 w-4 inline -mt-0.5" />
+          </button>
+        </div>
+        <h1 className="text-[28px] font-bold text-gray-900 mt-1">
+          {currentDate.toLocaleDateString("en-GB", { month: "long" })}
+        </h1>
+      </div>
+
+      <div className="md:p-7 max-w-[1400px]">
+        <div className="bg-white md:border md:border-gray-200 md:rounded-xl overflow-hidden">
+          {/* Desktop toolbar */}
+          <div className="hidden md:flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 flex-wrap">
             <div className="flex items-center gap-1.5">
               <button
                 onClick={prevMonth}
@@ -238,18 +260,18 @@ export function CalendarPage() {
             <>
               {/* Mobile grid view (Apple Calendar style) */}
               <div className="md:hidden">
-                <div className="grid grid-cols-7">
+                <div className="grid grid-cols-7 px-2">
                   {WEEKDAYS_SHORT.map((wd, i) => (
-                    <div key={i} className="py-2 text-center text-[11px] font-semibold text-gray-400">
+                    <div key={i} className="py-1.5 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
                       {wd}
                     </div>
                   ))}
                 </div>
                 {weeks.map((week, wi) => (
-                  <div key={wi} className="grid grid-cols-7 border-t border-gray-100">
+                  <div key={wi} className="grid grid-cols-7 border-t border-gray-100 px-2">
                     {week.map((dayNum, di) => {
                       if (!dayNum) {
-                        return <div key={`empty-${di}`} className="min-h-[72px]" />;
+                        return <div key={`empty-${di}`} className="min-h-[90px]" />;
                       }
                       const day = new Date(year, month, dayNum);
                       const dayShifts = getShiftsForDay(day);
@@ -262,37 +284,37 @@ export function CalendarPage() {
                       return (
                         <div
                           key={dayNum}
-                          className="min-h-[72px] px-[3px] pt-1 pb-1.5 cursor-pointer"
+                          className="min-h-[90px] pt-1.5 pb-2 cursor-pointer"
                           onClick={() => handleDayClick(day, dayShifts)}
                         >
-                          <div className="flex justify-center mb-0.5">
+                          <div className="flex justify-center mb-1.5">
                             {isToday ? (
-                              <span className="w-[26px] h-[26px] rounded-full bg-red-500 text-white text-[13px] font-bold flex items-center justify-center">
+                              <span className="w-[30px] h-[30px] rounded-full bg-red-500 text-white text-[15px] font-bold flex items-center justify-center">
                                 {dayNum}
                               </span>
                             ) : (
                               <span className={clsx(
-                                "w-[26px] h-[26px] text-[13px] font-semibold flex items-center justify-center",
+                                "w-[30px] h-[30px] text-[15px] font-semibold flex items-center justify-center",
                                 isWeekend ? "text-gray-400" : hasApprovedHoliday ? "text-red-500" : "text-gray-800",
                               )}>
                                 {dayNum}
                               </span>
                             )}
                           </div>
-                          <div className="flex flex-col gap-[2px] items-start overflow-hidden">
+                          <div className="flex flex-col gap-[3px] items-center overflow-hidden px-0.5">
                             {dayHolidays.filter((h) => h.status === "APPROVED").slice(0, 1).map((h) => (
-                              <span key={h.id} className="w-full rounded-[3px] bg-red-100 text-red-600 text-[8px] font-semibold leading-[16px] px-[3px] truncate">
+                              <span key={h.id} className="w-full rounded bg-red-100 text-red-600 text-[8px] font-semibold leading-[14px] px-1 truncate text-center">
                                 {h.user ? h.user.firstName : "Off"}
                               </span>
                             ))}
                             {hasPendingHoliday && !hasApprovedHoliday && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mx-auto" />
+                              <span className="w-2 h-2 rounded-full bg-amber-400" />
                             )}
                             {dayShifts.slice(0, hasApprovedHoliday ? 1 : 2).map((s) => (
                               <ShiftPill key={s.id} shift={s} />
                             ))}
                             {dayShifts.length > (hasApprovedHoliday ? 1 : 2) && (
-                              <span className="text-[8px] text-gray-400 font-medium w-full text-center">
+                              <span className="text-[9px] text-gray-400 font-medium">
                                 +{dayShifts.length - (hasApprovedHoliday ? 1 : 2)}
                               </span>
                             )}
@@ -374,8 +396,8 @@ export function CalendarPage() {
             </>
           )}
 
-          {/* Legend */}
-          <div className="flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
+          {/* Legend (desktop only) */}
+          <div className="hidden md:flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
             {categories?.map((c) => (
               <div key={c.id} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
                 <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: c.color }}>
