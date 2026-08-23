@@ -39,6 +39,25 @@ function getCatColor(s: Shift): string {
   return (s.user as any)?.category?.color || DEFAULT_CAT_COLOR;
 }
 
+const STATUS_ORDER: Record<string, number> = { AVAILABLE: 0, ASSIGNED: 1, ADDITIONAL: 2 };
+
+function sortShifts(shifts: Shift[]): Shift[] {
+  return [...shifts].sort((a, b) => {
+    const aCat = (a.user as any)?.category?.name || "";
+    const bCat = (b.user as any)?.category?.name || "";
+    const aOpen = a.status === "AVAILABLE" || !aCat;
+    const bOpen = b.status === "AVAILABLE" || !bCat;
+    if (aOpen !== bOpen) return aOpen ? -1 : 1;
+    if (aCat !== bCat) return aCat.localeCompare(bCat);
+    const aStatus = STATUS_ORDER[a.status] ?? 1;
+    const bStatus = STATUS_ORDER[b.status] ?? 1;
+    if (aStatus !== bStatus) return aStatus - bStatus;
+    const aName = a.user ? `${a.user.firstName} ${a.user.lastName}` : "";
+    const bName = b.user ? `${b.user.firstName} ${b.user.lastName}` : "";
+    return aName.localeCompare(bName);
+  });
+}
+
 function ShiftPill({ shift }: { shift: Shift }) {
   const catColor = getCatColor(shift);
 
@@ -131,7 +150,7 @@ export function CalendarPage() {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
-  const getShiftsForDay = (day: Date) => shifts?.filter((s) => isSameDay(s.date, day)) || [];
+  const getShiftsForDay = (day: Date) => sortShifts(shifts?.filter((s) => isSameDay(s.date, day)) || []);
   const getHolidaysForDay = (day: Date) => holidays?.filter((h) => isSameDay(h.date, day)) || [];
 
   const today = new Date();
