@@ -43,7 +43,7 @@ function ShiftPill({ shift }: { shift: Shift }) {
 
   if (shift.status === "AVAILABLE") {
     return (
-      <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[10px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-tight">
+      <span className="inline-flex items-center rounded px-1 py-0 text-[9.5px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-[16px]">
         Open
       </span>
     );
@@ -52,7 +52,7 @@ function ShiftPill({ shift }: { shift: Shift }) {
   if (shift.status === "ADDITIONAL") {
     return (
       <span
-        className="inline-flex items-center gap-[2px] rounded px-1.5 py-[1px] text-[10px] font-semibold leading-tight"
+        className="inline-flex items-center gap-[1px] rounded px-1 py-0 text-[9.5px] font-semibold leading-[16px]"
         style={{
           backgroundColor: `${catColor}18`,
           color: catColor,
@@ -66,7 +66,7 @@ function ShiftPill({ shift }: { shift: Shift }) {
 
   return (
     <span
-      className="inline-flex items-center rounded px-1.5 py-[1px] text-[10px] font-bold text-white leading-tight"
+      className="inline-flex items-center rounded px-1 py-0 text-[9.5px] font-bold text-white leading-[16px]"
       style={{ backgroundColor: catColor }}
     >
       {getInitials(shift)}
@@ -363,26 +363,26 @@ export function CalendarPage() {
           <div className="flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
             {categories?.map((c) => (
               <div key={c.id} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-                <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[9px] font-bold text-white leading-tight" style={{ backgroundColor: c.color }}>
+                <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: c.color }}>
                   AB
                 </span>
                 {c.name}
               </div>
             ))}
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-              <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[9px] font-bold text-white leading-tight" style={{ backgroundColor: DEFAULT_CAT_COLOR }}>
+              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: DEFAULT_CAT_COLOR }}>
                 AB
               </span>
               Uncategorized
             </div>
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-              <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[9px] font-semibold leading-tight" style={{ backgroundColor: `${DEFAULT_CAT_COLOR}18`, color: DEFAULT_CAT_COLOR, border: `1px solid ${DEFAULT_CAT_COLOR}40` }}>
+              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-semibold leading-[16px]" style={{ backgroundColor: `${DEFAULT_CAT_COLOR}18`, color: DEFAULT_CAT_COLOR, border: `1px solid ${DEFAULT_CAT_COLOR}40` }}>
                 +AB
               </span>
               Additional
             </div>
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-              <span className="inline-flex items-center rounded px-1.5 py-[1px] text-[9px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-tight">
+              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-[16px]">
                 Open
               </span>
               Available
