@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { TopBar } from "../components/layout/TopBar";
-import { ShiftBadge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
@@ -497,7 +496,21 @@ export function CalendarPage() {
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <ShiftBadge status={shift.status} />
+                    {shift.status === "AVAILABLE" ? (
+                      <span className="inline-flex items-center rounded-full px-3 py-[5px] text-xs font-semibold bg-gray-100 text-gray-600">
+                        Available
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center rounded-full px-3 py-[5px] text-xs font-semibold"
+                        style={{
+                          backgroundColor: `${getCatColor(shift)}18`,
+                          color: getCatColor(shift),
+                        }}
+                      >
+                        {shift.status === "ADDITIONAL" ? "Additional" : "Assigned"}
+                      </span>
+                    )}
                     {shift.user && (
                       <span className="text-xs text-gray-500">{shift.user.firstName} {shift.user.lastName}</span>
                     )}
