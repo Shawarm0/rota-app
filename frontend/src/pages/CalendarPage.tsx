@@ -27,6 +27,7 @@ const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
 ];
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAYS_SHORT = ["M", "T", "W", "T", "F", "S", "S"];
 const DEFAULT_CAT_COLOR = "#9CA3AF";
 
 function getInitials(s: Shift): string {
@@ -43,7 +44,7 @@ function ShiftPill({ shift }: { shift: Shift }) {
 
   if (shift.status === "AVAILABLE") {
     return (
-      <span className="inline-flex items-center rounded px-1 py-0 text-[9.5px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-[16px]">
+      <span className="inline-flex items-center rounded px-1 py-0 text-[9.5px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-[12px]">
         Open
       </span>
     );
@@ -52,7 +53,7 @@ function ShiftPill({ shift }: { shift: Shift }) {
   if (shift.status === "ADDITIONAL") {
     return (
       <span
-        className="inline-flex items-center gap-[1px] rounded px-1 py-0 text-[9.5px] font-semibold leading-[16px]"
+        className="inline-flex items-center gap-[1px] rounded px-1 py-0 text-[9.5px] font-semibold leading-[12px]"
         style={{
           backgroundColor: `${catColor}18`,
           color: catColor,
@@ -66,7 +67,7 @@ function ShiftPill({ shift }: { shift: Shift }) {
 
   return (
     <span
-      className="inline-flex items-center rounded px-1 py-0 text-[9.5px] font-bold text-white leading-[16px]"
+      className="inline-flex items-center rounded px-1 py-0 text-[9.5px] font-bold text-white leading-[12px]"
       style={{ backgroundColor: catColor }}
     >
       {getInitials(shift)}
@@ -235,58 +236,72 @@ export function CalendarPage() {
             </div>
           ) : (
             <>
-              {/* Mobile agenda view */}
-              <div className="md:hidden px-5 py-2">
-                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((dayNum) => {
-                  const day = new Date(year, month, dayNum);
-                  const dayShifts = getShiftsForDay(day);
-                  const dayHolidays = getHolidaysForDay(day);
-                  const isToday = isSameDay(day, today);
-                  const hasApprovedHoliday = dayHolidays.some((h) => h.status === "APPROVED");
-                  const wd = WEEKDAYS[(day.getDay() + 6) % 7];
-
-                  return (
-                    <div
-                      key={dayNum}
-                      className={clsx(
-                        "py-2.5 border-t border-gray-100 cursor-pointer",
-                        hasApprovedHoliday && "bg-red-50 -mx-5 px-5",
-                      )}
-                      onClick={() => handleDayClick(day, dayShifts)}
-                    >
-                      <div className="flex items-baseline gap-2">
-                        <span className={clsx(
-                          "text-sm font-bold min-w-[20px]",
-                          isToday ? "text-indigo-600" : hasApprovedHoliday ? "text-red-500" : "text-gray-900"
-                        )}>
-                          {dayNum}
-                        </span>
-                        <span className="text-xs text-gray-500">{wd}</span>
-                      </div>
-                      {(dayShifts.length > 0 || dayHolidays.length > 0) && (
-                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          {dayHolidays.filter((h) => h.status === "APPROVED").map((h) => (
-                            <div key={h.id} className="flex items-center gap-1 text-xs text-gray-600">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                              {h.user ? h.user.firstName : "Holiday"}
-                            </div>
-                          ))}
-                          {dayHolidays.some((h) => h.status === "PENDING") && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                          )}
-                          {dayShifts.slice(0, 2).map((s) => (
-                            <ShiftPill key={s.id} shift={s} />
-                          ))}
-                          {dayShifts.length > 2 && (
-                            <span className="text-[10px] text-gray-400 font-medium">
-                              +{dayShifts.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      )}
+              {/* Mobile grid view (Apple Calendar style) */}
+              <div className="md:hidden">
+                <div className="grid grid-cols-7">
+                  {WEEKDAYS_SHORT.map((wd, i) => (
+                    <div key={i} className="py-2 text-center text-[11px] font-semibold text-gray-400">
+                      {wd}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+                {weeks.map((week, wi) => (
+                  <div key={wi} className="grid grid-cols-7 border-t border-gray-100">
+                    {week.map((dayNum, di) => {
+                      if (!dayNum) {
+                        return <div key={`empty-${di}`} className="min-h-[72px]" />;
+                      }
+                      const day = new Date(year, month, dayNum);
+                      const dayShifts = getShiftsForDay(day);
+                      const dayHolidays = getHolidaysForDay(day);
+                      const isToday = isSameDay(day, today);
+                      const hasApprovedHoliday = dayHolidays.some((h) => h.status === "APPROVED");
+                      const hasPendingHoliday = dayHolidays.some((h) => h.status === "PENDING");
+                      const isWeekend = di >= 5;
+
+                      return (
+                        <div
+                          key={dayNum}
+                          className="min-h-[72px] px-[3px] pt-1 pb-1.5 cursor-pointer"
+                          onClick={() => handleDayClick(day, dayShifts)}
+                        >
+                          <div className="flex justify-center mb-0.5">
+                            {isToday ? (
+                              <span className="w-[26px] h-[26px] rounded-full bg-red-500 text-white text-[13px] font-bold flex items-center justify-center">
+                                {dayNum}
+                              </span>
+                            ) : (
+                              <span className={clsx(
+                                "w-[26px] h-[26px] text-[13px] font-semibold flex items-center justify-center",
+                                isWeekend ? "text-gray-400" : hasApprovedHoliday ? "text-red-500" : "text-gray-800",
+                              )}>
+                                {dayNum}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-[2px] items-start overflow-hidden">
+                            {dayHolidays.filter((h) => h.status === "APPROVED").slice(0, 1).map((h) => (
+                              <span key={h.id} className="w-full rounded-[3px] bg-red-100 text-red-600 text-[8px] font-semibold leading-[12px] px-[3px] truncate">
+                                {h.user ? h.user.firstName : "Off"}
+                              </span>
+                            ))}
+                            {hasPendingHoliday && !hasApprovedHoliday && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mx-auto" />
+                            )}
+                            {dayShifts.slice(0, hasApprovedHoliday ? 1 : 2).map((s) => (
+                              <ShiftPill key={s.id} shift={s} />
+                            ))}
+                            {dayShifts.length > (hasApprovedHoliday ? 1 : 2) && (
+                              <span className="text-[8px] text-gray-400 font-medium w-full text-center">
+                                +{dayShifts.length - (hasApprovedHoliday ? 1 : 2)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
 
               {/* Desktop grid view */}
@@ -363,26 +378,26 @@ export function CalendarPage() {
           <div className="flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
             {categories?.map((c) => (
               <div key={c.id} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-                <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: c.color }}>
+                <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[12px]" style={{ backgroundColor: c.color }}>
                   AB
                 </span>
                 {c.name}
               </div>
             ))}
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: DEFAULT_CAT_COLOR }}>
+              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[12px]" style={{ backgroundColor: DEFAULT_CAT_COLOR }}>
                 AB
               </span>
               Uncategorized
             </div>
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-semibold leading-[16px]" style={{ backgroundColor: `${DEFAULT_CAT_COLOR}18`, color: DEFAULT_CAT_COLOR, border: `1px solid ${DEFAULT_CAT_COLOR}40` }}>
+              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-semibold leading-[12px]" style={{ backgroundColor: `${DEFAULT_CAT_COLOR}18`, color: DEFAULT_CAT_COLOR, border: `1px solid ${DEFAULT_CAT_COLOR}40` }}>
                 +AB
               </span>
               Additional
             </div>
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-[16px]">
+              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-semibold border border-dashed border-gray-300 text-gray-400 bg-white leading-[12px]">
                 Open
               </span>
               Available
