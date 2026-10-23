@@ -1,4 +1,4 @@
-const CACHE_NAME = "rota-v1";
+const CACHE_NAME = "rota-v2";
 const STATIC_ASSETS = ["/", "/index.html"];
 
 self.addEventListener("install", (event) => {
@@ -19,6 +19,8 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
+  if (request.method !== "GET") return;
+
   if (request.url.includes("/api/")) {
     event.respondWith(
       fetch(request).catch(() => new Response(JSON.stringify({ error: "Offline" }), {
@@ -29,14 +31,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Pages: always try the network first so new deploys show up straight away
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put("/index.html", clone));
+          return response;
+        })
+        .catch(() => caches.match("/index.html"))
+    );
+    return;
+  }
+
+  // Hashed assets: cache first, they never change once built
   event.respondWith(
     caches.match(request).then((cached) => {
-      const fetched = fetch(request).then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+      if (cached) return cached;
+      return fetch(request).then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
         return response;
       });
-      return cached || fetched;
     })
   );
 });

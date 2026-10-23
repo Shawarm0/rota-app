@@ -24,8 +24,8 @@ export async function getPushState(): Promise<PushState> {
   }
   if (Notification.permission === "denied") return "denied";
 
-  const registration = await navigator.serviceWorker.ready;
-  const subscription = await registration.pushManager.getSubscription();
+  const registration = await navigator.serviceWorker.getRegistration();
+  const subscription = await registration?.pushManager.getSubscription();
   return subscription && Notification.permission === "granted" ? "enabled" : "disabled";
 }
 
@@ -37,6 +37,7 @@ export async function enablePush(): Promise<PushState> {
   const publicKey = await notificationApi.getPushPublicKey();
   if (!publicKey) throw new Error("Push notifications are not configured on the server");
 
+  await navigator.serviceWorker.register("/sw.js");
   const registration = await navigator.serviceWorker.ready;
   const subscription =
     (await registration.pushManager.getSubscription()) ??
