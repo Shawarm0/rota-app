@@ -157,6 +157,7 @@ export async function getShiftsForUser(userId: string, from?: string, to?: strin
     },
     include: {
       rota: { select: { id: true, startDate: true, endDate: true, status: true } },
+      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });

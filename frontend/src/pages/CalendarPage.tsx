@@ -57,7 +57,8 @@ function sortShifts(shifts: Shift[]): Shift[] {
   });
 }
 
-function ShiftPill({ shift }: { shift: Shift }) {
+// Employees only see their own shifts, so show when the shift is rather than their own initials
+function ShiftPill({ shift, label }: { shift: Shift; label?: string }) {
   const catColor = getCatColor(shift);
 
   if (shift.status === "AVAILABLE") {
@@ -78,7 +79,7 @@ function ShiftPill({ shift }: { shift: Shift }) {
           border: `1px solid ${catColor}40`,
         }}
       >
-        +{getInitials(shift)}
+        {label ?? `+${getInitials(shift)}`}
       </span>
     );
   }
@@ -88,7 +89,7 @@ function ShiftPill({ shift }: { shift: Shift }) {
       className="inline-flex items-center rounded px-0.5 py-0 text-[9.5px] font-bold text-white leading-[16px]"
       style={{ backgroundColor: catColor }}
     >
-      {getInitials(shift)}
+      {label ?? getInitials(shift)}
     </span>
   );
 }
@@ -307,7 +308,7 @@ export function CalendarPage() {
                               <span className="w-2 h-2 rounded-full bg-amber-400" />
                             )}
                             {dayShifts.slice(0, hasApprovedHoliday ? 1 : 2).map((s) => (
-                              <ShiftPill key={s.id} shift={s} />
+                              <ShiftPill key={s.id} shift={s} label={isManager ? undefined : s.startTime} />
                             ))}
                             {dayShifts.length > (hasApprovedHoliday ? 1 : 2) && (
                               <span className="text-[9px] text-gray-400 font-medium">
@@ -371,7 +372,7 @@ export function CalendarPage() {
                           {dayShifts.length > 0 && (
                             <div className="flex flex-col gap-[3px] mt-1">
                               {dayShifts.slice(0, 3).map((s) => (
-                                <ShiftPill key={s.id} shift={s} />
+                                <ShiftPill key={s.id} shift={s} label={isManager ? undefined : `${s.startTime}–${s.endTime}`} />
                               ))}
                               {dayShifts.length > 3 && (
                                 <span className="text-[10px] text-gray-400 font-medium">
