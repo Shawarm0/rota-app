@@ -59,3 +59,15 @@ export async function disablePush() {
   await notificationApi.unsubscribePush(subscription.endpoint).catch(() => {});
   await subscription.unsubscribe();
 }
+
+// Re-link this device's subscription to whoever is signed in now. Covers sessions that
+// expired without a proper sign-out (another user signing in on the same phone) and
+// subscriptions the server dropped.
+export async function syncPushSubscription() {
+  if (!("serviceWorker" in navigator) || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+
+  const registration = await navigator.serviceWorker.getRegistration();
+  const subscription = await registration?.pushManager.getSubscription();
+  if (subscription) await notificationApi.subscribePush(subscription.toJSON());
+}
