@@ -1,5 +1,6 @@
 import { RotaStatus } from "@prisma/client";
 import prisma from "../lib/db.js";
+import { sendPush } from "./push.service.js";
 import { AppError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 
 export async function createRota(businessId: string, data: { name?: string; startDate: string; endDate: string; locationId?: string }) {
@@ -113,14 +114,14 @@ export async function publishRota(id: string) {
   const endStr = rota.endDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
   if (employees.length > 0) {
-    await prisma.notification.createMany({
-      data: employees.map((emp) => ({
-        userId: emp.id,
-        title: "Rota Published",
-        body: `Your rota for ${startStr} - ${endStr} has been published.`,
-        data: { type: "ROTA_PUBLISHED", rotaId: id },
-      })),
-    });
+    const notifications = employees.map((emp) => ({
+      userId: emp.id,
+      title: "Rota Published",
+      body: `Your rota for ${startStr} - ${endStr} has been published.`,
+      data: { type: "ROTA_PUBLISHED", rotaId: id },
+    }));
+    await prisma.notification.createMany({ data: notifications });
+    sendPush(notifications);
   }
 
   return published;

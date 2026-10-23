@@ -47,8 +47,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: "/icon-192.png",
       data: payload.data,
     })
   );
@@ -56,13 +55,14 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  const url = event.notification.data?.url || "/notifications";
   event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clients) => {
-      if (clients.length > 0) {
-        clients[0].focus();
-        return;
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const client = clients[0];
+      if (client) {
+        return client.focus().then((c) => c.navigate(url));
       }
-      self.clients.openWindow("/");
+      return self.clients.openWindow(url);
     })
   );
 });

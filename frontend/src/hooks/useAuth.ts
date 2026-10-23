@@ -3,6 +3,7 @@ import * as authApi from "../api/auth.api";
 import { useAuthStore } from "../stores/authStore";
 import { useNavigate } from "react-router-dom";
 import { toast } from "../components/ui/Toast";
+import { disablePush } from "../lib/push";
 
 export function useLogin() {
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -28,7 +29,11 @@ export function useLogout() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => (refreshToken ? authApi.logout(refreshToken) : Promise.resolve()),
+    mutationFn: async () => {
+      // Stop this device receiving the signed-out user's notifications
+      await disablePush().catch(() => {});
+      if (refreshToken) await authApi.logout(refreshToken);
+    },
     onSettled: () => {
       queryClient.clear();
       logout();

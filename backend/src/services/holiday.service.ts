@@ -1,4 +1,5 @@
 import prisma from "../lib/db.js";
+import { sendPush } from "./push.service.js";
 import { AppError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 
 export async function requestHoliday(userId: string, data: { date: string; days?: number; shiftId?: string | null; reason?: string | null }) {
@@ -49,14 +50,14 @@ export async function requestHoliday(userId: string, data: { date: string; days?
     const dateRange = numDays === 1
       ? data.date
       : `${data.date} to ${dates[dates.length - 1].toISOString().split("T")[0]}`;
-    await prisma.notification.createMany({
-      data: managers.map((m) => ({
-        userId: m.id,
-        title: "Holiday Request",
-        body: `${user.firstName} ${user.lastName} requested ${numDays} day${numDays > 1 ? "s" : ""} holiday (${dateRange}).`,
-        data: { type: "HOLIDAY_REQUEST", holidayRequestId: requests[0].id },
-      })),
-    });
+    const notifications = managers.map((m) => ({
+      userId: m.id,
+      title: "Holiday Request",
+      body: `${user.firstName} ${user.lastName} requested ${numDays} day${numDays > 1 ? "s" : ""} holiday (${dateRange}).`,
+      data: { type: "HOLIDAY_REQUEST", holidayRequestId: requests[0].id },
+    }));
+    await prisma.notification.createMany({ data: notifications });
+    sendPush(notifications);
   }
 
   return requests;
@@ -71,6 +72,13 @@ export async function approveHoliday(requestId: string) {
   if (request.status !== "PENDING") {
     throw new AppError(400, `Cannot approve a ${request.status.toLowerCase()} request`);
   }
+
+  const notification = {
+    userId: request.userId,
+    title: "Holiday Approved",
+    body: `Your holiday request for ${request.date.toISOString().split("T")[0]} has been approved.`,
+    data: { type: "HOLIDAY_APPROVED", holidayRequestId: requestId },
+  };
 
   const updated = await prisma.$transaction(async (tx) => {
     const approved = await tx.holidayRequest.update({
@@ -88,18 +96,12 @@ export async function approveHoliday(requestId: string) {
       data: { status: "AVAILABLE", userId: null },
     });
 
-    await tx.notification.create({
-      data: {
-        userId: request.userId,
-        title: "Holiday Approved",
-        body: `Your holiday request for ${request.date.toISOString().split("T")[0]} has been approved.`,
-        data: { type: "HOLIDAY_APPROVED", holidayRequestId: requestId },
-      },
-    });
+    await tx.notification.create({ data: notification });
 
     return approved;
   });
 
+  sendPush([notification]);
   return updated;
 }
 
@@ -116,14 +118,14 @@ export async function rejectHoliday(requestId: string, reason?: string) {
     include: { user: { select: { id: true, firstName: true, lastName: true } } },
   });
 
-  await prisma.notification.create({
-    data: {
-      userId: request.userId,
-      title: "Holiday Rejected",
-      body: `Your holiday request for ${request.date.toISOString().split("T")[0]} has been rejected.${reason ? ` Reason: ${reason}` : ""}`,
-      data: { type: "HOLIDAY_REJECTED", holidayRequestId: requestId },
-    },
-  });
+  const notification = {
+    userId: request.userId,
+    title: "Holiday Rejected",
+    body: `Your holiday request for ${request.date.toISOString().split("T")[0]} has been rejected.${reason ? ` Reason: ${reason}` : ""}`,
+    data: { type: "HOLIDAY_REJECTED", holidayRequestId: requestId },
+  };
+  await prisma.notification.create({ data: notification });
+  sendPush([notification]);
 
   return updated;
 }

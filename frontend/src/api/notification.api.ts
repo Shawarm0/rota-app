@@ -25,3 +25,16 @@ export async function markRead(id: string) {
 export async function markAllRead() {
   await client.post("/notifications/read-all");
 }
+
+export async function getPushPublicKey(): Promise<string> {
+  const { data } = await client.get<{ publicKey: string }>("/notifications/push/public-key");
+  return data.publicKey;
+}
+
+export async function subscribePush(subscription: PushSubscriptionJSON) {
+  await client.post("/notifications/push/subscribe", subscription);
+}
+
+export async function unsubscribePush(endpoint: string) {
+  await client.post("/notifications/push/unsubscribe", { endpoint });
+}

@@ -1,4 +1,5 @@
 import prisma from "../lib/db.js";
+import { sendPush } from "./push.service.js";
 import { env } from "../config/env.js";
 import { AppError, ForbiddenError, NotFoundError, ConflictError } from "../lib/errors.js";
 
@@ -23,7 +24,7 @@ export async function requestSwap(userId: string, shiftId: string) {
     select: { firstName: true, lastName: true, businessId: true },
   });
 
-  const result = await prisma.$transaction(async (tx) => {
+  const { swap, notifications } = await prisma.$transaction(async (tx) => {
     const swap = await tx.swapRequest.create({
       data: { shiftId, requesterId: userId },
       include: {
@@ -42,21 +43,22 @@ export async function requestSwap(userId: string, shiftId: string) {
       select: { id: true },
     });
 
-    if (managers.length > 0) {
-      await tx.notification.createMany({
-        data: managers.map((m) => ({
-          userId: m.id,
-          title: "Swap Request",
-          body: `${user!.firstName} ${user!.lastName} requested to swap a shift on ${shift.date.toISOString().split("T")[0]}.`,
-          data: { type: "SWAP_REQUEST", swapRequestId: swap.id },
-        })),
-      });
+    const notifications = managers.map((m) => ({
+      userId: m.id,
+      title: "Swap Request",
+      body: `${user!.firstName} ${user!.lastName} requested to swap a shift on ${shift.date.toISOString().split("T")[0]}.`,
+      data: { type: "SWAP_REQUEST", swapRequestId: swap.id },
+    }));
+
+    if (notifications.length > 0) {
+      await tx.notification.createMany({ data: notifications });
     }
 
-    return swap;
+    return { swap, notifications };
   });
 
-  return result;
+  sendPush(notifications);
+  return swap;
 }
 
 export async function acceptSwap(swapId: string, acceptorId: string) {
@@ -101,14 +103,14 @@ export async function acceptSwap(swapId: string, acceptorId: string) {
     });
 
     if (managers.length > 0) {
-      await prisma.notification.createMany({
-        data: managers.map((m) => ({
-          userId: m.id,
-          title: "Swap Accepted - Pending Approval",
-          body: `A swap has been accepted and needs your approval for ${dateStr}.`,
-          data: { type: "SWAP_ACCEPTED", swapRequestId: swapId },
-        })),
-      });
+      const notifications = managers.map((m) => ({
+        userId: m.id,
+        title: "Swap Accepted - Pending Approval",
+        body: `A swap has been accepted and needs your approval for ${dateStr}.`,
+        data: { type: "SWAP_ACCEPTED", swapRequestId: swapId },
+      }));
+      await prisma.notification.createMany({ data: notifications });
+      sendPush(notifications);
     }
 
     return updated;
@@ -127,7 +129,7 @@ export async function approveSwap(swapId: string) {
 }
 
 async function finalizeSwap(swapId: string, acceptorId: string) {
-  return prisma.$transaction(async (tx) => {
+  const { swap, notifications } = await prisma.$transaction(async (tx) => {
     const swap = await tx.swapRequest.update({
       where: { id: swapId },
       data: { acceptorId, status: "APPROVED" },
@@ -149,25 +151,27 @@ async function finalizeSwap(swapId: string, acceptorId: string) {
 
     const dateStr = swap.shift.date.toISOString().split("T")[0];
 
-    await tx.notification.createMany({
-      data: [
-        {
-          userId: swap.requesterId,
-          title: "Swap Completed",
-          body: `Your shift on ${dateStr} has been swapped with ${acceptor!.firstName} ${acceptor!.lastName}.`,
-          data: { type: "SWAP_COMPLETED", swapRequestId: swapId },
-        },
-        {
-          userId: acceptorId,
-          title: "Swap Completed",
-          body: `You accepted a swap shift on ${dateStr} from ${swap.requester.firstName} ${swap.requester.lastName}.`,
-          data: { type: "SWAP_COMPLETED", swapRequestId: swapId },
-        },
-      ],
-    });
+    const notifications = [
+      {
+        userId: swap.requesterId,
+        title: "Swap Completed",
+        body: `Your shift on ${dateStr} has been swapped with ${acceptor!.firstName} ${acceptor!.lastName}.`,
+        data: { type: "SWAP_COMPLETED", swapRequestId: swapId },
+      },
+      {
+        userId: acceptorId,
+        title: "Swap Completed",
+        body: `You accepted a swap shift on ${dateStr} from ${swap.requester.firstName} ${swap.requester.lastName}.`,
+        data: { type: "SWAP_COMPLETED", swapRequestId: swapId },
+      },
+    ];
+    await tx.notification.createMany({ data: notifications });
 
-    return swap;
+    return { swap, notifications };
   });
+
+  sendPush(notifications);
+  return swap;
 }
 
 export async function rejectSwap(swapId: string) {
@@ -180,6 +184,13 @@ export async function rejectSwap(swapId: string) {
     throw new AppError(400, "Cannot reject this swap");
   }
 
+  const notification = {
+    userId: swap.requesterId,
+    title: "Swap Rejected",
+    body: `Your swap request has been rejected.`,
+    data: { type: "SWAP_REJECTED", swapRequestId: swapId },
+  };
+
   const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.swapRequest.update({
       where: { id: swapId },
@@ -191,18 +202,12 @@ export async function rejectSwap(swapId: string) {
       data: { status: "ASSIGNED" },
     });
 
-    await tx.notification.create({
-      data: {
-        userId: swap.requesterId,
-        title: "Swap Rejected",
-        body: `Your swap request has been rejected.`,
-        data: { type: "SWAP_REJECTED", swapRequestId: swapId },
-      },
-    });
+    await tx.notification.create({ data: notification });
 
     return updated;
   });
 
+  sendPush([notification]);
   return result;
 }
 

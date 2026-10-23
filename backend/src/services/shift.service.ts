@@ -1,5 +1,6 @@
 import { ShiftStatus } from "@prisma/client";
 import prisma from "../lib/db.js";
+import { sendPush } from "./push.service.js";
 import { AppError, ConflictError, NotFoundError } from "../lib/errors.js";
 
 interface CreateShiftInput {
@@ -295,14 +296,14 @@ export async function requestCover(shiftId: string) {
   });
 
   if (employees.length > 0) {
-    await prisma.notification.createMany({
-      data: employees.map((emp) => ({
-        userId: emp.id,
-        title: "Shift Available",
-        body: `A shift on ${dateStr} (${shift.startTime}-${shift.endTime}${shift.location ? ` at ${shift.location}` : ""}) needs cover. Check the Shift Pot to claim it.`,
-        data: { type: "SHIFT_COVER", shiftId },
-      })),
-    });
+    const notifications = employees.map((emp) => ({
+      userId: emp.id,
+      title: "Shift Available",
+      body: `A shift on ${dateStr} (${shift.startTime}-${shift.endTime}${shift.location ? ` at ${shift.location}` : ""}) needs cover. Check the Shift Pot to claim it.`,
+      data: { type: "SHIFT_COVER", shiftId },
+    }));
+    await prisma.notification.createMany({ data: notifications });
+    sendPush(notifications);
   }
 
   return { notified: employees.length };
