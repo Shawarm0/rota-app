@@ -8,6 +8,17 @@
 
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
+  /* Disable double-tap zoom */
+  touch-action: manipulation;
+}
+
+/* iOS zooms in on any field under 16px when it's focused, and the app stays zoomed */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 input[type="date"],
