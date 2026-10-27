@@ -57,8 +57,8 @@ export async function getStaffing(weekStart: string): Promise<StaffingDay[]> {
   return data;
 }
 
-export async function getEmployeeSummaries(): Promise<EmployeeSummary[]> {
-  const { data } = await client.get<EmployeeSummary[]>("/dashboard/employees");
+export async function getEmployeeSummaries(weekStart: string): Promise<EmployeeSummary[]> {
+  const { data } = await client.get<EmployeeSummary[]>("/dashboard/employees", { params: { weekStart } });
   return data;
 }
 

@@ -33,8 +33,13 @@ export function isSameDay(a: Date | string, b: Date | string): boolean {
   return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
 }
 
+// Uses the local calendar date. toISOString() would convert to UTC first, which gives the
+// previous day for local midnight during British Summer Time.
 export function toDateString(date: Date): string {
-  return date.toISOString().split("T")[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export function getMonday(date: Date): Date {

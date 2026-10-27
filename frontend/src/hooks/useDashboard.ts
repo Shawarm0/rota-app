@@ -23,9 +23,9 @@ export function useStaffing(weekStart: string) {
   });
 }
 
-export function useEmployeeSummaries() {
+export function useEmployeeSummaries(weekStart: string) {
   return useQuery({
-    queryKey: ["employeeSummaries"],
-    queryFn: dashboardApi.getEmployeeSummaries,
+    queryKey: ["employeeSummaries", weekStart],
+    queryFn: () => dashboardApi.getEmployeeSummaries(weekStart),
   });
 }

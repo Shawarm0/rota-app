@@ -1,37 +1,33 @@
 import prisma from "../lib/db.js";
+import { minutesToHours, shiftMinutes } from "../lib/shiftHours.js";
 
 export async function getHoursReport(businessId: string, from: string, to: string) {
+  const shiftsInRange = {
+    date: { gte: new Date(from), lte: new Date(to) },
+    rota: { status: "PUBLISHED" as const },
+    status: { not: "AVAILABLE" as const },
+  };
+
+  // Include people who have since left, otherwise their past hours disappear from the report
   const employees = await prisma.user.findMany({
-    where: { businessId, role: "EMPLOYEE", active: true },
+    where: { businessId, role: "EMPLOYEE", OR: [{ active: true }, { shifts: { some: shiftsInRange } }] },
     select: {
       id: true,
       firstName: true,
       lastName: true,
       shifts: {
-        where: {
-          date: { gte: new Date(from), lte: new Date(to) },
-          rota: { status: "PUBLISHED" },
-          status: { not: "AVAILABLE" },
-        },
-        select: { startTime: true, endTime: true, date: true, status: true },
+        where: shiftsInRange,
+        select: { startTime: true, endTime: true },
       },
     },
   });
 
-  return employees.map((emp) => {
-    let totalHours = 0;
-    for (const shift of emp.shifts) {
-      const [startH, startM] = shift.startTime.split(":").map(Number);
-      const [endH, endM] = shift.endTime.split(":").map(Number);
-      totalHours += endH - startH + (endM - startM) / 60;
-    }
-    return {
-      id: emp.id,
-      name: `${emp.firstName} ${emp.lastName}`,
-      totalShifts: emp.shifts.length,
-      totalHours: Math.round(totalHours * 10) / 10,
-    };
-  });
+  return employees.map((emp) => ({
+    id: emp.id,
+    name: `${emp.firstName} ${emp.lastName}`,
+    totalShifts: emp.shifts.length,
+    totalHours: minutesToHours(emp.shifts.reduce((sum, s) => sum + shiftMinutes(s.startTime, s.endTime), 0)),
+  }));
 }
 
 export async function exportCSV(businessId: string, from: string, to: string) {

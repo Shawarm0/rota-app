@@ -32,7 +32,11 @@ export const getStaffing: RequestHandler = async (req, res, next) => {
 
 export const getEmployeeSummaries: RequestHandler = async (req, res, next) => {
   try {
-    const data = await dashboardService.getEmployeeSummaries(req.user!.businessId!);
+    const weekStart = req.query.weekStart as string | undefined;
+    const data = await dashboardService.getEmployeeSummaries(
+      req.user!.businessId!,
+      weekStart && /^\d{4}-\d{2}-\d{2}$/.test(weekStart) ? weekStart : new Date().toISOString().split("T")[0],
+    );
     res.json(data);
   } catch (err) {
     next(err);

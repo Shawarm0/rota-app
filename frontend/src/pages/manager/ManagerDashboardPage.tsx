@@ -6,7 +6,7 @@ import { TopBar } from "../../components/layout/TopBar";
 import { Spinner } from "../../components/ui/Spinner";
 import { useDashboard, useEmployeeSummaries } from "../../hooks/useDashboard";
 import { useHolidayRequests, useApproveHoliday, useRejectHoliday } from "../../hooks/useHolidays";
-import { formatDate } from "../../lib/dateUtils";
+import { formatDate, getMonday, toDateString } from "../../lib/dateUtils";
 import {
   Users, Palmtree, AlertCircle, BarChart3, Check, X, Plus, Search, Trash2, FileText,
 } from "lucide-react";
@@ -19,6 +19,10 @@ function getTodayFormatted() {
   return new Date().toLocaleDateString("en-GB", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
+}
+
+function formatHours(hours: number) {
+  return `${Math.round(hours * 10) / 10}h`;
 }
 
 function getWeekRange() {
@@ -76,7 +80,7 @@ function getActivityStyle(action: string) {
 export function ManagerDashboardPage() {
   const navigate = useNavigate();
   const { data: dashboard, isLoading } = useDashboard();
-  const { data: employees } = useEmployeeSummaries();
+  const { data: employees } = useEmployeeSummaries(toDateString(getMonday(new Date())));
   const { data: holidays } = useHolidayRequests("PENDING");
   const approveHoliday = useApproveHoliday();
   const rejectHoliday = useRejectHoliday();
@@ -102,6 +106,7 @@ export function ManagerDashboardPage() {
     return Object.entries(groups).map(([date, items]) => ({ date, items }));
   }, [dashboard?.recentActivity]);
 
+  // Summed before rounding so the total matches the real hours
   const totalHours = employees ? employees.reduce((s, e) => s + e.totalHours, 0) : 0;
   const totalAdditionalHours = employees ? employees.reduce((s, e) => s + e.additionalHours, 0) : 0;
 
@@ -139,8 +144,8 @@ export function ManagerDashboardPage() {
     },
     {
       label: "Labor Hours (wk)",
-      value: `${Math.round((totalHours + totalAdditionalHours) * 10) / 10}h`,
-      sub: totalAdditionalHours > 0 ? `+${Math.round(totalAdditionalHours * 10) / 10}h extra` : undefined,
+      value: formatHours(totalHours + totalAdditionalHours),
+      sub: totalAdditionalHours > 0 ? `+${formatHours(totalAdditionalHours)} extra` : undefined,
       Icon: BarChart3,
       iconBg: "bg-green-50",
       iconColor: "text-green-600",
@@ -270,10 +275,10 @@ export function ManagerDashboardPage() {
                         </div>
                       </td>
                       <td className="px-5 py-[13px] text-right text-gray-800">{emp.totalShifts}</td>
-                      <td className="px-5 py-[13px] text-right text-gray-800 font-semibold">{emp.totalHours}h</td>
+                      <td className="px-5 py-[13px] text-right text-gray-800 font-semibold">{formatHours(emp.totalHours)}</td>
                       <td className="px-5 py-[13px] text-right">
                         {emp.additionalHours > 0
-                          ? <span className="text-amber-600 font-medium">+{emp.additionalHours}h</span>
+                          ? <span className="text-amber-600 font-medium">+{formatHours(emp.additionalHours)}</span>
                           : <span className="text-gray-400">&mdash;</span>}
                       </td>
                       <td className="px-5 py-[13px] text-right text-gray-800">{emp.holidaysUsed}</td>
@@ -298,8 +303,8 @@ export function ManagerDashboardPage() {
                   </div>
                   <div className="flex gap-[18px] mt-[10px] text-[12.5px] text-gray-500">
                     <div><span className="text-gray-900 font-semibold">{emp.totalShifts}</span> shifts</div>
-                    <div><span className="text-gray-900 font-semibold">{emp.totalHours}h</span></div>
-                    {emp.additionalHours > 0 && <div className="text-amber-600">+{emp.additionalHours}h</div>}
+                    <div><span className="text-gray-900 font-semibold">{formatHours(emp.totalHours)}</span></div>
+                    {emp.additionalHours > 0 && <div className="text-amber-600">+{formatHours(emp.additionalHours)}</div>}
                     <div><span className="text-gray-900 font-semibold">{emp.holidaysUsed}</span> hol.</div>
                   </div>
                 </div>

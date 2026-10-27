@@ -1,4 +1,5 @@
 import prisma from "../lib/db.js";
+import { shiftMinutes, weekBounds } from "../lib/shiftHours.js";
 
 export async function getDashboardData(businessId: string) {
   const [pendingHolidays, shiftsNeedingCover, totalEmployees, recentActivity] =
@@ -68,16 +69,24 @@ export async function getStaffingOverview(businessId: string, weekStart: string)
   return Object.entries(days).map(([date, count]) => ({ date, shiftCount: count }));
 }
 
-export async function getEmployeeSummaries(businessId: string) {
+export async function getEmployeeSummaries(businessId: string, weekStart: string) {
+  const { start, end } = weekBounds(weekStart);
+  const weekShifts = {
+    date: { gte: start, lt: end },
+    rota: { status: "PUBLISHED" as const },
+    status: { not: "AVAILABLE" as const },
+  };
+
+  // Anyone who worked this week counts towards it, even if they've since been disabled
   const employees = await prisma.user.findMany({
-    where: { businessId, role: "EMPLOYEE", active: true },
+    where: { businessId, role: "EMPLOYEE", OR: [{ active: true }, { shifts: { some: weekShifts } }] },
     select: {
       id: true,
       firstName: true,
       lastName: true,
       email: true,
       shifts: {
-        where: { rota: { status: "PUBLISHED" }, status: { not: "AVAILABLE" } },
+        where: weekShifts,
         select: { status: true, startTime: true, endTime: true },
       },
       holidayRequests: {
@@ -88,35 +97,33 @@ export async function getEmployeeSummaries(businessId: string) {
   });
 
   return employees.map((emp) => {
-    let assignedHours = 0;
+    let assignedMinutes = 0;
     let assignedCount = 0;
     let additionalCount = 0;
-    let additionalHours = 0;
+    let additionalMinutes = 0;
 
     for (const shift of emp.shifts) {
-      const [startH, startM] = shift.startTime.split(":").map(Number);
-      const [endH, endM] = shift.endTime.split(":").map(Number);
-      const hours = endH - startH + (endM - startM) / 60;
-
+      const minutes = shiftMinutes(shift.startTime, shift.endTime);
       if (shift.status === "ASSIGNED") {
         assignedCount++;
-        assignedHours += hours;
+        assignedMinutes += minutes;
       } else if (shift.status === "ADDITIONAL") {
         additionalCount++;
-        additionalHours += hours;
+        additionalMinutes += minutes;
       }
     }
 
+    // Unrounded so totals add up exactly; the dashboard rounds for display
     return {
       id: emp.id,
       firstName: emp.firstName,
       lastName: emp.lastName,
       email: emp.email,
       totalShifts: emp.shifts.length,
-      totalHours: Math.round(assignedHours * 10) / 10,
+      totalHours: assignedMinutes / 60,
       assignedCount,
       additionalCount,
-      additionalHours: Math.round(additionalHours * 10) / 10,
+      additionalHours: additionalMinutes / 60,
       holidaysUsed: emp.holidayRequests.length,
     };
   });
