@@ -412,7 +412,7 @@ export async function createAdditionalShift(
     });
   }
 
-  return prisma.shift.create({
+  const shift = await prisma.shift.create({
     data: {
       rotaId: rota.id,
       userId: data.userId,
@@ -427,6 +427,18 @@ export async function createAdditionalShift(
       user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
     },
   });
+
+  const dateStr = shiftDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  const notification = {
+    userId: data.userId,
+    title: "Additional Shift",
+    body: `You've been given an additional shift on ${dateStr}, ${data.startTime}–${data.endTime}${shift.location ? ` at ${shift.location}` : ""}.`,
+    data: { type: "SHIFT_ADDITIONAL", shiftId: shift.id },
+  };
+  await prisma.notification.create({ data: notification });
+  sendPush([notification]);
+
+  return shift;
 }
 
 async function checkTimeConflict(

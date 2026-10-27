@@ -7,6 +7,7 @@ import logger from "../lib/logger.js";
 const PUSH_TYPES = new Set([
   "ROTA_PUBLISHED",
   "SHIFT_COVER",
+  "SHIFT_ADDITIONAL",
   "SWAP_REQUEST",
   "SWAP_ACCEPTED",
   "SWAP_COMPLETED",
@@ -20,6 +21,7 @@ const PUSH_TYPES = new Set([
 const PUSH_URLS: Record<string, string> = {
   ROTA_PUBLISHED: "/my-shifts",
   SHIFT_COVER: "/shift-pot",
+  SHIFT_ADDITIONAL: "/my-shifts",
   SWAP_COMPLETED: "/my-shifts",
   HOLIDAY_APPROVED: "/holidays",
   HOLIDAY_REJECTED: "/holidays",
