@@ -19,6 +19,19 @@ body {
   textarea {
     font-size: 16px !important;
   }
+
+  /* iOS draws date/time fields at their own width, spilling over neighbouring fields, unless its native styling is removed */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 2.6875rem; /* keeps the normal field height while empty */
+  }
+
+  input::-webkit-date-and-time-value {
+    text-align: left;
+  }
 }
 
 input[type="date"],

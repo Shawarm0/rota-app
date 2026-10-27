@@ -124,6 +124,21 @@ export function EmployeesPage() {
     `${u.firstName} ${u.lastName}`.toLowerCase().includes(filter.toLowerCase())
   );
 
+  // Grouped under category headings like the Holidays page, with uncategorised staff last
+  const groups: { key: string; name: string; color?: string; users: User[] }[] = [];
+  for (const user of filteredUsers ?? []) {
+    const key = user.category?.id ?? "";
+    let group = groups.find((g) => g.key === key);
+    if (!group) {
+      group = { key, name: user.category?.name ?? "No category", color: user.category?.color, users: [] };
+      groups.push(group);
+    }
+    group.users.push(user);
+  }
+  groups.sort((a, b) => (!a.key !== !b.key ? (a.key ? -1 : 1) : a.name.localeCompare(b.name)));
+  // A lone "No category" heading would just be noise
+  const showHeadings = groups.length > 1 || Boolean(groups[0]?.key);
+
   return (
     <>
       <TopBar
@@ -189,207 +204,201 @@ export function EmployeesPage() {
             }
           />
         ) : (
-          <>
-            {/* Desktop row list */}
-            <div className="hidden md:block bg-white border border-gray-200 rounded-xl overflow-hidden">
-              {filteredUsers?.map((user, idx) => (
-                <div
-                  key={user.id}
-                  className={clsx(
-                    "flex items-center justify-between gap-4 px-5 py-4 flex-wrap",
-                    idx < (filteredUsers?.length || 0) - 1 && "border-b border-gray-100",
-                  )}
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-[13px] font-bold shrink-0">
-                      {initials(user.firstName, user.lastName)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[14.5px] font-semibold text-gray-900">
-                          {user.firstName} {user.lastName}
-                        </span>
-                        {user.category && (
-                          <span
-                            className="text-[11px] font-semibold px-2 py-0.5 rounded-full text-white"
-                            style={{ backgroundColor: user.category.color }}
-                          >
-                            {user.category.name}
-                          </span>
-                        )}
-                        {user.isAssistantManager && (
-                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                            Assistant Manager
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[12.5px] text-gray-500">{user.email}</div>
-                      {user.location && (
-                        <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                          <MapPin className="h-[11px] w-[11px]" />
-                          {user.location.name}
+          <div className="space-y-5">
+            {groups.map((group) => (
+              <div key={group.key || "none"}>
+                {showHeadings && (
+                  <h3 className="flex items-center gap-2 text-[15px] font-bold text-gray-900 mb-2.5">
+                    {group.color && <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: group.color }} />}
+                    {group.name}
+                  </h3>
+                )}
+                {/* Desktop row list */}
+                <div className="hidden md:block bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  {group.users.map((user, idx) => (
+                    <div
+                      key={user.id}
+                      className={clsx(
+                        "flex items-center justify-between gap-4 px-5 py-4 flex-wrap",
+                        idx < group.users.length - 1 && "border-b border-gray-100",
+                      )}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-[13px] font-bold shrink-0">
+                          {initials(user.firstName, user.lastName)}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <div className="relative">
-                      <select
-                        value={user.locationId || ""}
-                        onChange={(e) => handleLocationChange(user.id, e.target.value)}
-                        disabled={!canEdit(user)}
-                        className="disabled:opacity-60 disabled:cursor-default appearance-none px-3 py-[7px] pr-7 border border-gray-200 rounded-lg text-[13px] text-gray-800 bg-gray-50 cursor-pointer outline-none"
-                      >
-                        {locationOptions.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-[11px] w-[11px] text-gray-400 pointer-events-none" />
-                    </div>
-                    <span className={clsx(
-                      "text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap",
-                      user.active
-                        ? "bg-emerald-50 text-emerald-600"
-                        : "bg-red-50 text-red-600",
-                    )}>
-                      {user.active ? "Active" : "Disabled"}
-                    </span>
-                    {canEdit(user) && (
-                    <>
-                    <button
-                      onClick={() => setEditingUser(user)}
-                      className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-indigo-50 text-gray-500 hover:text-indigo-600"
-                      title="Edit employee"
-                    >
-                      <Pencil className="h-[15px] w-[15px]" />
-                    </button>
-                    <button
-                      onClick={() => setResetUserId(user.id)}
-                      className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 text-gray-500"
-                      title="Reset password"
-                    >
-                      <KeyRound className="h-[15px] w-[15px]" />
-                    </button>
-                    {user.active ? (
-                      <button
-                        onClick={() => disableUser.mutate(user.id)}
-                        className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-red-50 text-red-500"
-                        title="Deactivate"
-                      >
-                        <UserX className="h-[15px] w-[15px]" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => enableUser.mutate(user.id)}
-                        className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-green-50 text-green-500"
-                        title="Enable"
-                      >
-                        <UserCheck className="h-[15px] w-[15px]" />
-                      </button>
-                    )}
-                    </>
-                    )}
-                    {currentUser?.role === "SYSTEM_ADMIN" && (
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`)) {
-                            deleteUserMut.mutate(user.id);
-                          }
-                        }}
-                        className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-red-50 text-red-500"
-                        title="Delete user"
-                      >
-                        <Trash2 className="h-[15px] w-[15px]" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Mobile card list */}
-            <div className="md:hidden flex flex-col gap-3">
-              {filteredUsers?.map((user) => (
-                <div key={user.id} className="bg-white border border-gray-200 rounded-xl p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-[38px] h-[38px] rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
-                      {initials(user.firstName, user.lastName)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[15px] font-semibold text-gray-900">
-                          {user.firstName} {user.lastName}
-                        </span>
-                        {user.category && (
-                          <span
-                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white"
-                            style={{ backgroundColor: user.category.color }}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[14.5px] font-semibold text-gray-900">
+                              {user.firstName} {user.lastName}
+                            </span>
+                            {user.isAssistantManager && (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                                Assistant Manager
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[12.5px] text-gray-500">{user.email}</div>
+                          {user.location && (
+                            <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-[11px] w-[11px]" />
+                              {user.location.name}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <div className="relative">
+                          <select
+                            value={user.locationId || ""}
+                            onChange={(e) => handleLocationChange(user.id, e.target.value)}
+                            disabled={!canEdit(user)}
+                            className="disabled:opacity-60 disabled:cursor-default appearance-none px-3 py-[7px] pr-7 border border-gray-200 rounded-lg text-[13px] text-gray-800 bg-gray-50 cursor-pointer outline-none"
                           >
-                            {user.category.name}
-                          </span>
+                            {locationOptions.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-[11px] w-[11px] text-gray-400 pointer-events-none" />
+                        </div>
+                        <span className={clsx(
+                          "text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap",
+                          user.active
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-red-50 text-red-600",
+                        )}>
+                          {user.active ? "Active" : "Disabled"}
+                        </span>
+                        {canEdit(user) && (
+                        <>
+                        <button
+                          onClick={() => setEditingUser(user)}
+                          className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-indigo-50 text-gray-500 hover:text-indigo-600"
+                          title="Edit employee"
+                        >
+                          <Pencil className="h-[15px] w-[15px]" />
+                        </button>
+                        <button
+                          onClick={() => setResetUserId(user.id)}
+                          className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 text-gray-500"
+                          title="Reset password"
+                        >
+                          <KeyRound className="h-[15px] w-[15px]" />
+                        </button>
+                        {user.active ? (
+                          <button
+                            onClick={() => disableUser.mutate(user.id)}
+                            className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-red-50 text-red-500"
+                            title="Deactivate"
+                          >
+                            <UserX className="h-[15px] w-[15px]" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => enableUser.mutate(user.id)}
+                            className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-green-50 text-green-500"
+                            title="Enable"
+                          >
+                            <UserCheck className="h-[15px] w-[15px]" />
+                          </button>
                         )}
-                        {user.isAssistantManager && (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                            Assistant Manager
-                          </span>
+                        </>
+                        )}
+                        {currentUser?.role === "SYSTEM_ADMIN" && (
+                          <button
+                            onClick={() => {
+                              if (confirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`)) {
+                                deleteUserMut.mutate(user.id);
+                              }
+                            }}
+                            className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-red-50 text-red-500"
+                            title="Delete user"
+                          >
+                            <Trash2 className="h-[15px] w-[15px]" />
+                          </button>
                         )}
                       </div>
-                      <div className="text-[12.5px] text-gray-500">{user.email}</div>
                     </div>
-                    <span className={clsx(
-                      "text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap",
-                      user.active
-                        ? "bg-emerald-50 text-emerald-600"
-                        : "bg-red-50 text-red-600",
-                    )}>
-                      {user.active ? "Active" : "Disabled"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                    <div className="text-[12.5px] text-gray-500 flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {user.location?.name || "No location"}
-                    </div>
-                    {canEdit(user) && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setEditingUser(user)}
-                        className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-gray-500"
-                        title="Edit employee"
-                      >
-                        <Pencil className="h-[15px] w-[15px]" />
-                      </button>
-                      <button
-                        onClick={() => setResetUserId(user.id)}
-                        className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-gray-500"
-                        title="Reset password"
-                      >
-                        <KeyRound className="h-[15px] w-[15px]" />
-                      </button>
-                      {user.active ? (
-                        <button
-                          onClick={() => disableUser.mutate(user.id)}
-                          className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-red-500"
-                          title="Deactivate"
-                        >
-                          <UserX className="h-[15px] w-[15px]" />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => enableUser.mutate(user.id)}
-                          className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-green-500"
-                          title="Enable"
-                        >
-                          <UserCheck className="h-[15px] w-[15px]" />
-                        </button>
-                      )}
-                    </div>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </>
+
+                {/* Mobile card list */}
+                <div className="md:hidden flex flex-col gap-3">
+                  {group.users.map((user) => (
+                    <div key={user.id} className="bg-white border border-gray-200 rounded-xl p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-[38px] h-[38px] rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
+                          {initials(user.firstName, user.lastName)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[15px] font-semibold text-gray-900">
+                              {user.firstName} {user.lastName}
+                            </span>
+                            {user.isAssistantManager && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                                Assistant Manager
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[12.5px] text-gray-500">{user.email}</div>
+                        </div>
+                        <span className={clsx(
+                          "text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap",
+                          user.active
+                            ? "bg-emerald-50 text-emerald-600"
+                            : "bg-red-50 text-red-600",
+                        )}>
+                          {user.active ? "Active" : "Disabled"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                        <div className="text-[12.5px] text-gray-500 flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {user.location?.name || "No location"}
+                        </div>
+                        {canEdit(user) && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setEditingUser(user)}
+                            className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-gray-500"
+                            title="Edit employee"
+                          >
+                            <Pencil className="h-[15px] w-[15px]" />
+                          </button>
+                          <button
+                            onClick={() => setResetUserId(user.id)}
+                            className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-gray-500"
+                            title="Reset password"
+                          >
+                            <KeyRound className="h-[15px] w-[15px]" />
+                          </button>
+                          {user.active ? (
+                            <button
+                              onClick={() => disableUser.mutate(user.id)}
+                              className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-red-500"
+                              title="Deactivate"
+                            >
+                              <UserX className="h-[15px] w-[15px]" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => enableUser.mutate(user.id)}
+                              className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center text-green-500"
+                              title="Enable"
+                            >
+                              <UserCheck className="h-[15px] w-[15px]" />
+                            </button>
+                          )}
+                        </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

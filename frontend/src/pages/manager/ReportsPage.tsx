@@ -25,7 +25,7 @@ export function ReportsPage() {
       <TopBar title="Reports" />
       <div className="p-4 md:p-6 space-y-4">
         <Card>
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:items-end">
             <Input
               id="from"
               label="From"
@@ -43,6 +43,7 @@ export function ReportsPage() {
             <Button
               variant="secondary"
               size="sm"
+              className="col-span-2 sm:col-span-1"
               onClick={() => dashboardApi.exportCSV(from, to)}
             >
               <Download className="h-4 w-4 mr-1" /> Export CSV
