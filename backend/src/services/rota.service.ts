@@ -1,6 +1,7 @@
 import { RotaStatus } from "@prisma/client";
 import prisma from "../lib/db.js";
 import { sendPush } from "./push.service.js";
+import { findHolidayClashes } from "./shift.service.js";
 import { AppError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 
 export async function createRota(businessId: string, data: { name?: string; startDate: string; endDate: string; locationId?: string }) {
@@ -151,16 +152,26 @@ export async function copyRota(sourceId: string, newStartDate: string, businessI
   });
 
   if (source.shifts.length > 0) {
+    const copied = source.shifts.map((shift) => ({
+      userId: shift.userId,
+      date: new Date(shift.date.getTime() + dayDiff * 24 * 60 * 60 * 1000),
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      location: shift.location,
+      notes: shift.notes,
+    }));
+
+    // Anyone on approved holiday in the new week has their shift left open instead
+    const clashKeys = new Set((await findHolidayClashes(copied)).map((c) => c.key));
+    const clashes = (s: (typeof copied)[number]) =>
+      s.userId !== null && clashKeys.has(`${s.userId}|${s.date.toISOString().split("T")[0]}`);
+
     await prisma.shift.createMany({
-      data: source.shifts.map((shift) => ({
+      data: copied.map((s) => ({
+        ...s,
         rotaId: newRota.id,
-        userId: shift.userId,
-        date: new Date(shift.date.getTime() + dayDiff * 24 * 60 * 60 * 1000),
-        startTime: shift.startTime,
-        endTime: shift.endTime,
-        location: shift.location,
-        notes: shift.notes,
-        status: "ASSIGNED",
+        userId: clashes(s) ? null : s.userId,
+        status: clashes(s) ? "AVAILABLE" : "ASSIGNED",
       })),
     });
   }

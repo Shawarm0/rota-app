@@ -22,6 +22,28 @@ async function checkApprovedHoliday(userId: string, date: string) {
   }
 }
 
+// Returns the subset of assignments that land on an approved holiday, keyed as "userId|YYYY-MM-DD"
+export async function findHolidayClashes(assignments: { userId?: string | null; date: Date }[]) {
+  const assigned = assignments.filter((a): a is { userId: string; date: Date } => Boolean(a.userId));
+  if (assigned.length === 0) return [];
+
+  const holidays = await prisma.holidayRequest.findMany({
+    where: {
+      status: "APPROVED",
+      userId: { in: [...new Set(assigned.map((a) => a.userId))] },
+      date: { in: [...new Set(assigned.map((a) => a.date.getTime()))].map((t) => new Date(t)) },
+    },
+    include: { user: { select: { firstName: true, lastName: true } } },
+  });
+
+  const keyOf = (userId: string, date: Date) => `${userId}|${date.toISOString().split("T")[0]}`;
+  const byKey = new Map(holidays.map((h) => [keyOf(h.userId, h.date), h]));
+  return assigned.flatMap((a) => {
+    const holiday = byKey.get(keyOf(a.userId, a.date));
+    return holiday ? [{ key: keyOf(a.userId, a.date), holiday }] : [];
+  });
+}
+
 export async function createShift(rotaId: string, data: CreateShiftInput) {
   const rota = await prisma.rota.findUnique({
     where: { id: rotaId },
@@ -318,6 +340,15 @@ export async function syncShifts(
   if (!rota) throw new NotFoundError("Rota");
   if (rota.status === "PUBLISHED") {
     throw new AppError(400, "Cannot modify shifts on a published rota");
+  }
+
+  const clashes = await findHolidayClashes(shifts.map((s) => ({ userId: s.userId, date: new Date(s.date) })));
+  if (clashes.length > 0) {
+    const { holiday } = clashes[0];
+    const more = clashes.length > 1 ? ` (and ${clashes.length - 1} more)` : "";
+    throw new ConflictError(
+      `${holiday.user.firstName} ${holiday.user.lastName} has an approved holiday on ${holiday.date.toISOString().split("T")[0]}${more}. Unassign them before saving.`,
+    );
   }
 
   return prisma.$transaction(async (tx) => {
