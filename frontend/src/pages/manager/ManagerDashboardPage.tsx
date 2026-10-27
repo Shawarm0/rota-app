@@ -1,3 +1,4 @@
+import type { DashboardData } from "../../api/dashboard.api";
 import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -65,12 +66,26 @@ function formatActivityTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
+function describeActivity(log: DashboardData["recentActivity"][number]) {
+  const d = log.details;
+  if (log.action === "ADD_ADDITIONAL" && d?.date) {
+    const date = new Date(`${d.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+    return {
+      summary: `added an additional shift for ${d.assignee ?? "an employee"}`,
+      detail: `${date}, ${d.startTime}–${d.endTime}${d.location ? ` at ${d.location}` : ""}`,
+    };
+  }
+  return { summary: `${log.action.toLowerCase()} ${log.entity.toLowerCase()}`, detail: null };
+}
+
 function getActivityStyle(action: string) {
   const lower = action.toLowerCase();
   if (lower.includes("delete") || lower.includes("reject"))
     return { bg: "bg-red-50", color: "text-red-500", Icon: Trash2 };
   if (lower.includes("approv"))
     return { bg: "bg-green-50", color: "text-green-600", Icon: Check };
+  if (lower === "add_additional")
+    return { bg: "bg-indigo-50", color: "text-indigo-600", Icon: Plus };
   return { bg: "bg-green-50", color: "text-green-600", Icon: FileText };
 }
 
@@ -327,6 +342,7 @@ export function ManagerDashboardPage() {
                   </div>
                   {group.items.map((log) => {
                     const style = getActivityStyle(log.action);
+                    const { summary, detail } = describeActivity(log);
                     return (
                       <div key={log.id} className="flex items-start gap-3 py-[10px] border-t border-gray-50">
                         <div className={`h-7 w-7 rounded-full ${style.bg} ${style.color} flex items-center justify-center flex-shrink-0 mt-[1px]`}>
@@ -335,8 +351,9 @@ export function ManagerDashboardPage() {
                         <div className="min-w-0 flex-1">
                           <div className="text-[13.5px] text-gray-700">
                             <span className="font-semibold text-gray-900">{log.user.firstName} {log.user.lastName}</span>{" "}
-                            {log.action.toLowerCase()} {log.entity.toLowerCase()}
+                            {summary}
                           </div>
+                          {detail && <div className="text-[12.5px] text-gray-600 mt-[2px]">{detail}</div>}
                           <div className="text-[12px] text-gray-400 mt-[2px]">{formatActivityTime(log.createdAt)}</div>
                         </div>
                       </div>

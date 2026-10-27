@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import * as shiftService from "../services/shift.service.js";
 import { param } from "../lib/params.js";
+import { writeAuditLog } from "../middleware/auditLog.js";
 
 export const createShift: RequestHandler = async (req, res, next) => {
   try {
@@ -97,6 +98,19 @@ export const syncShifts: RequestHandler = async (req, res, next) => {
 export const createAdditionalShift: RequestHandler = async (req, res, next) => {
   try {
     const shift = await shiftService.createAdditionalShift(req.user!.businessId!, req.body);
+    writeAuditLog({
+      userId: req.user!.userId,
+      action: "ADD_ADDITIONAL",
+      entity: "Shift",
+      entityId: shift.id,
+      details: {
+        assignee: shift.user ? `${shift.user.firstName} ${shift.user.lastName}` : null,
+        date: shift.date.toISOString().split("T")[0],
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        location: shift.location,
+      },
+    });
     res.status(201).json(shift);
   } catch (err) {
     next(err);

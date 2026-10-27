@@ -9,6 +9,7 @@ export interface DashboardData {
     action: string;
     entity: string;
     entityId: string | null;
+    details: Record<string, unknown> | null;
     createdAt: string;
     user: { firstName: string; lastName: string };
   }>;
