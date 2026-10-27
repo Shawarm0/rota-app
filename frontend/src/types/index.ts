@@ -30,6 +30,7 @@ export interface User {
   firstName: string;
   lastName: string;
   role: Role;
+  isAssistantManager?: boolean;
   businessId: string | null;
   locationId: string | null;
   location?: { id: string; name: string } | null;

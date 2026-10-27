@@ -30,7 +30,7 @@ export function useUpdateUser() {
       qc.invalidateQueries({ queryKey: ["users"] });
       toast("Employee updated", "success");
     },
-    onError: () => toast("Failed to update employee", "error"),
+    onError: (err: any) => toast(err.response?.data?.error?.message || "Failed to update employee", "error"),
   });
 }
 

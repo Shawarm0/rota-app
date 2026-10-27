@@ -43,6 +43,7 @@ export async function login(email: string, password: string) {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      isAssistantManager: user.isAssistantManager,
       businessId: user.businessId,
     },
   };

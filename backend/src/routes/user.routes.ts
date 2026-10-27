@@ -12,18 +12,19 @@ router.use(authenticate);
 
 router.post(
   "/",
-  authorize("SYSTEM_ADMIN", "MANAGER"),
+  authorize("SYSTEM_ADMIN", "MANAGER", "ASSISTANT_MANAGER"),
   validate(createUserSchema),
   auditLog("CREATE", "User"),
   userController.createUser,
 );
 
-router.get("/", authorize("SYSTEM_ADMIN", "MANAGER"), userController.listUsers);
+router.get("/", authorize("SYSTEM_ADMIN", "MANAGER", "ASSISTANT_MANAGER"), userController.listUsers);
 
 router.get("/:id", userController.getUser);
 
 router.patch(
   "/:id",
+  authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"),
   validate(updateUserSchema),
   auditLog("UPDATE", "User"),
   userController.updateUser,
@@ -31,14 +32,14 @@ router.patch(
 
 router.post(
   "/:id/disable",
-  authorize("MANAGER", "SYSTEM_ADMIN"),
+  authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"),
   auditLog("DISABLE", "User"),
   userController.disableUser,
 );
 
 router.post(
   "/:id/enable",
-  authorize("MANAGER", "SYSTEM_ADMIN"),
+  authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"),
   auditLog("ENABLE", "User"),
   userController.enableUser,
 );
@@ -52,7 +53,7 @@ router.delete(
 
 router.post(
   "/:id/reset-password",
-  authorize("MANAGER", "SYSTEM_ADMIN"),
+  authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"),
   validate(resetPasswordSchema),
   auditLog("RESET_PASSWORD", "User"),
   userController.resetPassword,

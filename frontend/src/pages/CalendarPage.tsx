@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { TopBar } from "../components/layout/TopBar";
 import { Modal } from "../components/ui/Modal";
 import { Input } from "../components/ui/Input";
@@ -12,7 +12,8 @@ import { useApprovedHolidays } from "../hooks/useHolidays";
 import { useUpdateShift, useDeleteShift } from "../hooks/useRotas";
 import { useLocations } from "../hooks/useLocations";
 import { useCategories } from "../hooks/useCategories";
-import { useAuthStore } from "../stores/authStore";
+import { usePermissions } from "../hooks/usePermissions";
+import { AdditionalShiftModal } from "../components/shifts/AdditionalShiftModal";
 import * as shiftApi from "../api/shift.api";
 import * as userApi from "../api/user.api";
 import { isSameDay, toDateString, formatDate } from "../lib/dateUtils";
@@ -111,8 +112,10 @@ export function CalendarPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [locationFilter, setLocationFilter] = useState<string>("");
 
-  const role = useAuthStore((s) => s.user?.role);
-  const isManager = role === "MANAGER" || role === "SYSTEM_ADMIN";
+  const [showAddShift, setShowAddShift] = useState(false);
+
+  // Managers and assistant managers see the whole team and can edit shifts
+  const { canManageStaff: isManager } = usePermissions();
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -211,7 +214,20 @@ export function CalendarPage() {
 
   return (
     <>
-      <TopBar title="Calendar" subtitle="Rota & holiday overview" />
+      <TopBar
+        title="Calendar"
+        subtitle="Rota & holiday overview"
+        actions={
+          isManager && (
+            <button
+              onClick={() => setShowAddShift(true)}
+              className="flex items-center gap-[7px] bg-indigo-600 text-white rounded-lg px-4 py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-indigo-700 transition-colors whitespace-nowrap"
+            >
+              <Plus className="h-[15px] w-[15px]" /> Additional Shift
+            </button>
+          )
+        }
+      />
       <div className="p-4 md:p-7 max-w-[1400px]">
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           {/* Toolbar */}
@@ -566,6 +582,7 @@ export function CalendarPage() {
           </form>
         </Modal>
       )}
+      {isManager && <AdditionalShiftModal open={showAddShift} onClose={() => setShowAddShift(false)} />}
     </>
   );
 }

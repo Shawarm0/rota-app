@@ -5,13 +5,16 @@ import { authorize } from "../middleware/authorize.js";
 
 const router = Router();
 
-router.use(authenticate, authorize("MANAGER", "SYSTEM_ADMIN"));
+const managers = authorize("MANAGER", "SYSTEM_ADMIN");
+const managersAndAssistants = authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER");
 
-router.get("/", dashboardController.getDashboard);
-router.get("/shifts-to-cover", dashboardController.getShiftsToCover);
-router.get("/staffing", dashboardController.getStaffing);
-router.get("/employees", dashboardController.getEmployeeSummaries);
-router.get("/reports/hours", dashboardController.getHoursReport);
-router.get("/reports/export", dashboardController.exportCSV);
+router.use(authenticate);
+
+router.get("/", managers, dashboardController.getDashboard);
+router.get("/shifts-to-cover", managersAndAssistants, dashboardController.getShiftsToCover);
+router.get("/staffing", managers, dashboardController.getStaffing);
+router.get("/employees", managers, dashboardController.getEmployeeSummaries);
+router.get("/reports/hours", managersAndAssistants, dashboardController.getHoursReport);
+router.get("/reports/export", managersAndAssistants, dashboardController.exportCSV);
 
 export default router;

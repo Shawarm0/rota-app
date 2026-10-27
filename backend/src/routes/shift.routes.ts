@@ -10,12 +10,12 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/mine", shiftController.getMyShifts);
-router.get("/all", authorize("MANAGER", "SYSTEM_ADMIN"), shiftController.getAllShifts);
+router.get("/all", authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"), shiftController.getAllShifts);
 router.get("/available", shiftController.getAvailableShifts);
-router.post("/additional", authorize("MANAGER", "SYSTEM_ADMIN"), shiftController.createAdditionalShift);
-router.patch("/:id", validate(updateShiftSchema), shiftController.updateShift);
-router.delete("/:id", shiftController.deleteShift);
+router.post("/additional", authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"), shiftController.createAdditionalShift);
+router.patch("/:id", authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"), validate(updateShiftSchema), shiftController.updateShift);
+router.delete("/:id", authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"), shiftController.deleteShift);
 router.post("/:id/claim", shiftController.claimShift);
-router.post("/:id/request-cover", authorize("MANAGER", "SYSTEM_ADMIN"), shiftController.requestCover);
+router.post("/:id/request-cover", authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"), shiftController.requestCover);
 
 export default router;

@@ -1,6 +1,8 @@
 import { RequestHandler } from "express";
 import * as userService from "../services/user.service.js";
 import { param } from "../lib/params.js";
+import { assertCanManageUser } from "../middleware/authorize.js";
+import { ForbiddenError } from "../lib/errors.js";
 
 export const createUser: RequestHandler = async (req, res, next) => {
   try {
@@ -37,6 +39,10 @@ export const getUser: RequestHandler = async (req, res, next) => {
 
 export const updateUser: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanManageUser(req, param(req, "id"));
+    if (req.body.isAssistantManager !== undefined && req.user!.role !== "MANAGER") {
+      throw new ForbiddenError("Only managers can assign assistant managers");
+    }
     const user = await userService.updateUser(param(req, "id"), req.body);
     res.json(user);
   } catch (err) {
@@ -46,6 +52,7 @@ export const updateUser: RequestHandler = async (req, res, next) => {
 
 export const disableUser: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanManageUser(req, param(req, "id"));
     const result = await userService.disableUser(param(req, "id"));
     res.json(result);
   } catch (err) {
@@ -55,6 +62,7 @@ export const disableUser: RequestHandler = async (req, res, next) => {
 
 export const enableUser: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanManageUser(req, param(req, "id"));
     const result = await userService.enableUser(param(req, "id"));
     res.json(result);
   } catch (err) {
@@ -64,6 +72,7 @@ export const enableUser: RequestHandler = async (req, res, next) => {
 
 export const resetPassword: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanManageUser(req, param(req, "id"));
     await userService.resetPassword(param(req, "id"), req.body.newPassword);
     res.json({ message: "Password reset" });
   } catch (err) {

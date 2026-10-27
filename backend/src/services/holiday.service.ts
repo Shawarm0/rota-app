@@ -41,8 +41,14 @@ export async function requestHoliday(userId: string, data: { date: string; days?
     requests.push(request);
   }
 
+  // Managers and assistant managers can approve holidays, so both are told about new requests
   const managers = await prisma.user.findMany({
-    where: { businessId: user.businessId, role: "MANAGER", active: true },
+    where: {
+      businessId: user.businessId,
+      active: true,
+      id: { not: userId },
+      OR: [{ role: "MANAGER" }, { isAssistantManager: true }],
+    },
     select: { id: true },
   });
 
@@ -281,4 +287,10 @@ export async function getMyHolidayRequests(userId: string) {
     include: { shift: true },
     orderBy: { createdAt: "desc" },
   });
+}
+
+export async function getRequestOwnerId(requestId: string) {
+  const request = await prisma.holidayRequest.findUnique({ where: { id: requestId }, select: { userId: true } });
+  if (!request) throw new NotFoundError("Holiday request");
+  return request.userId;
 }

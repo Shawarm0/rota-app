@@ -17,6 +17,7 @@ export const updateUserSchema = z.object({
   email: z.string().email().optional(),
   locationId: z.string().nullable().optional(),
   categoryId: z.string().nullable().optional(),
+  isAssistantManager: z.boolean().optional(),
 });
 
 export const changePasswordSchema = z.object({

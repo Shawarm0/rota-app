@@ -8,7 +8,9 @@ import { Modal } from "../components/ui/Modal";
 import { Spinner } from "../components/ui/Spinner";
 import { EmptyState } from "../components/ui/EmptyState";
 import { RoleGate } from "../components/auth/RoleGate";
-import { useHolidayRequests, useRequestHoliday, useCancelHoliday, useUpdateHoliday, useDeleteHoliday } from "../hooks/useHolidays";
+import { useHolidayRequests, useRequestHoliday, useCancelHoliday, useUpdateHoliday, useDeleteHoliday, useApproveHoliday, useRejectHoliday } from "../hooks/useHolidays";
+import { usePermissions } from "../hooks/usePermissions";
+import { useAuthStore } from "../stores/authStore";
 import { formatDate } from "../lib/dateUtils";
 import { Palmtree, Plus, Check, X, Pencil, Trash2 } from "lucide-react";
 import type { HolidayStatus, HolidayRequest } from "../types";
@@ -45,6 +47,10 @@ export function HolidaysPage() {
   const cancelMutation = useCancelHoliday();
   const updateMutation = useUpdateHoliday();
   const deleteMutation = useDeleteHoliday();
+  const approveMutation = useApproveHoliday();
+  const rejectMutation = useRejectHoliday();
+  const { isAssistantManager } = usePermissions();
+  const myId = useAuthStore((s) => s.user?.id);
   const [showForm, setShowForm] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState<HolidayRequest | null>(null);
   const { register, handleSubmit, reset } = useForm<HolidayForm>();
@@ -187,8 +193,27 @@ export function HolidaysPage() {
                           <Trash2 className="h-[15px] w-[15px] text-red-500" />
                         </button>
                       </RoleGate>
+                      {/* Assistant managers can approve or reject other people's pending requests */}
+                      {isAssistantManager && req.userId !== myId && req.status === "PENDING" && (
+                        <>
+                          <button
+                            onClick={() => approveMutation.mutate(req.id)}
+                            className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-green-50 hover:border-green-200 transition-colors"
+                            title="Approve"
+                          >
+                            <Check className="h-[15px] w-[15px] text-green-600" />
+                          </button>
+                          <button
+                            onClick={() => rejectMutation.mutate({ id: req.id })}
+                            className="h-8 w-8 rounded-[7px] border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors"
+                            title="Reject"
+                          >
+                            <X className="h-[15px] w-[15px] text-red-500" />
+                          </button>
+                        </>
+                      )}
                       <RoleGate allowedRoles={["EMPLOYEE"]}>
-                        {req.status === "PENDING" && (
+                        {req.status === "PENDING" && req.userId === myId && (
                           <button
                             onClick={() => cancelMutation.mutate(req.id)}
                             className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-[14px] py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"

@@ -11,6 +11,7 @@ import { useUsers, useCreateUser, useDisableUser, useEnableUser, useResetPasswor
 import { useLocations, useCreateLocation, useDeleteLocation } from "../../hooks/useLocations";
 import { useCategories, useCreateCategory, useDeleteCategory } from "../../hooks/useCategories";
 import { useAuthStore } from "../../stores/authStore";
+import { usePermissions } from "../../hooks/usePermissions";
 import { Users, Plus, UserX, UserCheck, KeyRound, MapPin, Trash2, Search, ChevronDown, Pencil, Tag } from "lucide-react";
 import clsx from "clsx";
 import type { User } from "../../types";
@@ -41,6 +42,7 @@ interface EditEmployeeForm {
   email: string;
   locationId: string;
   categoryId: string;
+  isAssistantManager: boolean;
 }
 
 function initials(firstName: string, lastName: string) {
@@ -49,6 +51,7 @@ function initials(firstName: string, lastName: string) {
 
 export function EmployeesPage() {
   const currentUser = useAuthStore((s) => s.user);
+  const { isManager } = usePermissions();
   const { data: users, isLoading } = useUsers("EMPLOYEE");
   const { data: locations } = useLocations();
   const { data: categories } = useCategories();
@@ -83,6 +86,7 @@ export function EmployeesPage() {
         email: editingUser.email,
         locationId: editingUser.locationId || "",
         categoryId: editingUser.categoryId || "",
+        isAssistantManager: Boolean(editingUser.isAssistantManager),
       });
     }
   }, [editingUser, editForm]);
@@ -113,6 +117,9 @@ export function EmployeesPage() {
     updateUser.mutate({ id: userId, data: { locationId: locationId || null } });
   };
 
+  // Assistant managers can't act on themselves or other assistant managers
+  const canEdit = (user: User) => isManager || (!user.isAssistantManager && user.id !== currentUser?.id);
+
   const filteredUsers = users?.filter((u) =>
     `${u.firstName} ${u.lastName}`.toLowerCase().includes(filter.toLowerCase())
   );
@@ -136,6 +143,8 @@ export function EmployeesPage() {
             />
           </div>
           <div className="flex items-center gap-2.5">
+            {isManager && (
+            <>
             <button
               onClick={() => setShowCategories(true)}
               className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-3.5 py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-200 transition-colors"
@@ -150,6 +159,8 @@ export function EmployeesPage() {
               <MapPin className="h-[15px] w-[15px]" />
               Locations
             </button>
+            </>
+            )}
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-[7px] bg-indigo-600 text-white rounded-lg px-4 py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-indigo-700 transition-colors"
@@ -206,6 +217,11 @@ export function EmployeesPage() {
                             {user.category.name}
                           </span>
                         )}
+                        {user.isAssistantManager && (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                            Assistant Manager
+                          </span>
+                        )}
                       </div>
                       <div className="text-[12.5px] text-gray-500">{user.email}</div>
                       {user.location && (
@@ -221,7 +237,8 @@ export function EmployeesPage() {
                       <select
                         value={user.locationId || ""}
                         onChange={(e) => handleLocationChange(user.id, e.target.value)}
-                        className="appearance-none px-3 py-[7px] pr-7 border border-gray-200 rounded-lg text-[13px] text-gray-800 bg-gray-50 cursor-pointer outline-none"
+                        disabled={!canEdit(user)}
+                        className="disabled:opacity-60 disabled:cursor-default appearance-none px-3 py-[7px] pr-7 border border-gray-200 rounded-lg text-[13px] text-gray-800 bg-gray-50 cursor-pointer outline-none"
                       >
                         {locationOptions.map((o) => (
                           <option key={o.value} value={o.value}>{o.label}</option>
@@ -237,6 +254,8 @@ export function EmployeesPage() {
                     )}>
                       {user.active ? "Active" : "Disabled"}
                     </span>
+                    {canEdit(user) && (
+                    <>
                     <button
                       onClick={() => setEditingUser(user)}
                       className="w-8 h-8 rounded-[7px] border border-gray-200 bg-white flex items-center justify-center hover:bg-indigo-50 text-gray-500 hover:text-indigo-600"
@@ -267,6 +286,8 @@ export function EmployeesPage() {
                       >
                         <UserCheck className="h-[15px] w-[15px]" />
                       </button>
+                    )}
+                    </>
                     )}
                     {currentUser?.role === "SYSTEM_ADMIN" && (
                       <button
@@ -307,6 +328,11 @@ export function EmployeesPage() {
                             {user.category.name}
                           </span>
                         )}
+                        {user.isAssistantManager && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                            Assistant Manager
+                          </span>
+                        )}
                       </div>
                       <div className="text-[12.5px] text-gray-500">{user.email}</div>
                     </div>
@@ -324,6 +350,7 @@ export function EmployeesPage() {
                       <MapPin className="h-3 w-3" />
                       {user.location?.name || "No location"}
                     </div>
+                    {canEdit(user) && (
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setEditingUser(user)}
@@ -357,6 +384,7 @@ export function EmployeesPage() {
                         </button>
                       )}
                     </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -387,7 +415,17 @@ export function EmployeesPage() {
           onSubmit={editForm.handleSubmit((data) => {
             if (editingUser) {
               updateUser.mutate(
-                { id: editingUser.id, data: { ...data, locationId: data.locationId || null, categoryId: data.categoryId || null } },
+                {
+                  id: editingUser.id,
+                  data: {
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    email: data.email,
+                    locationId: data.locationId || null,
+                    categoryId: data.categoryId || null,
+                    ...(currentUser?.role === "MANAGER" ? { isAssistantManager: data.isAssistantManager } : {}),
+                  },
+                },
                 { onSuccess: () => setEditingUser(null) },
               );
             }
@@ -425,6 +463,17 @@ export function EmployeesPage() {
             options={categoryOptions}
             {...editForm.register("categoryId")}
           />
+          {currentUser?.role === "MANAGER" && (
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input type="checkbox" className="mt-[3px] h-4 w-4 accent-indigo-600" {...editForm.register("isAssistantManager")} />
+              <span>
+                <span className="block text-[13px] font-semibold text-gray-700">Assistant manager</span>
+                <span className="block text-[12px] text-gray-500">
+                  Can manage employees, approve holidays, edit shifts in the calendar, and see shifts to cover and reports.
+                </span>
+              </span>
+            </label>
+          )}
           <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setEditingUser(null)}>Cancel</Button>
             <Button type="submit" loading={updateUser.isPending}>Save</Button>

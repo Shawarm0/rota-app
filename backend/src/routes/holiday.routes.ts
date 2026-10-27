@@ -16,14 +16,14 @@ router.get("/approved", holidayController.getApprovedHolidays);
 
 router.post(
   "/:id/approve",
-  authorize("MANAGER"),
+  authorize("MANAGER", "ASSISTANT_MANAGER"),
   auditLog("APPROVE", "HolidayRequest"),
   holidayController.approveHoliday,
 );
 
 router.post(
   "/:id/reject",
-  authorize("MANAGER"),
+  authorize("MANAGER", "ASSISTANT_MANAGER"),
   validate(rejectHolidaySchema),
   auditLog("REJECT", "HolidayRequest"),
   holidayController.rejectHoliday,

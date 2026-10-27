@@ -1,31 +1,15 @@
 import type { DashboardData } from "../../api/dashboard.api";
 import { useState, useMemo } from "react";
-import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { AdditionalShiftModal } from "../../components/shifts/AdditionalShiftModal";
 import { TopBar } from "../../components/layout/TopBar";
-import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
-import { Select } from "../../components/ui/Select";
-import { Modal } from "../../components/ui/Modal";
 import { Spinner } from "../../components/ui/Spinner";
 import { useDashboard, useEmployeeSummaries } from "../../hooks/useDashboard";
 import { useHolidayRequests, useApproveHoliday, useRejectHoliday } from "../../hooks/useHolidays";
-import { useCreateAdditionalShift } from "../../hooks/useShifts";
-import { useUsers } from "../../hooks/useUsers";
-import { useLocations } from "../../hooks/useLocations";
 import { formatDate } from "../../lib/dateUtils";
 import {
   Users, Palmtree, AlertCircle, BarChart3, Check, X, Plus, Search, Trash2, FileText,
 } from "lucide-react";
-
-interface AdditionalShiftForm {
-  userId: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  notes: string;
-}
 
 function getInitials(first: string, last: string) {
   return `${first[0] || ""}${last[0] || ""}`.toUpperCase();
@@ -94,14 +78,10 @@ export function ManagerDashboardPage() {
   const { data: dashboard, isLoading } = useDashboard();
   const { data: employees } = useEmployeeSummaries();
   const { data: holidays } = useHolidayRequests("PENDING");
-  const { data: allEmployees } = useUsers("EMPLOYEE");
-  const { data: locations } = useLocations();
   const approveHoliday = useApproveHoliday();
   const rejectHoliday = useRejectHoliday();
-  const createAdditionalShift = useCreateAdditionalShift();
   const [showAddShift, setShowAddShift] = useState(false);
   const [empFilter, setEmpFilter] = useState("");
-  const shiftForm = useForm<AdditionalShiftForm>();
 
   const filteredEmployees = useMemo(() => {
     if (!employees) return [];
@@ -366,47 +346,7 @@ export function ManagerDashboardPage() {
         )}
       </div>
 
-      <Modal open={showAddShift} onClose={() => setShowAddShift(false)} title="Add Additional Shift">
-        <form
-          onSubmit={shiftForm.handleSubmit((data) => {
-            createAdditionalShift.mutate(
-              { ...data, location: data.location || undefined, notes: data.notes || undefined },
-              { onSuccess: () => { setShowAddShift(false); shiftForm.reset(); } },
-            );
-          })}
-          className="flex flex-col gap-4"
-        >
-          <Select
-            id="userId"
-            label="Employee"
-            options={[
-              { value: "", label: "Select employee..." },
-              ...(allEmployees?.map((e) => ({
-                value: e.id,
-                label: `${e.firstName} ${e.lastName}${e.location ? ` (${e.location.name})` : ""}`,
-              })) || []),
-            ]}
-            {...shiftForm.register("userId", { required: true })}
-          />
-          <Input id="date" label="Date" type="date" {...shiftForm.register("date", { required: true })} />
-          <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
-          <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
-          <Select
-            id="location"
-            label="Location"
-            options={[
-              { value: "", label: "No location" },
-              ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
-            ]}
-            {...shiftForm.register("location")}
-          />
-          <Input id="notes" label="Notes (optional)" {...shiftForm.register("notes")} />
-          <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
-            <Button variant="secondary" type="button" onClick={() => setShowAddShift(false)}>Cancel</Button>
-            <Button type="submit" loading={createAdditionalShift.isPending}>Create</Button>
-          </div>
-        </form>
-      </Modal>
+      <AdditionalShiftModal open={showAddShift} onClose={() => setShowAddShift(false)} />
     </>
   );
 }

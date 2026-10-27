@@ -19,7 +19,8 @@ export async function createUser(input: CreateUserInput, creatorRole: Role, crea
     throw new ForbiddenError("Only system admins can create managers");
   }
 
-  if (input.role === "EMPLOYEE" && creatorRole !== "MANAGER") {
+  // Route authorisation limits this to managers and assistant managers (who have the EMPLOYEE role)
+  if (input.role === "EMPLOYEE" && creatorRole === "SYSTEM_ADMIN") {
     throw new ForbiddenError("Only managers can create employees");
   }
 
@@ -47,6 +48,7 @@ export async function createUser(input: CreateUserInput, creatorRole: Role, crea
       firstName: true,
       lastName: true,
       role: true,
+      isAssistantManager: true,
       businessId: true,
       locationId: true,
       location: { select: { id: true, name: true } },
@@ -71,6 +73,7 @@ export async function listUsers(businessId: string | null, role?: Role, location
       firstName: true,
       lastName: true,
       role: true,
+      isAssistantManager: true,
       businessId: true,
       locationId: true,
       location: { select: { id: true, name: true } },
@@ -92,6 +95,7 @@ export async function getUser(id: string) {
       firstName: true,
       lastName: true,
       role: true,
+      isAssistantManager: true,
       businessId: true,
       locationId: true,
       location: { select: { id: true, name: true } },
@@ -105,7 +109,14 @@ export async function getUser(id: string) {
   return user;
 }
 
-export async function updateUser(id: string, data: { firstName?: string; lastName?: string; email?: string; locationId?: string | null; categoryId?: string | null }) {
+export async function updateUser(id: string, data: { firstName?: string; lastName?: string; email?: string; locationId?: string | null; categoryId?: string | null; isAssistantManager?: boolean }) {
+  if (data.isAssistantManager !== undefined) {
+    const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+    if (target?.role !== "EMPLOYEE") {
+      throw new AppError(400, "Only employees can be made assistant managers");
+    }
+  }
+
   return prisma.user.update({
     where: { id },
     data,
@@ -115,6 +126,7 @@ export async function updateUser(id: string, data: { firstName?: string; lastNam
       firstName: true,
       lastName: true,
       role: true,
+      isAssistantManager: true,
       businessId: true,
       locationId: true,
       location: { select: { id: true, name: true } },

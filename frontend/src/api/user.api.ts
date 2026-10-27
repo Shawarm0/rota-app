@@ -25,7 +25,7 @@ export async function createUser(input: {
   return data;
 }
 
-export async function updateUser(id: string, input: Partial<Pick<User, "firstName" | "lastName" | "email" | "locationId" | "categoryId">>): Promise<User> {
+export async function updateUser(id: string, input: Partial<Pick<User, "firstName" | "lastName" | "email" | "locationId" | "categoryId" | "isAssistantManager">>): Promise<User> {
   const { data } = await client.patch<User>(`/users/${id}`, input);
   return data;
 }

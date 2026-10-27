@@ -20,6 +20,7 @@ import { useUiStore } from "../../stores/uiStore";
 import { useLogout } from "../../hooks/useAuth";
 import { useIsDesktop } from "../../hooks/useMediaQuery";
 import { RoleGate } from "../auth/RoleGate";
+import { usePermissions } from "../../hooks/usePermissions";
 import clsx from "clsx";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -33,6 +34,7 @@ const navIconClass = (isActive: boolean) =>
 
 export function Sidebar() {
   const user = useAuthStore((s) => s.user);
+  const { isManager, isAssistantManager } = usePermissions();
   const logoutMutation = useLogout();
   const isDesktop = useIsDesktop();
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
@@ -78,26 +80,34 @@ export function Sidebar() {
           {({ isActive }) => <><Bell className={navIconClass(isActive)} />Notifications</>}
         </NavLink>
 
-        <RoleGate allowedRoles={["MANAGER"]}>
-          <div className="pt-4 pb-1">
-            <p className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-[0.04em]">Manager</p>
-          </div>
-          <NavLink to="/manager" end className={navLinkClass}>
-            {({ isActive }) => <><LayoutDashboard className={navIconClass(isActive)} />Dashboard</>}
-          </NavLink>
-          <NavLink to="/manager/employees" className={navLinkClass}>
-            {({ isActive }) => <><Users className={navIconClass(isActive)} />Employees</>}
-          </NavLink>
-          <NavLink to="/manager/rota-builder" className={navLinkClass}>
-            {({ isActive }) => <><CalendarPlus className={navIconClass(isActive)} />Rota Builder</>}
-          </NavLink>
-          <NavLink to="/manager/shifts-to-cover" className={navLinkClass}>
-            {({ isActive }) => <><AlertCircle className={navIconClass(isActive)} />Shifts to Cover</>}
-          </NavLink>
-          <NavLink to="/manager/reports" className={navLinkClass}>
-            {({ isActive }) => <><BarChart3 className={navIconClass(isActive)} />Reports</>}
-          </NavLink>
-        </RoleGate>
+        {(isManager || isAssistantManager) && (
+          <>
+            <div className="pt-4 pb-1">
+              <p className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-[0.04em]">
+                {isManager ? "Manager" : "Team"}
+              </p>
+            </div>
+            {isManager && (
+              <NavLink to="/manager" end className={navLinkClass}>
+                {({ isActive }) => <><LayoutDashboard className={navIconClass(isActive)} />Dashboard</>}
+              </NavLink>
+            )}
+            <NavLink to="/manager/employees" className={navLinkClass}>
+              {({ isActive }) => <><Users className={navIconClass(isActive)} />Employees</>}
+            </NavLink>
+            {isManager && (
+              <NavLink to="/manager/rota-builder" className={navLinkClass}>
+                {({ isActive }) => <><CalendarPlus className={navIconClass(isActive)} />Rota Builder</>}
+              </NavLink>
+            )}
+            <NavLink to="/manager/shifts-to-cover" className={navLinkClass}>
+              {({ isActive }) => <><AlertCircle className={navIconClass(isActive)} />Shifts to Cover</>}
+            </NavLink>
+            <NavLink to="/manager/reports" className={navLinkClass}>
+              {({ isActive }) => <><BarChart3 className={navIconClass(isActive)} />Reports</>}
+            </NavLink>
+          </>
+        )}
 
         <RoleGate allowedRoles={["SYSTEM_ADMIN"]}>
           <div className="pt-4 pb-1">
@@ -128,7 +138,7 @@ export function Sidebar() {
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-gray-900 truncate">{user.firstName} {user.lastName}</p>
-            <p className="text-[12px] text-gray-500">{user.role === "MANAGER" ? "Manager" : user.role === "SYSTEM_ADMIN" ? "Admin" : "Employee"}</p>
+            <p className="text-[12px] text-gray-500">{user.role === "MANAGER" ? "Manager" : user.role === "SYSTEM_ADMIN" ? "Admin" : isAssistantManager ? "Assistant Manager" : "Employee"}</p>
           </div>
         </div>
       )}

@@ -42,6 +42,7 @@ export const me: RequestHandler = async (req, res, next) => {
         firstName: true,
         lastName: true,
         role: true,
+        isAssistantManager: true,
         businessId: true,
         active: true,
       },

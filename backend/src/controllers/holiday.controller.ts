@@ -1,6 +1,15 @@
-import { RequestHandler } from "express";
+import { Request, RequestHandler } from "express";
 import * as holidayService from "../services/holiday.service.js";
 import { param } from "../lib/params.js";
+import { canManageStaff, isAssistantManager } from "../middleware/authorize.js";
+import { ForbiddenError } from "../lib/errors.js";
+
+async function assertNotOwnRequest(req: Request) {
+  if (!(await isAssistantManager(req))) return;
+  if ((await holidayService.getRequestOwnerId(param(req, "id"))) === req.user!.userId) {
+    throw new ForbiddenError("You can't approve or reject your own holiday request");
+  }
+}
 
 export const requestHoliday: RequestHandler = async (req, res, next) => {
   try {
@@ -14,7 +23,7 @@ export const requestHoliday: RequestHandler = async (req, res, next) => {
 export const listHolidayRequests: RequestHandler = async (req, res, next) => {
   try {
     const status = req.query.status as string | undefined;
-    if (req.user!.role === "MANAGER" || req.user!.role === "SYSTEM_ADMIN") {
+    if (await canManageStaff(req)) {
       const requests = await holidayService.listHolidayRequests(req.user!.businessId!, status);
       res.json(requests);
     } else {
@@ -28,6 +37,7 @@ export const listHolidayRequests: RequestHandler = async (req, res, next) => {
 
 export const approveHoliday: RequestHandler = async (req, res, next) => {
   try {
+    await assertNotOwnRequest(req);
     const result = await holidayService.approveHoliday(param(req, "id"));
     res.json(result);
   } catch (err) {
@@ -37,6 +47,7 @@ export const approveHoliday: RequestHandler = async (req, res, next) => {
 
 export const rejectHoliday: RequestHandler = async (req, res, next) => {
   try {
+    await assertNotOwnRequest(req);
     const result = await holidayService.rejectHoliday(param(req, "id"), req.body.reason);
     res.json(result);
   } catch (err) {
@@ -47,7 +58,7 @@ export const rejectHoliday: RequestHandler = async (req, res, next) => {
 export const getApprovedHolidays: RequestHandler = async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    if ((req.user!.role === "MANAGER" || req.user!.role === "SYSTEM_ADMIN") && req.user!.businessId) {
+    if (req.user!.businessId && (await canManageStaff(req))) {
       const holidays = await holidayService.getBusinessHolidays(
         req.user!.businessId,
         from as string | undefined,
