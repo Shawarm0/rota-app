@@ -14,7 +14,15 @@ export const createShift: RequestHandler = async (req, res, next) => {
 
 export const updateShift: RequestHandler = async (req, res, next) => {
   try {
+    const before = await shiftService.getShiftSnapshot(param(req, "id"));
     const shift = await shiftService.updateShift(param(req, "id"), req.body);
+    writeAuditLog({
+      userId: req.user!.userId,
+      action: "EDIT_SHIFT",
+      entity: "Shift",
+      entityId: shift.id,
+      details: { before, after: await shiftService.getShiftSnapshot(shift.id) },
+    });
     res.json(shift);
   } catch (err) {
     next(err);
@@ -23,7 +31,15 @@ export const updateShift: RequestHandler = async (req, res, next) => {
 
 export const deleteShift: RequestHandler = async (req, res, next) => {
   try {
+    const shift = await shiftService.getShiftSnapshot(param(req, "id"));
     await shiftService.deleteShift(param(req, "id"));
+    writeAuditLog({
+      userId: req.user!.userId,
+      action: "DELETE_SHIFT",
+      entity: "Shift",
+      entityId: param(req, "id"),
+      details: shift,
+    });
     res.json({ message: "Shift deleted" });
   } catch (err) {
     next(err);
@@ -80,6 +96,13 @@ export const getAvailableShifts: RequestHandler = async (req, res, next) => {
 export const requestCover: RequestHandler = async (req, res, next) => {
   try {
     const result = await shiftService.requestCover(param(req, "id"));
+    writeAuditLog({
+      userId: req.user!.userId,
+      action: "REQUEST_COVER",
+      entity: "Shift",
+      entityId: param(req, "id"),
+      details: { ...(await shiftService.getShiftSnapshot(param(req, "id"))), notified: result.notified },
+    });
     res.json(result);
   } catch (err) {
     next(err);

@@ -8,7 +8,7 @@ import { useDashboard, useEmployeeSummaries } from "../../hooks/useDashboard";
 import { useHolidayRequests, useApproveHoliday, useRejectHoliday } from "../../hooks/useHolidays";
 import { formatDate, getMonday, toDateString } from "../../lib/dateUtils";
 import {
-  Users, Palmtree, AlertCircle, BarChart3, Check, X, Plus, Search, Trash2, FileText,
+  Users, Palmtree, AlertCircle, BarChart3, Check, X, Plus, Search, Trash2, FileText, Pencil,
 } from "lucide-react";
 
 function getInitials(first: string, last: string) {
@@ -54,13 +54,60 @@ function formatActivityTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
+interface ShiftSnapshot {
+  assignee: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string | null;
+}
+
+function shortDate(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+}
+
+function describeShift(s: ShiftSnapshot) {
+  return `${shortDate(s.date)}, ${s.startTime}–${s.endTime}${s.location ? ` at ${s.location}` : ""}`;
+}
+
+function whoseShift(s: ShiftSnapshot) {
+  return s.assignee ? `${s.assignee}'s shift` : "an open shift";
+}
+
+// Lists what changed between two versions of a shift
+function describeShiftChanges(before: ShiftSnapshot, after: ShiftSnapshot) {
+  const changes: string[] = [];
+  if (before.date !== after.date) changes.push(`${shortDate(before.date)} → ${shortDate(after.date)}`);
+  if (before.startTime !== after.startTime || before.endTime !== after.endTime) {
+    changes.push(`${before.startTime}–${before.endTime} → ${after.startTime}–${after.endTime}`);
+  }
+  if (before.assignee !== after.assignee) changes.push(`${before.assignee ?? "Open"} → ${after.assignee ?? "Open"}`);
+  if (before.location !== after.location) changes.push(`${before.location ?? "No location"} → ${after.location ?? "No location"}`);
+  const prefix = before.date === after.date ? `${shortDate(after.date)}: ` : "";
+  return changes.length > 0 ? prefix + changes.join(", ") : `${describeShift(after)} (notes updated)`;
+}
+
 function describeActivity(log: DashboardData["recentActivity"][number]) {
   const d = log.details;
   if (log.action === "ADD_ADDITIONAL" && d?.date) {
-    const date = new Date(`${d.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
     return {
       summary: `added an additional shift for ${d.assignee ?? "an employee"}`,
-      detail: `${date}, ${d.startTime}–${d.endTime}${d.location ? ` at ${d.location}` : ""}`,
+      detail: describeShift(d as unknown as ShiftSnapshot),
+    };
+  }
+  if (log.action === "EDIT_SHIFT" && d?.before && d?.after) {
+    const before = d.before as ShiftSnapshot;
+    return { summary: `edited ${whoseShift(before)}`, detail: describeShiftChanges(before, d.after as ShiftSnapshot) };
+  }
+  if (log.action === "DELETE_SHIFT" && d?.date) {
+    const shift = d as unknown as ShiftSnapshot;
+    return { summary: `deleted ${whoseShift(shift)}`, detail: describeShift(shift) };
+  }
+  if (log.action === "REQUEST_COVER" && d?.date) {
+    const notified = Number(d.notified ?? 0);
+    return {
+      summary: "requested cover for a shift",
+      detail: `${describeShift(d as unknown as ShiftSnapshot)} · ${notified} ${notified === 1 ? "person" : "people"} notified`,
     };
   }
   return { summary: `${log.action.toLowerCase()} ${log.entity.toLowerCase()}`, detail: null };
@@ -74,6 +121,10 @@ function getActivityStyle(action: string) {
     return { bg: "bg-green-50", color: "text-green-600", Icon: Check };
   if (lower === "add_additional")
     return { bg: "bg-indigo-50", color: "text-indigo-600", Icon: Plus };
+  if (lower === "edit_shift")
+    return { bg: "bg-indigo-50", color: "text-indigo-600", Icon: Pencil };
+  if (lower === "request_cover")
+    return { bg: "bg-amber-50", color: "text-amber-600", Icon: AlertCircle };
   return { bg: "bg-green-50", color: "text-green-600", Icon: FileText };
 }
 

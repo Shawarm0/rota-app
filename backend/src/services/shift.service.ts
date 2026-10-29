@@ -487,3 +487,19 @@ async function checkTimeConflictTx(
     }
   }
 }
+
+// What a shift looked like at a point in time, for the activity log
+export async function getShiftSnapshot(id: string) {
+  const shift = await prisma.shift.findUnique({
+    where: { id },
+    include: { user: { select: { firstName: true, lastName: true } } },
+  });
+  if (!shift) throw new NotFoundError("Shift");
+  return {
+    assignee: shift.user ? `${shift.user.firstName} ${shift.user.lastName}` : null,
+    date: shift.date.toISOString().split("T")[0],
+    startTime: shift.startTime,
+    endTime: shift.endTime,
+    location: shift.location,
+  };
+}
