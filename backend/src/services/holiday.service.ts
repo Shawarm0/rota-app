@@ -3,7 +3,7 @@ import { sendPush } from "./push.service.js";
 import { AppError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 
 export async function requestHoliday(userId: string, data: { date: string; days?: number; shiftId?: string | null; reason?: string | null }) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { businessId: true, firstName: true, lastName: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { businessId: true, locationId: true, firstName: true, lastName: true } });
   if (!user) throw new NotFoundError("User");
 
   const numDays = data.days || 1;
@@ -47,7 +47,11 @@ export async function requestHoliday(userId: string, data: { date: string; days?
       businessId: user.businessId,
       active: true,
       id: { not: userId },
-      OR: [{ role: "MANAGER" }, { isAssistantManager: true }],
+      // Store-based assistant managers only hear about their own store's staff
+      OR: [
+        { role: "MANAGER" },
+        { isAssistantManager: true, OR: [{ locationId: null }, ...(user.locationId ? [{ locationId: user.locationId }] : [])] },
+      ],
     },
     select: { id: true },
   });
@@ -228,10 +232,10 @@ export async function deleteHoliday(requestId: string) {
   await prisma.holidayRequest.delete({ where: { id: requestId } });
 }
 
-export async function listHolidayRequests(businessId: string, status?: string) {
+export async function listHolidayRequests(businessId: string, status?: string, locationId?: string) {
   return prisma.holidayRequest.findMany({
     where: {
-      user: { businessId },
+      user: { businessId, ...(locationId ? { locationId } : {}) },
       ...(status ? { status: status as any } : {}),
     },
     include: {
@@ -260,10 +264,10 @@ export async function getApprovedHolidays(userId: string, from?: string, to?: st
   });
 }
 
-export async function getBusinessHolidays(businessId: string, from?: string, to?: string) {
+export async function getBusinessHolidays(businessId: string, from?: string, to?: string, locationId?: string) {
   return prisma.holidayRequest.findMany({
     where: {
-      user: { businessId },
+      user: { businessId, ...(locationId ? { locationId } : {}) },
       status: { in: ["PENDING", "APPROVED"] },
       ...(from || to
         ? {

@@ -1,5 +1,6 @@
 import prisma from "../lib/db.js";
 import { shiftMinutes, weekBounds } from "../lib/shiftHours.js";
+import { shiftsAtStore, type Store } from "../lib/storeScope.js";
 
 export async function getDashboardData(businessId: string) {
   const [pendingHolidays, shiftsNeedingCover, totalEmployees, recentActivity] =
@@ -29,11 +30,12 @@ export async function getDashboardData(businessId: string) {
   };
 }
 
-export async function getShiftsToCover(businessId: string) {
+export async function getShiftsToCover(businessId: string, store?: Store | null) {
   return prisma.shift.findMany({
     where: {
       rota: { businessId, status: "PUBLISHED" },
       status: "AVAILABLE",
+      ...(store ? { AND: [shiftsAtStore(store)] } : {}),
       date: { gte: new Date() },
     },
     include: {

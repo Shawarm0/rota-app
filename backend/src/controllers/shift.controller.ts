@@ -2,7 +2,7 @@ import { RequestHandler } from "express";
 import * as shiftService from "../services/shift.service.js";
 import { param } from "../lib/params.js";
 import { writeAuditLog } from "../middleware/auditLog.js";
-import { assertCanEditStore } from "../middleware/authorize.js";
+import { assertCanEditStore, assertUserAtStore, getRestrictedStore } from "../middleware/authorize.js";
 
 export const createShift: RequestHandler = async (req, res, next) => {
   try {
@@ -18,6 +18,9 @@ export const updateShift: RequestHandler = async (req, res, next) => {
     await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id")));
     // Moving a shift to another store counts as changing that store too
     if (req.body.location !== undefined) await assertCanEditStore(req, req.body.location || null);
+    if (req.body.userId && req.body.userId !== (await shiftService.getShiftAssigneeId(param(req, "id")))) {
+      await assertUserAtStore(req, req.body.userId);
+    }
     const before = await shiftService.getShiftSnapshot(param(req, "id"));
     const shift = await shiftService.updateShift(param(req, "id"), req.body);
     writeAuditLog({
@@ -82,6 +85,7 @@ export const getAllShifts: RequestHandler = async (req, res, next) => {
       from as string | undefined,
       to as string | undefined,
       location as string | undefined,
+      await getRestrictedStore(req),
     );
     res.json(shifts);
   } catch (err) {
@@ -127,6 +131,7 @@ export const syncShifts: RequestHandler = async (req, res, next) => {
 export const createAdditionalShift: RequestHandler = async (req, res, next) => {
   try {
     await assertCanEditStore(req, req.body.location || null);
+    await assertUserAtStore(req, req.body.userId);
     const shift = await shiftService.createAdditionalShift(req.user!.businessId!, req.body);
     writeAuditLog({
       userId: req.user!.userId,

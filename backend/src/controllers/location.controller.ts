@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import * as locationService from "../services/location.service.js";
 import { param } from "../lib/params.js";
+import { getRestrictedStore } from "../middleware/authorize.js";
 
 export const createLocation: RequestHandler = async (req, res, next) => {
   try {
@@ -14,7 +15,8 @@ export const createLocation: RequestHandler = async (req, res, next) => {
 export const listLocations: RequestHandler = async (req, res, next) => {
   try {
     const locations = await locationService.listLocations(req.user!.businessId!);
-    res.json(locations);
+    const store = await getRestrictedStore(req);
+    res.json(store ? locations.filter((l) => l.id === store.id) : locations);
   } catch (err) {
     next(err);
   }

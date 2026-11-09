@@ -2,6 +2,7 @@ import { Request, RequestHandler } from "express";
 import { Role } from "@prisma/client";
 import prisma from "../lib/db.js";
 import { ForbiddenError } from "../lib/errors.js";
+import type { Store } from "../lib/storeScope.js";
 
 // Assistant managers are employees with a flag, so they're authorised separately from roles
 export type Permission = Role | "ASSISTANT_MANAGER";
@@ -53,22 +54,33 @@ export async function assertCanManageUser(req: Request, targetId: string) {
   ) {
     throw new ForbiddenError("Assistant managers can only manage regular employees");
   }
+  await assertUserAtStore(req, targetId);
 }
 
 // The store an assistant manager is limited to, or null if they can work across every store
-export async function getRestrictedStore(req: Request) {
+export async function getRestrictedStore(req: Request): Promise<Store | null> {
   if (!req.user || req.user.role !== "EMPLOYEE") return null;
   const user = await prisma.user.findUnique({
     where: { id: req.user.userId },
-    select: { isAssistantManager: true, location: { select: { name: true } } },
+    select: { isAssistantManager: true, location: { select: { id: true, name: true } } },
   });
-  return user?.isAssistantManager ? (user.location?.name ?? null) : null;
+  return user?.isAssistantManager ? (user.location ?? null) : null;
 }
 
 // Store-based assistant managers may only change shifts at their own store
 export async function assertCanEditStore(req: Request, store: string | null) {
   const restricted = await getRestrictedStore(req);
-  if (restricted && store !== restricted) {
-    throw new ForbiddenError(`You can only change shifts at ${restricted}`);
+  if (restricted && store !== restricted.name) {
+    throw new ForbiddenError(`You can only change shifts at ${restricted.name}`);
+  }
+}
+
+// Store-based assistant managers may only deal with staff at their own store
+export async function assertUserAtStore(req: Request, userId: string) {
+  const restricted = await getRestrictedStore(req);
+  if (!restricted) return;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { locationId: true } });
+  if (user?.locationId !== restricted.id) {
+    throw new ForbiddenError(`You can only manage staff at ${restricted.name}`);
   }
 }

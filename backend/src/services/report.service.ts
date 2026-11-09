@@ -1,7 +1,7 @@
 import prisma from "../lib/db.js";
 import { minutesToHours, shiftMinutes } from "../lib/shiftHours.js";
 
-export async function getHoursReport(businessId: string, from: string, to: string) {
+export async function getHoursReport(businessId: string, from: string, to: string, locationId?: string) {
   const shiftsInRange = {
     date: { gte: new Date(from), lte: new Date(to) },
     rota: { status: "PUBLISHED" as const },
@@ -10,7 +10,12 @@ export async function getHoursReport(businessId: string, from: string, to: strin
 
   // Include people who have since left, otherwise their past hours disappear from the report
   const employees = await prisma.user.findMany({
-    where: { businessId, role: "EMPLOYEE", OR: [{ active: true }, { shifts: { some: shiftsInRange } }] },
+    where: {
+      businessId,
+      role: "EMPLOYEE",
+      ...(locationId ? { locationId } : {}),
+      OR: [{ active: true }, { shifts: { some: shiftsInRange } }],
+    },
     select: {
       id: true,
       firstName: true,
@@ -30,8 +35,8 @@ export async function getHoursReport(businessId: string, from: string, to: strin
   }));
 }
 
-export async function exportCSV(businessId: string, from: string, to: string) {
-  const data = await getHoursReport(businessId, from, to);
+export async function exportCSV(businessId: string, from: string, to: string, locationId?: string) {
+  const data = await getHoursReport(businessId, from, to, locationId);
   const header = "Name,Total Shifts,Total Hours";
   const rows = data.map((d) => `"${d.name}",${d.totalShifts},${d.totalHours}`);
   return [header, ...rows].join("\n");

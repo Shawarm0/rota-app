@@ -192,6 +192,10 @@ export function CalendarPage() {
   const employeeOptions = [
     { value: "", label: "Unassigned" },
     ...(employees?.map((e) => ({ value: e.id, label: `${e.firstName} ${e.lastName}` })) || []),
+    // Keep the current person selectable even if they're outside the visible staff list
+    ...(editingShift?.user && !employees?.some((e) => e.id === editingShift.userId)
+      ? [{ value: editingShift.user.id, label: `${editingShift.user.firstName} ${editingShift.user.lastName}` }]
+      : []),
   ];
 
   const locationOptions = [
@@ -249,7 +253,7 @@ export function CalendarPage() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-            {isManager && locations && locations.length > 0 && (
+            {isManager && !restrictedStore && locations && locations.length > 0 && (
               <div className="relative">
                 <select
                   value={locationFilter}

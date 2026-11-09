@@ -1,11 +1,13 @@
 import { RequestHandler } from "express";
 import * as userService from "../services/user.service.js";
 import { param } from "../lib/params.js";
-import { assertCanManageUser } from "../middleware/authorize.js";
+import { assertCanManageUser, getRestrictedStore } from "../middleware/authorize.js";
 import { ForbiddenError } from "../lib/errors.js";
 
 export const createUser: RequestHandler = async (req, res, next) => {
   try {
+    const store = await getRestrictedStore(req);
+    if (store) req.body.locationId = store.id;
     const user = await userService.createUser(req.body, req.user!.role, req.user!.businessId);
     res.status(201).json(user);
   } catch (err) {
@@ -16,7 +18,9 @@ export const createUser: RequestHandler = async (req, res, next) => {
 export const listUsers: RequestHandler = async (req, res, next) => {
   try {
     const role = req.query.role as string | undefined;
-    const locationId = req.query.locationId as string | undefined;
+    // Store-based assistant managers only see staff at their own store
+    const store = await getRestrictedStore(req);
+    const locationId = store?.id ?? (req.query.locationId as string | undefined);
     const users = await userService.listUsers(
       req.user!.role === "SYSTEM_ADMIN" ? null : req.user!.businessId,
       role as any,
@@ -42,6 +46,10 @@ export const updateUser: RequestHandler = async (req, res, next) => {
     await assertCanManageUser(req, param(req, "id"));
     if (req.body.isAssistantManager !== undefined && req.user!.role !== "MANAGER") {
       throw new ForbiddenError("Only managers can assign assistant managers");
+    }
+    const store = await getRestrictedStore(req);
+    if (store && req.body.locationId !== undefined && req.body.locationId !== store.id) {
+      throw new ForbiddenError(`You can only manage staff at ${store.name}`);
     }
     const user = await userService.updateUser(param(req, "id"), req.body);
     res.json(user);

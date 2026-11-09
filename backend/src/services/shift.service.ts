@@ -1,6 +1,7 @@
 import { ShiftStatus } from "@prisma/client";
 import prisma from "../lib/db.js";
 import { sendPush } from "./push.service.js";
+import { shiftsAtStore, type Store } from "../lib/storeScope.js";
 import { AppError, ConflictError, NotFoundError } from "../lib/errors.js";
 
 interface CreateShiftInput {
@@ -185,7 +186,7 @@ export async function getShiftsForUser(userId: string, from?: string, to?: strin
   });
 }
 
-export async function getAllShifts(businessId: string, from?: string, to?: string, location?: string) {
+export async function getAllShifts(businessId: string, from?: string, to?: string, location?: string, store?: Store | null) {
   return prisma.shift.findMany({
     where: {
       rota: {
@@ -193,6 +194,7 @@ export async function getAllShifts(businessId: string, from?: string, to?: strin
         status: "PUBLISHED",
       },
       ...(location ? { location } : {}),
+      ...(store ? { AND: [shiftsAtStore(store)] } : {}),
       ...(from || to
         ? {
             date: {
@@ -512,4 +514,10 @@ export async function getShiftStore(id: string) {
   });
   if (!shift) throw new NotFoundError("Shift");
   return shift.location ?? shift.rota.location?.name ?? null;
+}
+
+export async function getShiftAssigneeId(id: string) {
+  const shift = await prisma.shift.findUnique({ where: { id }, select: { userId: true } });
+  if (!shift) throw new NotFoundError("Shift");
+  return shift.userId;
 }

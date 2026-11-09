@@ -51,7 +51,7 @@ function initials(firstName: string, lastName: string) {
 
 export function EmployeesPage() {
   const currentUser = useAuthStore((s) => s.user);
-  const { isManager } = usePermissions();
+  const { isManager, restrictedStore } = usePermissions();
   const { data: users, isLoading } = useUsers("EMPLOYEE");
   const { data: locations } = useLocations();
   const { data: categories } = useCategories();
@@ -103,8 +103,9 @@ export function EmployeesPage() {
     );
   };
 
+  // Store-based assistant managers can only keep staff at their own store
   const locationOptions = [
-    { value: "", label: "No location" },
+    ...(restrictedStore ? [] : [{ value: "", label: "No location" }]),
     ...(locations?.map((l) => ({ value: l.id, label: l.name })) || []),
   ];
 
