@@ -3,6 +3,7 @@ import * as rotaService from "../services/rota.service.js";
 import { param } from "../lib/params.js";
 import { assertCanEditRota, assertCanUseStore } from "../middleware/rotaAccess.js";
 import { NotFoundError } from "../lib/errors.js";
+import { getVisibleStoreIds } from "../middleware/authorize.js";
 
 export const createRota: RequestHandler = async (req, res, next) => {
   try {
@@ -18,7 +19,7 @@ export const listRotas: RequestHandler = async (req, res, next) => {
   try {
     const status = req.query.status as string | undefined;
     const locationId = req.query.locationId as string | undefined;
-    const rotas = await rotaService.listRotas(req.user!.businessId!, req.user!.role, status as any, locationId);
+    const rotas = await rotaService.listRotas(req.user!.businessId!, req.user!.role, status as any, locationId, await getVisibleStoreIds(req));
     res.json(rotas);
   } catch (err) {
     next(err);
@@ -28,7 +29,10 @@ export const listRotas: RequestHandler = async (req, res, next) => {
 export const getRota: RequestHandler = async (req, res, next) => {
   try {
     const rota = await rotaService.getRota(param(req, "id"), req.user!.role);
-    if (rota.businessId !== req.user!.businessId) throw new NotFoundError("Rota");
+    const visible = await getVisibleStoreIds(req);
+    if (rota.businessId !== req.user!.businessId || (visible && req.user!.role !== "EMPLOYEE" && !visible.includes(rota.locationId ?? ""))) {
+      throw new NotFoundError("Rota");
+    }
     res.json(rota);
   } catch (err) {
     next(err);

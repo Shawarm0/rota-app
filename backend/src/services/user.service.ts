@@ -85,7 +85,7 @@ export async function listUsers(businessId: string | null, roles?: Role[], locat
       category: { select: { id: true, name: true, color: true } },
       active: true,
       createdAt: true,
-      storeAccess: { select: { locationId: true } },
+      storeAccess: { select: { locationId: true, canEdit: true } },
     },
     orderBy: { firstName: "asc" },
   });
@@ -124,7 +124,7 @@ export async function updateUser(
     categoryId?: string | null;
     isAssistantManager?: boolean;
     role?: "MANAGER" | "EMPLOYEE";
-    extraStoreIds?: string[];
+    storeAccess?: { locationId: string; canEdit: boolean }[];
   },
 ) {
   const target = await prisma.user.findUnique({ where: { id }, select: { role: true, businessId: true, locationId: true } });
@@ -135,11 +135,11 @@ export async function updateUser(
 
   const role = data.role ?? target.role;
   const locationId = data.locationId !== undefined ? data.locationId : target.locationId;
-  await assertBelongsToBusiness(target.businessId!, data.locationId, data.categoryId, data.extraStoreIds);
+  await assertBelongsToBusiness(target.businessId!, data.locationId, data.categoryId, data.storeAccess?.map((a) => a.locationId));
   if (data.isAssistantManager && role !== "EMPLOYEE") {
     throw new AppError(400, "Only employees can be made assistant managers");
   }
-  if (data.extraStoreIds?.length && role !== "MANAGER") {
+  if (data.storeAccess?.length && role !== "MANAGER") {
     throw new AppError(400, "Only store managers can be given access to other stores");
   }
   if (role === "MANAGER" && (data.role || data.locationId !== undefined)) {
@@ -147,14 +147,14 @@ export async function updateUser(
     await assertStoreHasNoManager(locationId, id);
   }
 
-  const { extraStoreIds, ...fields } = data;
+  const { storeAccess, ...fields } = data;
   return prisma.$transaction(async (tx) => {
-    if (role !== "MANAGER" || extraStoreIds) {
+    if (role !== "MANAGER" || storeAccess) {
       await tx.storeAccess.deleteMany({ where: { userId: id } });
     }
-    if (role === "MANAGER" && extraStoreIds?.length) {
+    if (role === "MANAGER" && storeAccess?.length) {
       await tx.storeAccess.createMany({
-        data: extraStoreIds.filter((s) => s !== locationId).map((locationId) => ({ userId: id, locationId })),
+        data: storeAccess.filter((a) => a.locationId !== locationId).map((a) => ({ userId: id, ...a })),
       });
     }
     return tx.user.update({
@@ -179,7 +179,7 @@ const userSelect = {
   categoryId: true,
   category: { select: { id: true, name: true, color: true } },
   active: true,
-  storeAccess: { select: { locationId: true } },
+  storeAccess: { select: { locationId: true, canEdit: true } },
 } as const;
 
 // Each store has one store manager

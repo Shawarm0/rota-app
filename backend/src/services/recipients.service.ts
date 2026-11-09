@@ -10,7 +10,7 @@ export async function findStoreManagerIds(businessId: string, locationId: string
       OR: [
         { role: "OWNER" },
         locationId
-          ? { role: "MANAGER", OR: [{ locationId }, { storeAccess: { some: { locationId } } }] }
+          ? { role: "MANAGER", OR: [{ locationId }, { storeAccess: { some: { locationId, canEdit: true } } }] }
           : { role: "MANAGER" },
       ],
     },

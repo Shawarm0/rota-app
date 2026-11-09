@@ -65,12 +65,13 @@ model Location {
   @@unique([businessId, name])
 }
 
-// Extra stores the owner has let a store manager edit, beyond their own
+// Extra stores the owner has let a store manager see (and optionally edit), beyond their own
 model StoreAccess {
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   locationId String
   location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  canEdit    Boolean  @default(false)
   createdAt  DateTime @default(now())
 
   @@id([userId, locationId])

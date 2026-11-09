@@ -19,8 +19,8 @@ export const updateUserSchema = z.object({
   categoryId: z.string().nullable().optional(),
   isAssistantManager: z.boolean().optional(),
   role: z.enum(["MANAGER", "EMPLOYEE"]).optional(),
-  // Stores the owner lets a store manager edit besides their own
-  extraStoreIds: z.array(z.string()).optional(),
+  // Other stores the owner lets a store manager see, and whether they can edit them
+  storeAccess: z.array(z.object({ locationId: z.string(), canEdit: z.boolean() })).optional(),
 });
 
 export const changePasswordSchema = z.object({

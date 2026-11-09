@@ -45,8 +45,18 @@ export const getUser: RequestHandler = async (req, res, next) => {
   try {
     const user = await userService.getUser(param(req, "id"));
     const isSelf = user.id === req.user!.userId;
-    if (!isSelf && (req.user!.role !== "SYSTEM_ADMIN" && (user.businessId !== req.user!.businessId || !(await canManageStaff(req))))) {
+    const visible = await getVisibleStoreIds(req);
+    const canSee =
+      req.user!.role === "SYSTEM_ADMIN" ||
+      (user.businessId === req.user!.businessId &&
+        (await canManageStaff(req)) &&
+        (!visible || (user.locationId !== null && visible.includes(user.locationId))));
+    if (!isSelf && !canSee) {
       throw new ForbiddenError("You can't view this person");
+    }
+    if (!(await canManageStaff(req))) {
+      const { category: _category, categoryId: _categoryId, ...visible } = user;
+      return res.json(visible);
     }
     res.json(user);
   } catch (err) {
@@ -59,7 +69,7 @@ export const updateUser: RequestHandler = async (req, res, next) => {
     await assertCanManageUser(req, param(req, "id"));
     const access = await getAccess(req);
     const isOwner = access.role === "OWNER" || access.role === "SYSTEM_ADMIN";
-    if ((req.body.role !== undefined || req.body.extraStoreIds !== undefined) && !isOwner) {
+    if ((req.body.role !== undefined || req.body.storeAccess !== undefined) && !isOwner) {
       throw new ForbiddenError("Only the owner can change store managers");
     }
     if (req.body.isAssistantManager !== undefined && !isOwner && access.role !== "MANAGER") {

@@ -40,8 +40,8 @@ export interface User {
   categoryId: string | null;
   category?: { id: string; name: string; color: string } | null;
   active?: boolean;
-  // Extra stores the owner lets a store manager edit
-  storeAccess?: { locationId: string }[];
+  // Other stores the owner lets a store manager see, and whether they can edit them
+  storeAccess?: { locationId: string; canEdit: boolean }[];
   // Stores the signed-in person can change; null means every store (from /auth/me)
   editableStores?: { id: string; name: string }[] | null;
 }

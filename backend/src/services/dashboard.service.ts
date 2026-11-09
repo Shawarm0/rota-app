@@ -2,20 +2,28 @@ import prisma from "../lib/db.js";
 import { shiftMinutes, weekBounds } from "../lib/shiftHours.js";
 import { shiftsAtStores, STAFF_ROLES, type Store } from "../lib/storeScope.js";
 
-export async function getDashboardData(businessId: string) {
+// stores: the stores this person can see, or null for every store
+export async function getDashboardData(businessId: string, stores: Store[] | null) {
+  const staffAt = stores ? { locationId: { in: stores.map((s) => s.id) } } : {};
   const [pendingHolidays, shiftsNeedingCover, totalEmployees, recentActivity] =
     await Promise.all([
       prisma.holidayRequest.count({
-        where: { user: { businessId }, status: "PENDING" },
+        where: { user: { businessId, ...staffAt }, status: "PENDING" },
       }),
       prisma.shift.count({
-        where: { rota: { businessId, status: "PUBLISHED" }, status: "AVAILABLE", date: { gte: new Date() } },
+        where: {
+          rota: { businessId, status: "PUBLISHED" },
+          status: "AVAILABLE",
+          date: { gte: new Date() },
+          ...(stores ? { AND: [shiftsAtStores(stores)] } : {}),
+        },
       }),
       prisma.user.count({
-        where: { businessId, role: { in: STAFF_ROLES }, active: true },
+        where: { businessId, role: { in: STAFF_ROLES }, active: true, ...staffAt },
       }),
       prisma.auditLog.findMany({
-        where: { user: { businessId } },
+        // Store managers see activity by people at the stores they can see
+        where: { user: { businessId, ...staffAt } },
         include: { user: { select: { firstName: true, lastName: true } } },
         orderBy: { createdAt: "desc" },
         take: 20,
@@ -45,7 +53,7 @@ export async function getShiftsToCover(businessId: string, stores?: Store[] | nu
   });
 }
 
-export async function getStaffingOverview(businessId: string, weekStart: string) {
+export async function getStaffingOverview(businessId: string, weekStart: string, stores: Store[] | null) {
   const start = new Date(weekStart);
   const end = new Date(start);
   end.setDate(end.getDate() + 7);
@@ -55,6 +63,7 @@ export async function getStaffingOverview(businessId: string, weekStart: string)
       rota: { businessId, status: "PUBLISHED" },
       date: { gte: start, lt: end },
       status: { not: "AVAILABLE" },
+      ...(stores ? { AND: [shiftsAtStores(stores)] } : {}),
     },
     select: { date: true, userId: true },
   });
@@ -71,7 +80,7 @@ export async function getStaffingOverview(businessId: string, weekStart: string)
   return Object.entries(days).map(([date, count]) => ({ date, shiftCount: count }));
 }
 
-export async function getEmployeeSummaries(businessId: string, weekStart: string) {
+export async function getEmployeeSummaries(businessId: string, weekStart: string, stores: Store[] | null) {
   const { start, end } = weekBounds(weekStart);
   const weekShifts = {
     date: { gte: start, lt: end },
@@ -81,7 +90,12 @@ export async function getEmployeeSummaries(businessId: string, weekStart: string
 
   // Anyone who worked this week counts towards it, even if they've since been disabled
   const employees = await prisma.user.findMany({
-    where: { businessId, role: { in: STAFF_ROLES }, OR: [{ active: true }, { shifts: { some: weekShifts } }] },
+    where: {
+      businessId,
+      role: { in: STAFF_ROLES },
+      ...(stores ? { locationId: { in: stores.map((s) => s.id) } } : {}),
+      OR: [{ active: true }, { shifts: { some: weekShifts } }],
+    },
     select: {
       id: true,
       firstName: true,

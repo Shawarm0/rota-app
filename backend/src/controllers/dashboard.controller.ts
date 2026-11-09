@@ -5,7 +5,7 @@ import { getVisibleStoreIds, getVisibleStores } from "../middleware/authorize.js
 
 export const getDashboard: RequestHandler = async (req, res, next) => {
   try {
-    const data = await dashboardService.getDashboardData(req.user!.businessId!);
+    const data = await dashboardService.getDashboardData(req.user!.businessId!, await getVisibleStores(req));
     res.json(data);
   } catch (err) {
     next(err);
@@ -24,7 +24,7 @@ export const getShiftsToCover: RequestHandler = async (req, res, next) => {
 export const getStaffing: RequestHandler = async (req, res, next) => {
   try {
     const weekStart = req.query.weekStart as string;
-    const data = await dashboardService.getStaffingOverview(req.user!.businessId!, weekStart);
+    const data = await dashboardService.getStaffingOverview(req.user!.businessId!, weekStart, await getVisibleStores(req));
     res.json(data);
   } catch (err) {
     next(err);
@@ -37,6 +37,7 @@ export const getEmployeeSummaries: RequestHandler = async (req, res, next) => {
     const data = await dashboardService.getEmployeeSummaries(
       req.user!.businessId!,
       weekStart && /^\d{4}-\d{2}-\d{2}$/.test(weekStart) ? weekStart : new Date().toISOString().split("T")[0],
+      await getVisibleStores(req),
     );
     res.json(data);
   } catch (err) {

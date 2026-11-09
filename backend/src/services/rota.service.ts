@@ -21,13 +21,15 @@ export async function createRota(businessId: string, data: { name?: string; star
   });
 }
 
-export async function listRotas(businessId: string, role: string, status?: RotaStatus, locationId?: string) {
+// visibleStoreIds: limit managers to the stores they can see (null for every store)
+export async function listRotas(businessId: string, role: string, status?: RotaStatus, locationId?: string, visibleStoreIds?: string[] | null) {
   return prisma.rota.findMany({
     where: {
       businessId,
       ...(role === "EMPLOYEE" ? { status: "PUBLISHED" } : {}),
       ...(status ? { status } : {}),
       ...(locationId ? { locationId } : {}),
+      ...(visibleStoreIds && role !== "EMPLOYEE" ? { locationId: { in: locationId ? visibleStoreIds.filter((id) => id === locationId) : visibleStoreIds } } : {}),
     },
     include: {
       _count: { select: { shifts: true } },

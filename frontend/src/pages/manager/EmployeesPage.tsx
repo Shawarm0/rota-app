@@ -95,7 +95,7 @@ export function EmployeesPage() {
   const [storeFilter, setStoreFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   // Stores a store manager may also edit (owner only)
-  const [extraStoreIds, setExtraStoreIds] = useState<string[]>([]);
+  const [storeAccess, setStoreAccess] = useState<Record<string, "view" | "edit">>({});
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateEmployeeForm>();
   const editForm = useForm<EditEmployeeForm>();
   const resetForm = useForm<{ newPassword: string }>();
@@ -110,7 +110,7 @@ export function EmployeesPage() {
         categoryId: editingUser.categoryId || "",
         access: editingUser.role === "MANAGER" ? "MANAGER" : editingUser.isAssistantManager ? "ASSISTANT" : "EMPLOYEE",
       });
-      setExtraStoreIds(editingUser.storeAccess?.map((a) => a.locationId) ?? []);
+      setStoreAccess(Object.fromEntries((editingUser.storeAccess ?? []).map((a) => [a.locationId, a.canEdit ? "edit" : "view"])));
     }
   }, [editingUser, editForm]);
 
@@ -507,7 +507,12 @@ export function EmployeesPage() {
                       ? {
                           role: data.access === "MANAGER" ? "MANAGER" : "EMPLOYEE",
                           isAssistantManager: data.access === "ASSISTANT",
-                          extraStoreIds: data.access === "MANAGER" ? extraStoreIds.filter((id) => id !== data.locationId) : [],
+                          storeAccess:
+                            data.access === "MANAGER"
+                              ? Object.entries(storeAccess)
+                                  .filter(([locationId]) => locationId !== data.locationId)
+                                  .map(([locationId, level]) => ({ locationId, canEdit: level === "edit" }))
+                              : [],
                         }
                       : isStoreManager
                         ? { isAssistantManager: data.access === "ASSISTANT" }
@@ -571,25 +576,30 @@ export function EmployeesPage() {
           {editAccess === "MANAGER" && (
             <div className="-mt-2 space-y-2">
               <p className="text-[12px] text-gray-500">
-                Builds rotas and manages staff for their store, and can view the other stores.
+                Builds rotas and manages staff for their store. They only see other stores you give them access to.
               </p>
               {isOwner && (locations?.filter((l) => l.id !== editStore).length ?? 0) > 0 && (
                 <div>
-                  <span className="block text-[13px] font-semibold text-gray-700 mb-1">Can also edit</span>
+                  <span className="block text-[13px] font-semibold text-gray-700 mb-1">Other stores</span>
                   {locations
                     ?.filter((l) => l.id !== editStore)
                     .map((l) => (
-                      <label key={l.id} className="flex items-center gap-2 text-[13px] text-gray-700 py-0.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-indigo-600"
-                          checked={extraStoreIds.includes(l.id)}
+                      <div key={l.id} className="flex items-center justify-between gap-3 py-1">
+                        <span className="text-[13px] text-gray-700">{l.name}</span>
+                        <select
+                          value={storeAccess[l.id] ?? ""}
                           onChange={(e) =>
-                            setExtraStoreIds((ids) => (e.target.checked ? [...ids, l.id] : ids.filter((id) => id !== l.id)))
+                            setStoreAccess(({ [l.id]: _old, ...rest }) =>
+                              e.target.value ? { ...rest, [l.id]: e.target.value as "view" | "edit" } : rest,
+                            )
                           }
-                        />
-                        {l.name}
-                      </label>
+                          className="py-1.5 px-2 border border-gray-200 rounded-lg text-[13px] text-gray-800 bg-white outline-none"
+                        >
+                          <option value="">No access</option>
+                          <option value="view">Can view</option>
+                          <option value="edit">Can edit</option>
+                        </select>
+                      </div>
                     ))}
                 </div>
               )}

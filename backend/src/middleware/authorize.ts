@@ -26,7 +26,7 @@ async function loadAccess(req: Request): Promise<Access> {
       role: true,
       isAssistantManager: true,
       location: { select: { id: true, name: true } },
-      storeAccess: { select: { location: { select: { id: true, name: true } } } },
+      storeAccess: { select: { canEdit: true, location: { select: { id: true, name: true } } } },
     },
   });
   const role = user?.role ?? req.user!.role;
@@ -37,10 +37,16 @@ async function loadAccess(req: Request): Promise<Access> {
     return { role, isAssistantManager, homeStore, editableStores: null, visibleStores: null };
   }
   if (role === "MANAGER") {
-    // Store managers run their own store (plus any the owner has granted) and can view the rest
-    const extra = user?.storeAccess.map((a) => a.location) ?? [];
-    const editable = [...(homeStore ? [homeStore] : []), ...extra.filter((s) => s.id !== homeStore?.id)];
-    return { role, isAssistantManager, homeStore, editableStores: editable, visibleStores: null };
+    // Store managers run their own store, and only see or edit other stores the owner has granted
+    const home = homeStore ? [homeStore] : [];
+    const extra = (user?.storeAccess ?? []).filter((a) => a.location.id !== homeStore?.id);
+    return {
+      role,
+      isAssistantManager,
+      homeStore,
+      editableStores: [...home, ...extra.filter((a) => a.canEdit).map((a) => a.location)],
+      visibleStores: [...home, ...extra.map((a) => a.location)],
+    };
   }
   if (isAssistantManager) {
     // Store-based assistant managers only see and change their own store; without a store they cover all
