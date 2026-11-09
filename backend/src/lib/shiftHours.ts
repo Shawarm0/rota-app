@@ -22,3 +22,23 @@ export function weekBounds(date: string) {
   end.setUTCDate(end.getUTCDate() + 7);
   return { start, end };
 }
+
+// Totals for a set of worked shifts. Rota shifts are ASSIGNED; extra shifts are ADDITIONAL (claimed from the
+// shift pot, covers and additional shifts). Open (AVAILABLE) shifts aren't worked, so they're ignored.
+export function summariseShifts(shifts: { status: string; startTime: string; endTime: string }[]) {
+  let rotaMinutes = 0;
+  let extraMinutes = 0;
+  let rotaShifts = 0;
+  let extraShifts = 0;
+  for (const shift of shifts) {
+    const minutes = shiftMinutes(shift.startTime, shift.endTime);
+    if (shift.status === "ASSIGNED") {
+      rotaShifts++;
+      rotaMinutes += minutes;
+    } else if (shift.status === "ADDITIONAL") {
+      extraShifts++;
+      extraMinutes += minutes;
+    }
+  }
+  return { rotaShifts, extraShifts, rotaMinutes, extraMinutes, totalMinutes: rotaMinutes + extraMinutes };
+}

@@ -23,8 +23,9 @@ function getTodayFormatted() {
   });
 }
 
+// Up to 2 decimal places, matching Reports (7h15m shows as 7.25h)
 function formatHours(hours: number) {
-  return `${Math.round(hours * 10) / 10}h`;
+  return `${Math.round(hours * 100) / 100}h`;
 }
 
 function getWeekRange() {
@@ -133,7 +134,7 @@ function getActivityStyle(action: string) {
 export function ManagerDashboardPage() {
   const navigate = useNavigate();
   const { data: dashboard, isLoading } = useDashboard();
-  const { data: employees } = useEmployeeSummaries(toDateString(getMonday(new Date())));
+
   const { data: holidays } = useHolidayRequests("PENDING");
   const approveHoliday = useApproveHoliday();
   const rejectHoliday = useRejectHoliday();
@@ -145,11 +146,10 @@ export function ManagerDashboardPage() {
   const { data: locations } = useLocations();
   const [storeFilter, setStoreFilter] = useState<string | null>(null);
   const selectedStore = storeFilter ?? homeStore?.id ?? "";
+  // Hours are counted at the store each shift was worked, so the server does the store filtering
+  const { data: employees } = useEmployeeSummaries(toDateString(getMonday(new Date())), selectedStore);
 
-  const storeEmployees = useMemo(
-    () => (employees ?? []).filter((e) => !selectedStore || e.locationId === selectedStore),
-    [employees, selectedStore],
-  );
+  const storeEmployees = useMemo(() => employees ?? [], [employees]);
 
   const filteredEmployees = useMemo(() => {
     const q = empFilter.toLowerCase();
@@ -333,7 +333,7 @@ export function ManagerDashboardPage() {
                   <tr>
                     <th className="text-left px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Employee</th>
                     <th className="text-right px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Shifts</th>
-                    <th className="text-right px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Hours</th>
+                    <th className="text-right px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Rota Hours</th>
                     <th className="text-right px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Extra</th>
                     <th className="text-right px-5 py-[11px] text-[11.5px] font-bold text-gray-500 uppercase tracking-[0.04em]">Holidays</th>
                   </tr>

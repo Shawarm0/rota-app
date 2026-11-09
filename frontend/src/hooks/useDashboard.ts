@@ -23,9 +23,9 @@ export function useStaffing(weekStart: string) {
   });
 }
 
-export function useEmployeeSummaries(weekStart: string) {
+export function useEmployeeSummaries(weekStart: string, storeId?: string) {
   return useQuery({
-    queryKey: ["employeeSummaries", weekStart],
-    queryFn: () => dashboardApi.getEmployeeSummaries(weekStart),
+    queryKey: ["employeeSummaries", weekStart, storeId ?? ""],
+    queryFn: () => dashboardApi.getEmployeeSummaries(weekStart, storeId),
   });
 }

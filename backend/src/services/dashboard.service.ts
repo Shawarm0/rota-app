@@ -1,5 +1,5 @@
 import prisma from "../lib/db.js";
-import { shiftMinutes, weekBounds } from "../lib/shiftHours.js";
+import { summariseShifts, weekBounds } from "../lib/shiftHours.js";
 import { shiftsAtStores, STAFF_ROLES, type Store } from "../lib/storeScope.js";
 
 // stores: the stores this person can see, or null for every store
@@ -80,21 +80,27 @@ export async function getStaffingOverview(businessId: string, weekStart: string,
   return Object.entries(days).map(([date, count]) => ({ date, shiftCount: count }));
 }
 
+// Hours for a week, counted at the store each shift was worked (not the person's home store).
+// stores: the stores to include, or null for every store.
 export async function getEmployeeSummaries(businessId: string, weekStart: string, stores: Store[] | null) {
   const { start, end } = weekBounds(weekStart);
   const weekShifts = {
     date: { gte: start, lt: end },
     rota: { status: "PUBLISHED" as const },
     status: { not: "AVAILABLE" as const },
+    ...(stores ? { AND: [shiftsAtStores(stores)] } : {}),
   };
 
-  // Anyone who worked this week counts towards it, even if they've since been disabled
+  // The stores' active staff, plus anyone who worked there this week (cover from another store, or
+  // someone who has since been disabled)
   const employees = await prisma.user.findMany({
     where: {
       businessId,
       role: { in: STAFF_ROLES },
-      ...(stores ? { locationId: { in: stores.map((s) => s.id) } } : {}),
-      OR: [{ active: true }, { shifts: { some: weekShifts } }],
+      OR: [
+        { active: true, ...(stores ? { locationId: { in: stores.map((s) => s.id) } } : {}) },
+        { shifts: { some: weekShifts } },
+      ],
     },
     select: {
       id: true,
@@ -107,29 +113,14 @@ export async function getEmployeeSummaries(businessId: string, weekStart: string
         select: { status: true, startTime: true, endTime: true },
       },
       holidayRequests: {
-        where: { status: "APPROVED" },
+        where: { status: "APPROVED", date: { gte: start, lt: end } },
         select: { id: true },
       },
     },
   });
 
   return employees.map((emp) => {
-    let assignedMinutes = 0;
-    let assignedCount = 0;
-    let additionalCount = 0;
-    let additionalMinutes = 0;
-
-    for (const shift of emp.shifts) {
-      const minutes = shiftMinutes(shift.startTime, shift.endTime);
-      if (shift.status === "ASSIGNED") {
-        assignedCount++;
-        assignedMinutes += minutes;
-      } else if (shift.status === "ADDITIONAL") {
-        additionalCount++;
-        additionalMinutes += minutes;
-      }
-    }
-
+    const totals = summariseShifts(emp.shifts);
     // Unrounded so totals add up exactly; the dashboard rounds for display
     return {
       id: emp.id,
@@ -137,11 +128,12 @@ export async function getEmployeeSummaries(businessId: string, weekStart: string
       lastName: emp.lastName,
       email: emp.email,
       locationId: emp.locationId,
-      totalShifts: emp.shifts.length,
-      totalHours: assignedMinutes / 60,
-      assignedCount,
-      additionalCount,
-      additionalHours: additionalMinutes / 60,
+      totalShifts: totals.rotaShifts + totals.extraShifts,
+      totalHours: totals.rotaMinutes / 60,
+      assignedCount: totals.rotaShifts,
+      additionalCount: totals.extraShifts,
+      additionalHours: totals.extraMinutes / 60,
+      // Approved holiday days in this week
       holidaysUsed: emp.holidayRequests.length,
     };
   });

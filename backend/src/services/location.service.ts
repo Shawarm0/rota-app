@@ -46,3 +46,7 @@ export async function deleteLocation(id: string, businessId: string) {
   await prisma.rota.updateMany({ where: { locationId: id }, data: { locationId: null } });
   await prisma.location.delete({ where: { id } });
 }
+
+export async function findStore(businessId: string, id: string) {
+  return prisma.location.findFirst({ where: { id, businessId }, select: { id: true, name: true } });
+}

@@ -58,13 +58,25 @@ export async function getStaffing(weekStart: string): Promise<StaffingDay[]> {
   return data;
 }
 
-export async function getEmployeeSummaries(weekStart: string): Promise<EmployeeSummary[]> {
-  const { data } = await client.get<EmployeeSummary[]>("/dashboard/employees", { params: { weekStart } });
+// storeId: count only shifts worked at this store (empty for every store you can see)
+export async function getEmployeeSummaries(weekStart: string, storeId?: string): Promise<EmployeeSummary[]> {
+  const { data } = await client.get<EmployeeSummary[]>("/dashboard/employees", {
+    params: { weekStart, storeId: storeId || undefined },
+  });
   return data;
 }
 
-export async function getHoursReport(from: string, to: string) {
-  const { data } = await client.get("/dashboard/reports/hours", { params: { from, to } });
+export interface HoursReportRow {
+  id: string;
+  name: string;
+  totalShifts: number;
+  rotaHours: number;
+  extraHours: number;
+  totalHours: number;
+}
+
+export async function getHoursReport(from: string, to: string): Promise<HoursReportRow[]> {
+  const { data } = await client.get<HoursReportRow[]>("/dashboard/reports/hours", { params: { from, to } });
   return data;
 }
 

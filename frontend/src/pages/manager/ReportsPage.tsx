@@ -14,11 +14,15 @@ export function ReportsPage() {
   const [from, setFrom] = useState(toDateString(addDays(getMonday(now), -28)));
   const [to, setTo] = useState(toDateString(now));
 
+  const validRange = !!from && !!to && from <= to;
   const { data: report, isLoading } = useQuery({
     queryKey: ["hoursReport", from, to],
     queryFn: () => dashboardApi.getHoursReport(from, to),
-    enabled: !!from && !!to,
+    enabled: validRange,
   });
+  // Rounded to 2dp after adding, so floating-point sums don't show as 7.250000001
+  const sum = (key: "totalShifts" | "rotaHours" | "extraHours" | "totalHours") =>
+    Math.round((report ?? []).reduce((s, r) => s + r[key], 0) * 100) / 100;
 
   return (
     <>
@@ -44,6 +48,7 @@ export function ReportsPage() {
               variant="secondary"
               size="sm"
               className="col-span-2 sm:col-span-1"
+              disabled={!validRange}
               onClick={() => dashboardApi.exportCSV(from, to)}
             >
               <Download className="h-4 w-4 mr-1" /> Export CSV
@@ -51,28 +56,45 @@ export function ReportsPage() {
           </div>
         </Card>
 
-        {isLoading ? (
+        {!validRange ? (
+          <p className="text-sm text-gray-500 px-1">Choose a start date on or before the end date.</p>
+        ) : isLoading ? (
           <div className="flex justify-center py-12"><Spinner /></div>
-        ) : report && Array.isArray(report) ? (
+        ) : report ? (
           <Card padding={false}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-500 border-b">
                     <th className="px-5 py-3 font-medium">Employee</th>
-                    <th className="px-5 py-3 font-medium text-right">Total Shifts</th>
+                    <th className="px-5 py-3 font-medium text-right">Shifts</th>
+                    <th className="px-5 py-3 font-medium text-right">Rota Hours</th>
+                    <th className="px-5 py-3 font-medium text-right">Extra Hours</th>
                     <th className="px-5 py-3 font-medium text-right">Total Hours</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(report as Array<{ id: string; name: string; totalShifts: number; totalHours: number }>).map((row) => (
+                  {report.map((row) => (
                     <tr key={row.id} className="border-b last:border-0 hover:bg-gray-50">
                       <td className="px-5 py-3 font-medium">{row.name}</td>
                       <td className="px-5 py-3 text-right">{row.totalShifts}</td>
-                      <td className="px-5 py-3 text-right">{row.totalHours}h</td>
+                      <td className="px-5 py-3 text-right">{row.rotaHours}h</td>
+                      <td className="px-5 py-3 text-right text-amber-600">{row.extraHours ? `+${row.extraHours}h` : "—"}</td>
+                      <td className="px-5 py-3 text-right font-semibold">{row.totalHours}h</td>
                     </tr>
                   ))}
                 </tbody>
+                {report.length > 1 && (
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-200 font-semibold">
+                      <td className="px-5 py-3">Total</td>
+                      <td className="px-5 py-3 text-right">{sum("totalShifts")}</td>
+                      <td className="px-5 py-3 text-right">{sum("rotaHours")}h</td>
+                      <td className="px-5 py-3 text-right text-amber-600">{sum("extraHours") ? `+${sum("extraHours")}h` : "—"}</td>
+                      <td className="px-5 py-3 text-right">{sum("totalHours")}h</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </Card>
