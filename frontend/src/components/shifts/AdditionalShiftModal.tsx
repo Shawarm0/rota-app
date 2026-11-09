@@ -9,6 +9,8 @@ import { useUsers } from "../../hooks/useUsers";
 import { useLocations } from "../../hooks/useLocations";
 import { usePermissions } from "../../hooks/usePermissions";
 import { STAFF_ROLES } from "../../types";
+import { ShiftTemplatePicker } from "./ShiftTemplatePicker";
+import { applyShiftTemplate } from "../../lib/shiftTemplates";
 
 interface AdditionalShiftForm {
   userId: string;
@@ -51,6 +53,7 @@ export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boo
         })}
         className="flex flex-col gap-4"
       >
+        <ShiftTemplatePicker store={form.watch("location")} onPick={(t) => applyShiftTemplate(t, (field, value) => form.setValue(field, value))} />
         <Select
           id="userId"
           label="Employee"

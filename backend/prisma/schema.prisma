@@ -49,6 +49,7 @@ model Business {
   rotas      Rota[]
   locations  Location[]
   categories Category[]
+  templates  ShiftTemplate[]
 }
 
 model Location {
@@ -62,6 +63,7 @@ model Location {
   rotas      Rota[]
   access     StoreAccess[]
   categories Category[]
+  templates  ShiftTemplate[]
 
   @@unique([businessId, name])
 }
@@ -222,4 +224,19 @@ model AuditLog {
   entityId  String?
   details   Json?
   createdAt DateTime @default(now())
+}
+
+// A preset for quickly filling in a shift's times, store and notes. Without a store it applies to every store.
+model ShiftTemplate {
+  id         String    @id @default(cuid())
+  name       String
+  startTime  String
+  endTime    String
+  notes      String?
+  businessId String
+  business   Business  @relation(fields: [businessId], references: [id])
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }

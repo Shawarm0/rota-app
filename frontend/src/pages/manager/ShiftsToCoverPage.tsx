@@ -19,6 +19,8 @@ import type { ShiftStatus } from "../../types";
 import { usePermissions } from "../../hooks/usePermissions";
 import clsx from "clsx";
 import { STAFF_ROLES } from "../../types";
+import { ShiftTemplatePicker } from "../../components/shifts/ShiftTemplatePicker";
+import { applyShiftTemplate } from "../../lib/shiftTemplates";
 
 function storeOf(shift: ShiftToCover) {
   return shift.location ?? shift.rota.location?.name ?? null;
@@ -145,6 +147,7 @@ export function ShiftsToCoverPage() {
 
       <Modal open={!!editingShift} onClose={() => setEditingShift(null)} title="Assign / Edit Shift">
         <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="flex flex-col gap-4">
+          <ShiftTemplatePicker store={shiftForm.watch("location")} onPick={(t) => applyShiftTemplate(t, (field, value) => shiftForm.setValue(field, value))} />
           <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
           <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
           <Select id="userId" label="Assign Employee" options={employeeOptions} {...shiftForm.register("userId")} />

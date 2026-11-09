@@ -21,6 +21,17 @@ export interface Location {
 
 // Each category belongs to one store. Staff the viewer can't see the category for come back without one
 // (assistant managers get only the colour, with an empty name).
+// A preset for a shift's times, store and notes; no store means it applies to every store
+export interface ShiftTemplate {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  notes: string | null;
+  locationId: string | null;
+  location: { id: string; name: string } | null;
+}
+
 export interface Category {
   id: string;
   name: string;

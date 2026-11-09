@@ -16,6 +16,8 @@ import { CalendarPlus, Plus, Send, Trash2, Copy, Save, ChevronDown } from "lucid
 import type { Shift, ShiftStatus } from "../../types";
 import clsx from "clsx";
 import { STAFF_ROLES } from "../../types";
+import { ShiftTemplatePicker } from "../../components/shifts/ShiftTemplatePicker";
+import { applyShiftTemplate } from "../../lib/shiftTemplates";
 
 const STATUS_COLORS: Record<ShiftStatus, string> = {
   ASSIGNED: "bg-indigo-100 text-indigo-800 border-indigo-200",
@@ -524,6 +526,7 @@ export function RotaBuilderPage() {
 
       <Modal open={!!editingShift} onClose={() => setEditingShift(null)} title={editingShift?.shift ? "Edit Shift" : "Add Shift"}>
         <form onSubmit={shiftForm.handleSubmit(onSaveShift)} className="flex flex-col gap-4">
+          <ShiftTemplatePicker store={shiftForm.watch("location")} onPick={(t) => applyShiftTemplate(t, (field, value) => shiftForm.setValue(field, value))} />
           <Input id="startTime" label="Start Time" type="time" {...shiftForm.register("startTime", { required: true })} />
           <Input id="endTime" label="End Time" type="time" {...shiftForm.register("endTime", { required: true })} />
           <Select id="userId" label="Employee" options={employeeOptions} {...shiftForm.register("userId")} />

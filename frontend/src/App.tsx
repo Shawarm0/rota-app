@@ -18,6 +18,7 @@ import { EmployeesPage } from "./pages/manager/EmployeesPage";
 import { RotaBuilderPage } from "./pages/manager/RotaBuilderPage";
 import { ReportsPage } from "./pages/manager/ReportsPage";
 import { ShiftsToCoverPage } from "./pages/manager/ShiftsToCoverPage";
+import { ShiftTemplatesPage } from "./pages/manager/ShiftTemplatesPage";
 import { AdminPage } from "./pages/admin/AdminPage";
 
 const queryClient = new QueryClient({
@@ -53,6 +54,7 @@ function AppRoutes() {
           <Route path="/manager/rota-builder" element={<RotaBuilderPage />} />
           <Route path="/manager/reports" element={<ReportsPage />} />
           <Route path="/manager/shifts-to-cover" element={<ShiftsToCoverPage />} />
+          <Route path="/manager/shift-templates" element={<ShiftTemplatesPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Route>
       </Route>

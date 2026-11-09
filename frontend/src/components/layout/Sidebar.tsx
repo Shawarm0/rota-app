@@ -14,6 +14,7 @@ import {
   AlertCircle,
   LogOut,
   Shield,
+  LayoutTemplate,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
@@ -103,7 +104,12 @@ export function Sidebar() {
                   {({ isActive }) => <><CalendarPlus className={navIconClass(isActive)} />Rota Builder</>}
                 </NavLink>
               )}
-              <NavLink to="/manager/shifts-to-cover" className={navLinkClass}>
+              {isManager && (
+              <NavLink to="/manager/shift-templates" className={navLinkClass}>
+                {({ isActive }) => <><LayoutTemplate className={navIconClass(isActive)} />Shift Templates</>}
+              </NavLink>
+            )}
+            <NavLink to="/manager/shifts-to-cover" className={navLinkClass}>
                 {({ isActive }) => <><AlertCircle className={navIconClass(isActive)} />Shifts to Cover</>}
               </NavLink>
               <NavLink to="/manager/reports" className={navLinkClass}>
