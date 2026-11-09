@@ -1,5 +1,6 @@
 import { RequestHandler } from "express";
 import * as authService from "../services/auth.service.js";
+import { getAccess } from "../middleware/authorize.js";
 
 export const login: RequestHandler = async (req, res, next) => {
   try {
@@ -49,7 +50,9 @@ export const me: RequestHandler = async (req, res, next) => {
         active: true,
       },
     });
-    res.json(user);
+    // Stores this person can change (null means every store), so the app can hide what they can't edit
+    const access = await getAccess(req);
+    res.json({ ...user, editableStores: access.editableStores });
   } catch (err) {
     next(err);
   }

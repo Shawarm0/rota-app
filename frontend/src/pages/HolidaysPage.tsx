@@ -49,7 +49,7 @@ export function HolidaysPage() {
   const deleteMutation = useDeleteHoliday();
   const approveMutation = useApproveHoliday();
   const rejectMutation = useRejectHoliday();
-  const { isAssistantManager } = usePermissions();
+  const { isAssistantManager, isManager } = usePermissions();
   const myId = useAuthStore((s) => s.user?.id);
   const [showForm, setShowForm] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState<HolidayRequest | null>(null);
@@ -118,7 +118,7 @@ export function HolidaysPage() {
         title="Holidays"
         subtitle={`${count} request${count !== 1 ? "s" : ""}`}
         actions={
-          <RoleGate allowedRoles={["EMPLOYEE"]}>
+          <RoleGate allowedRoles={["EMPLOYEE", "MANAGER"]}>
             <button
               onClick={() => setShowForm(true)}
               className="flex items-center gap-[7px] bg-indigo-600 text-white rounded-lg px-4 py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-indigo-700 transition-colors whitespace-nowrap"
@@ -159,7 +159,9 @@ export function HolidaysPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <RoleGate allowedRoles={["MANAGER"]}>
+                      {/* The owner, and store managers for their own stores' staff */}
+                      {isManager && req.canDecide && (
+                      <>
                         {req.status !== "APPROVED" && req.status !== "CANCELLED" && (
                           <button
                             onClick={() => updateMutation.mutate({ id: req.id, data: { status: "APPROVED" } })}
@@ -192,9 +194,10 @@ export function HolidaysPage() {
                         >
                           <Trash2 className="h-[15px] w-[15px] text-red-500" />
                         </button>
-                      </RoleGate>
-                      {/* Assistant managers can approve or reject other people's pending requests */}
-                      {isAssistantManager && req.userId !== myId && req.status === "PENDING" && (
+                      </>
+                      )}
+                      {/* Assistant managers can approve or reject pending requests from staff they manage */}
+                      {isAssistantManager && req.canDecide && req.status === "PENDING" && (
                         <>
                           <button
                             onClick={() => approveMutation.mutate(req.id)}
@@ -212,7 +215,7 @@ export function HolidaysPage() {
                           </button>
                         </>
                       )}
-                      <RoleGate allowedRoles={["EMPLOYEE"]}>
+                      <RoleGate allowedRoles={["EMPLOYEE", "MANAGER"]}>
                         {req.status === "PENDING" && req.userId === myId && (
                           <button
                             onClick={() => cancelMutation.mutate(req.id)}
@@ -271,7 +274,7 @@ export function HolidaysPage() {
               {...editForm.register("reason")}
             />
           </div>
-          <RoleGate allowedRoles={["MANAGER"]}>
+          <RoleGate allowedRoles={["OWNER", "MANAGER"]}>
             <Select
               id="editStatus"
               label="Status"

@@ -18,6 +18,7 @@ import type { ShiftToCover } from "../../api/dashboard.api";
 import type { ShiftStatus } from "../../types";
 import { usePermissions } from "../../hooks/usePermissions";
 import clsx from "clsx";
+import { STAFF_ROLES } from "../../types";
 
 function storeOf(shift: ShiftToCover) {
   return shift.location ?? shift.rota.location?.name ?? null;
@@ -40,12 +41,12 @@ interface ShiftEditForm {
 
 export function ShiftsToCoverPage() {
   const { data: shifts, isLoading } = useShiftsToCover();
-  const { data: employees } = useUsers("EMPLOYEE");
+  const { data: employees } = useUsers(STAFF_ROLES);
   const { data: locations } = useLocations();
   const updateShift = useUpdateShift();
   const deleteShift = useDeleteShift();
   const requestCover = useRequestCover();
-  const { canEditStore, restrictedStore } = usePermissions();
+  const { canEditStore, storeOptions } = usePermissions();
   const [editingShift, setEditingShift] = useState<ShiftToCover | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const shiftForm = useForm<ShiftEditForm>();
@@ -79,13 +80,8 @@ export function ShiftsToCoverPage() {
     })) || []),
   ];
 
-  // Store-based assistant managers can't move shifts to another store
-  const locationSelectOptions = restrictedStore
-    ? [{ value: restrictedStore, label: restrictedStore }]
-    : [
-        { value: "", label: "No location" },
-        ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
-      ];
+  // Shifts can only be moved to stores this person can change
+  const locationSelectOptions = storeOptions(locations);
 
   const count = shifts?.length || 0;
 

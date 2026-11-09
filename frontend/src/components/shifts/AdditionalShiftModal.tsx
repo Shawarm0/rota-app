@@ -8,6 +8,7 @@ import { useCreateAdditionalShift } from "../../hooks/useShifts";
 import { useUsers } from "../../hooks/useUsers";
 import { useLocations } from "../../hooks/useLocations";
 import { usePermissions } from "../../hooks/usePermissions";
+import { STAFF_ROLES } from "../../types";
 
 interface AdditionalShiftForm {
   userId: string;
@@ -19,15 +20,16 @@ interface AdditionalShiftForm {
 }
 
 export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boolean; onClose: () => void; defaultDate?: string }) {
-  const { data: employees } = useUsers("EMPLOYEE");
+  const { data: employees } = useUsers(STAFF_ROLES);
   const { data: locations } = useLocations();
   const createAdditionalShift = useCreateAdditionalShift();
   const form = useForm<AdditionalShiftForm>();
-  const { restrictedStore } = usePermissions();
+  const { editableStores, storeOptions } = usePermissions();
+  const defaultStore = editableStores?.[0]?.name ?? "";
 
   useEffect(() => {
-    if (open) form.reset({ userId: "", date: defaultDate ?? "", startTime: "", endTime: "", location: restrictedStore ?? "", notes: "" });
-  }, [open, defaultDate, form, restrictedStore]);
+    if (open) form.reset({ userId: "", date: defaultDate ?? "", startTime: "", endTime: "", location: defaultStore, notes: "" });
+  }, [open, defaultDate, form, defaultStore]);
 
   return (
     <Modal open={open} onClose={onClose} title="Add Additional Shift">
@@ -60,15 +62,8 @@ export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boo
         <Select
           id="location"
           label="Location"
-          options={
-            // Store-based assistant managers can only add shifts at their own store
-            restrictedStore
-              ? [{ value: restrictedStore, label: restrictedStore }]
-              : [
-                  { value: "", label: "No location" },
-                  ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
-                ]
-          }
+          // Only stores this person can change
+          options={storeOptions(locations)}
           {...form.register("location")}
         />
         <Input id="notes" label="Notes (optional)" {...form.register("notes")} />

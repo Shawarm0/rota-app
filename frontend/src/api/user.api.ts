@@ -16,7 +16,7 @@ export async function createUser(input: {
   password: string;
   firstName: string;
   lastName: string;
-  role: "MANAGER" | "EMPLOYEE";
+  role: "OWNER" | "MANAGER" | "EMPLOYEE";
   businessId?: string;
   locationId?: string;
   categoryId?: string;

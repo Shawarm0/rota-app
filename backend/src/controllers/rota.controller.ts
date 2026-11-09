@@ -1,9 +1,12 @@
 import { RequestHandler } from "express";
 import * as rotaService from "../services/rota.service.js";
 import { param } from "../lib/params.js";
+import { assertCanEditRota, assertCanUseStore } from "../middleware/rotaAccess.js";
+import { NotFoundError } from "../lib/errors.js";
 
 export const createRota: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanUseStore(req, req.body.locationId);
     const rota = await rotaService.createRota(req.user!.businessId!, req.body);
     res.status(201).json(rota);
   } catch (err) {
@@ -25,6 +28,7 @@ export const listRotas: RequestHandler = async (req, res, next) => {
 export const getRota: RequestHandler = async (req, res, next) => {
   try {
     const rota = await rotaService.getRota(param(req, "id"), req.user!.role);
+    if (rota.businessId !== req.user!.businessId) throw new NotFoundError("Rota");
     res.json(rota);
   } catch (err) {
     next(err);
@@ -33,6 +37,8 @@ export const getRota: RequestHandler = async (req, res, next) => {
 
 export const updateRota: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanEditRota(req, param(req, "id"));
+    if (req.body.locationId !== undefined) await assertCanUseStore(req, req.body.locationId);
     const rota = await rotaService.updateRota(param(req, "id"), req.body);
     res.json(rota);
   } catch (err) {
@@ -42,6 +48,7 @@ export const updateRota: RequestHandler = async (req, res, next) => {
 
 export const deleteRota: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanEditRota(req, param(req, "id"));
     await rotaService.deleteRota(param(req, "id"));
     res.json({ message: "Rota deleted" });
   } catch (err) {
@@ -51,6 +58,7 @@ export const deleteRota: RequestHandler = async (req, res, next) => {
 
 export const publishRota: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanEditRota(req, param(req, "id"));
     const rota = await rotaService.publishRota(param(req, "id"));
     res.json(rota);
   } catch (err) {
@@ -60,6 +68,8 @@ export const publishRota: RequestHandler = async (req, res, next) => {
 
 export const copyRota: RequestHandler = async (req, res, next) => {
   try {
+    // The copy is for the same store, so the person must run it
+    await assertCanEditRota(req, param(req, "id"));
     const rota = await rotaService.copyRota(param(req, "id"), req.body.newStartDate, req.user!.businessId!);
     res.json(rota);
   } catch (err) {

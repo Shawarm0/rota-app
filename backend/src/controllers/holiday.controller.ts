@@ -1,17 +1,12 @@
 import { Request, RequestHandler } from "express";
 import * as holidayService from "../services/holiday.service.js";
 import { param } from "../lib/params.js";
-import { assertUserAtStore, canManageStaff, getRestrictedStore, isAssistantManager } from "../middleware/authorize.js";
-import { ForbiddenError } from "../lib/errors.js";
+import { assertCanManageUser, canManageStaff, canManageTarget, getAccess, getVisibleStoreIds } from "../middleware/authorize.js";
 
-// Assistant managers can't decide their own requests, and store-based ones only their store's staff
+// Only someone who manages the requester can approve, reject, edit or delete their leave,
+// which also stops anyone below the owner deciding their own
 async function assertCanDecideRequest(req: Request) {
-  if (!(await isAssistantManager(req))) return;
-  const ownerId = await holidayService.getRequestOwnerId(param(req, "id"));
-  if (ownerId === req.user!.userId) {
-    throw new ForbiddenError("You can't approve or reject your own holiday request");
-  }
-  await assertUserAtStore(req, ownerId);
+  await assertCanManageUser(req, await holidayService.getRequestOwnerId(param(req, "id")));
 }
 
 export const requestHoliday: RequestHandler = async (req, res, next) => {
@@ -27,9 +22,16 @@ export const listHolidayRequests: RequestHandler = async (req, res, next) => {
   try {
     const status = req.query.status as string | undefined;
     if (await canManageStaff(req)) {
-      const store = await getRestrictedStore(req);
-      const requests = await holidayService.listHolidayRequests(req.user!.businessId!, status, store?.id);
-      res.json(requests);
+      const requests = await holidayService.listHolidayRequests(req.user!.businessId!, status, await getVisibleStoreIds(req));
+      const access = await getAccess(req);
+      // Store managers can see other stores' leave but only decide their own stores'
+      res.json(
+        requests.map(({ user, ...request }) => ({
+          ...request,
+          user: { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email },
+          canDecide: canManageTarget(access, req.user!, user),
+        })),
+      );
     } else {
       const requests = await holidayService.getMyHolidayRequests(req.user!.userId);
       res.json(requests);
@@ -67,7 +69,7 @@ export const getApprovedHolidays: RequestHandler = async (req, res, next) => {
         req.user!.businessId,
         from as string | undefined,
         to as string | undefined,
-        (await getRestrictedStore(req))?.id,
+        await getVisibleStoreIds(req),
       );
       res.json(holidays);
     } else {
@@ -85,6 +87,7 @@ export const getApprovedHolidays: RequestHandler = async (req, res, next) => {
 
 export const updateHoliday: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanDecideRequest(req);
     const result = await holidayService.updateHoliday(param(req, "id"), req.body);
     res.json(result);
   } catch (err) {
@@ -94,6 +97,7 @@ export const updateHoliday: RequestHandler = async (req, res, next) => {
 
 export const deleteHoliday: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanDecideRequest(req);
     await holidayService.deleteHoliday(param(req, "id"));
     res.json({ message: "Holiday request deleted" });
   } catch (err) {

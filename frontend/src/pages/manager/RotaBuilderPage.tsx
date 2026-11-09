@@ -10,10 +10,12 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { useRotas, useRota, useCreateRota, usePublishRota, useDeleteRota, useSyncShifts } from "../../hooks/useRotas";
 import { useUsers } from "../../hooks/useUsers";
 import { useLocations } from "../../hooks/useLocations";
+import { usePermissions } from "../../hooks/usePermissions";
 import { addDays, toDateString, formatShortDate, formatDay } from "../../lib/dateUtils";
 import { CalendarPlus, Plus, Send, Trash2, Copy, Save, ChevronDown } from "lucide-react";
 import type { Shift, ShiftStatus } from "../../types";
 import clsx from "clsx";
+import { STAFF_ROLES } from "../../types";
 
 const STATUS_COLORS: Record<ShiftStatus, string> = {
   ASSIGNED: "bg-indigo-100 text-indigo-800 border-indigo-200",
@@ -73,8 +75,9 @@ function serverShiftsToLocal(shifts: Shift[]): LocalShift[] {
 
 export function RotaBuilderPage() {
   const { data: rotas } = useRotas();
-  const { data: allEmployees } = useUsers("EMPLOYEE");
+  const { data: allEmployees } = useUsers(STAFF_ROLES);
   const { data: locations } = useLocations();
+  const { canEditStoreId, storeOptions } = usePermissions();
   const [selectedRotaId, setSelectedRotaId] = useState<string | null>(null);
   const { data: selectedRota, isLoading: rotaLoading } = useRota(selectedRotaId);
   const createRota = useCreateRota();
@@ -111,7 +114,8 @@ export function RotaBuilderPage() {
     }
   }, [selectedRota?.shifts, serverSnapshotKey]);
 
-  const draftRotas = rotas?.filter((r) => r.status === "DRAFT") || [];
+  // Store managers only build rotas for the stores they run
+  const draftRotas = rotas?.filter((r) => r.status === "DRAFT" && canEditStoreId(r.locationId)) || [];
 
   const employees = useMemo(() => {
     if (!allEmployees) return [];
@@ -294,10 +298,8 @@ export function RotaBuilderPage() {
     })) || []),
   ];
 
-  const locationOptions = [
-    { value: "", label: "All locations" },
-    ...(locations?.map((l) => ({ value: l.id, label: l.name })) || []),
-  ];
+  // New rotas can only be for stores this person runs
+  const locationOptions = storeOptions(locations, "id").map((o) => (o.value ? o : { ...o, label: "All locations" }));
 
   const rotaLocationName = selectedRota?.location?.name;
 
@@ -528,10 +530,7 @@ export function RotaBuilderPage() {
           <Select
             id="location"
             label="Location"
-            options={[
-              { value: "", label: "No location" },
-              ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
-            ]}
+            options={storeOptions(locations)}
             {...shiftForm.register("location")}
           />
           <Input id="notes" label="Notes" {...shiftForm.register("notes")} />

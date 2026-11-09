@@ -1,4 +1,7 @@
-export type Role = "SYSTEM_ADMIN" | "MANAGER" | "EMPLOYEE";
+export type Role = "SYSTEM_ADMIN" | "OWNER" | "MANAGER" | "EMPLOYEE";
+
+// People who work shifts: employees (including assistant managers) and store managers
+export const STAFF_ROLES = "EMPLOYEE,MANAGER";
 
 export type RotaStatus = "DRAFT" | "PUBLISHED";
 
@@ -37,6 +40,10 @@ export interface User {
   categoryId: string | null;
   category?: { id: string; name: string; color: string } | null;
   active?: boolean;
+  // Extra stores the owner lets a store manager edit
+  storeAccess?: { locationId: string }[];
+  // Stores the signed-in person can change; null means every store (from /auth/me)
+  editableStores?: { id: string; name: string }[] | null;
 }
 
 export interface Business {
@@ -79,6 +86,8 @@ export interface HolidayRequest {
   reason: string | null;
   status: HolidayStatus;
   createdAt: string;
+  // Whether the signed-in manager can approve/reject this request
+  canDecide?: boolean;
 }
 
 export interface Notification {

@@ -1,13 +1,20 @@
 import { RequestHandler } from "express";
+import { Role } from "@prisma/client";
 import * as userService from "../services/user.service.js";
 import { param } from "../lib/params.js";
-import { assertCanManageUser, getRestrictedStore } from "../middleware/authorize.js";
+import { assertCanManageUser, canManageStaff, getAccess, getVisibleStoreIds } from "../middleware/authorize.js";
 import { ForbiddenError } from "../lib/errors.js";
 
 export const createUser: RequestHandler = async (req, res, next) => {
   try {
-    const store = await getRestrictedStore(req);
-    if (store) req.body.locationId = store.id;
+    const access = await getAccess(req);
+    if (access.editableStores !== null) {
+      // Store managers and store-based assistant managers add staff to their own stores
+      req.body.locationId ??= access.homeStore?.id;
+      if (!access.editableStores.some((s) => s.id === req.body.locationId)) {
+        throw new ForbiddenError("You can only add staff to stores you manage");
+      }
+    }
     const user = await userService.createUser(req.body, req.user!.role, req.user!.businessId);
     res.status(201).json(user);
   } catch (err) {
@@ -17,14 +24,16 @@ export const createUser: RequestHandler = async (req, res, next) => {
 
 export const listUsers: RequestHandler = async (req, res, next) => {
   try {
-    const role = req.query.role as string | undefined;
+    // ?role=EMPLOYEE,MANAGER
+    const roles = (req.query.role as string | undefined)?.split(",").filter(Boolean) as Role[] | undefined;
     // Store-based assistant managers only see staff at their own store
-    const store = await getRestrictedStore(req);
-    const locationId = store?.id ?? (req.query.locationId as string | undefined);
+    const visible = await getVisibleStoreIds(req);
+    const requested = req.query.locationId as string | undefined;
+    const locationIds = requested ? (visible && !visible.includes(requested) ? [] : [requested]) : visible;
     const users = await userService.listUsers(
       req.user!.role === "SYSTEM_ADMIN" ? null : req.user!.businessId,
-      role as any,
-      locationId,
+      roles,
+      locationIds,
     );
     res.json(users);
   } catch (err) {
@@ -35,6 +44,10 @@ export const listUsers: RequestHandler = async (req, res, next) => {
 export const getUser: RequestHandler = async (req, res, next) => {
   try {
     const user = await userService.getUser(param(req, "id"));
+    const isSelf = user.id === req.user!.userId;
+    if (!isSelf && (req.user!.role !== "SYSTEM_ADMIN" && (user.businessId !== req.user!.businessId || !(await canManageStaff(req))))) {
+      throw new ForbiddenError("You can't view this person");
+    }
     res.json(user);
   } catch (err) {
     next(err);
@@ -44,12 +57,20 @@ export const getUser: RequestHandler = async (req, res, next) => {
 export const updateUser: RequestHandler = async (req, res, next) => {
   try {
     await assertCanManageUser(req, param(req, "id"));
-    if (req.body.isAssistantManager !== undefined && req.user!.role !== "MANAGER") {
+    const access = await getAccess(req);
+    const isOwner = access.role === "OWNER" || access.role === "SYSTEM_ADMIN";
+    if ((req.body.role !== undefined || req.body.extraStoreIds !== undefined) && !isOwner) {
+      throw new ForbiddenError("Only the owner can change store managers");
+    }
+    if (req.body.isAssistantManager !== undefined && !isOwner && access.role !== "MANAGER") {
       throw new ForbiddenError("Only managers can assign assistant managers");
     }
-    const store = await getRestrictedStore(req);
-    if (store && req.body.locationId !== undefined && req.body.locationId !== store.id) {
-      throw new ForbiddenError(`You can only manage staff at ${store.name}`);
+    if (
+      req.body.locationId !== undefined &&
+      access.editableStores !== null &&
+      !access.editableStores.some((s) => s.id === req.body.locationId)
+    ) {
+      throw new ForbiddenError("You can only move staff to stores you manage");
     }
     const user = await userService.updateUser(param(req, "id"), req.body);
     res.json(user);

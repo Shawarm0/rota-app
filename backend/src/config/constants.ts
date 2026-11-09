@@ -10,6 +10,7 @@ export const SHIFT_STATUS_COLORS = {
 
 export const ROLES = {
   SYSTEM_ADMIN: "SYSTEM_ADMIN",
+  OWNER: "OWNER",
   MANAGER: "MANAGER",
   EMPLOYEE: "EMPLOYEE",
 } as const;

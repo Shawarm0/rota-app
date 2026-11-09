@@ -1,9 +1,10 @@
 import prisma from "../lib/db.js";
+import { findStoreManagerIds } from "./recipients.service.js";
 import { sendPush } from "./push.service.js";
 import { AppError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 
 export async function requestHoliday(userId: string, data: { date: string; days?: number; shiftId?: string | null; reason?: string | null }) {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { businessId: true, locationId: true, firstName: true, lastName: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { businessId: true, locationId: true, role: true, firstName: true, lastName: true } });
   if (!user) throw new NotFoundError("User");
 
   const numDays = data.days || 1;
@@ -41,20 +42,29 @@ export async function requestHoliday(userId: string, data: { date: string; days?
     requests.push(request);
   }
 
-  // Managers and assistant managers can approve holidays, so both are told about new requests
-  const managers = await prisma.user.findMany({
-    where: {
-      businessId: user.businessId,
-      active: true,
-      id: { not: userId },
-      // Store-based assistant managers only hear about their own store's staff
-      OR: [
-        { role: "MANAGER" },
-        { isAssistantManager: true, OR: [{ locationId: null }, ...(user.locationId ? [{ locationId: user.locationId }] : [])] },
-      ],
-    },
-    select: { id: true },
-  });
+  // Tell everyone who can decide the request: the owner and the store's managers, plus the store's
+  // assistant managers for regular staff. A store manager's own leave goes to the owner only.
+  let recipientIds: string[];
+  if (user.role === "MANAGER") {
+    const owners = await prisma.user.findMany({ where: { businessId: user.businessId, role: "OWNER", active: true }, select: { id: true } });
+    recipientIds = owners.map((o) => o.id);
+  } else {
+    const assistants = await prisma.user.findMany({
+      where: {
+        businessId: user.businessId,
+        active: true,
+        isAssistantManager: true,
+        id: { not: userId },
+        // Store-based assistant managers only hear about their own store's staff
+        OR: [{ locationId: null }, ...(user.locationId ? [{ locationId: user.locationId }] : [])],
+      },
+      select: { id: true },
+    });
+    recipientIds = [
+      ...new Set([...(await findStoreManagerIds(user.businessId!, user.locationId, userId)), ...assistants.map((a) => a.id)]),
+    ];
+  }
+  const managers = recipientIds.map((id) => ({ id }));
 
   if (managers.length > 0) {
     const dateRange = numDays === 1
@@ -188,7 +198,7 @@ export async function updateHoliday(requestId: string, data: { date?: string; re
   const effectiveDate = data.date ? new Date(data.date) : request.date;
 
   if (data.status === "APPROVED" && request.status !== "APPROVED") {
-    return prisma.$transaction(async (tx) => {
+    const approved = await prisma.$transaction(async (tx) => {
       const updated = await tx.holidayRequest.update({
         where: { id: requestId },
         data: {
@@ -210,9 +220,11 @@ export async function updateHoliday(requestId: string, data: { date?: string; re
 
       return updated;
     });
+    await notifyDecision(request.userId, requestId, approved.date, "APPROVED");
+    return approved;
   }
 
-  return prisma.holidayRequest.update({
+  const updated = await prisma.holidayRequest.update({
     where: { id: requestId },
     data: {
       ...(data.date ? { date: new Date(data.date) } : {}),
@@ -223,6 +235,23 @@ export async function updateHoliday(requestId: string, data: { date?: string; re
       user: { select: { id: true, firstName: true, lastName: true } },
     },
   });
+  if (data.status === "REJECTED" && request.status !== "REJECTED") {
+    await notifyDecision(request.userId, requestId, updated.date, "REJECTED");
+  }
+  return updated;
+}
+
+// Tells the employee when their leave is approved or rejected from the edit form
+async function notifyDecision(userId: string, requestId: string, date: Date, status: "APPROVED" | "REJECTED") {
+  const approved = status === "APPROVED";
+  const notification = {
+    userId,
+    title: approved ? "Holiday Approved" : "Holiday Rejected",
+    body: `Your holiday request for ${date.toISOString().split("T")[0]} has been ${approved ? "approved" : "rejected"}.`,
+    data: { type: approved ? "HOLIDAY_APPROVED" : "HOLIDAY_REJECTED", holidayRequestId: requestId },
+  };
+  await prisma.notification.create({ data: notification });
+  sendPush([notification]);
 }
 
 export async function deleteHoliday(requestId: string) {
@@ -232,14 +261,16 @@ export async function deleteHoliday(requestId: string) {
   await prisma.holidayRequest.delete({ where: { id: requestId } });
 }
 
-export async function listHolidayRequests(businessId: string, status?: string, locationId?: string) {
+export async function listHolidayRequests(businessId: string, status?: string, locationIds?: string[] | null) {
   return prisma.holidayRequest.findMany({
     where: {
-      user: { businessId, ...(locationId ? { locationId } : {}) },
+      user: { businessId, ...(locationIds ? { locationId: { in: locationIds } } : {}) },
       ...(status ? { status: status as any } : {}),
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true, email: true } },
+      user: {
+        select: { id: true, firstName: true, lastName: true, email: true, role: true, businessId: true, isAssistantManager: true, locationId: true },
+      },
       shift: true,
     },
     orderBy: { createdAt: "desc" },
@@ -264,10 +295,10 @@ export async function getApprovedHolidays(userId: string, from?: string, to?: st
   });
 }
 
-export async function getBusinessHolidays(businessId: string, from?: string, to?: string, locationId?: string) {
+export async function getBusinessHolidays(businessId: string, from?: string, to?: string, locationIds?: string[] | null) {
   return prisma.holidayRequest.findMany({
     where: {
-      user: { businessId, ...(locationId ? { locationId } : {}) },
+      user: { businessId, ...(locationIds ? { locationId: { in: locationIds } } : {}) },
       status: { in: ["PENDING", "APPROVED"] },
       ...(from || to
         ? {

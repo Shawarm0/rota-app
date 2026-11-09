@@ -11,7 +11,7 @@ router.use(authenticate);
 
 router.post(
   "/",
-  authorize("MANAGER"),
+  authorize("OWNER"),
   validate(createCategorySchema),
   categoryController.createCategory,
 );
@@ -20,14 +20,14 @@ router.get("/", categoryController.listCategories);
 
 router.patch(
   "/:id",
-  authorize("MANAGER"),
+  authorize("OWNER"),
   validate(updateCategorySchema),
   categoryController.updateCategory,
 );
 
 router.delete(
   "/:id",
-  authorize("MANAGER"),
+  authorize("OWNER"),
   categoryController.deleteCategory,
 );
 

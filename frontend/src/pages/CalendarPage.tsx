@@ -19,6 +19,7 @@ import * as userApi from "../api/user.api";
 import { isSameDay, toDateString, formatDate } from "../lib/dateUtils";
 import type { Shift, ShiftStatus } from "../types";
 import clsx from "clsx";
+import { STAFF_ROLES } from "../types";
 
 const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
   { value: "ASSIGNED", label: "Assigned" },
@@ -115,7 +116,7 @@ export function CalendarPage() {
   const [showAddShift, setShowAddShift] = useState(false);
 
   // Managers and assistant managers see the whole team and can edit shifts
-  const { canManageStaff: isManager, canEditStore, restrictedStore } = usePermissions();
+  const { canManageStaff: isManager, canEditStore, storeOptions } = usePermissions();
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -136,7 +137,7 @@ export function CalendarPage() {
   const { data: holidays } = useApprovedHolidays(from, to);
   const { data: employees } = useQuery({
     queryKey: ["users", "EMPLOYEE"],
-    queryFn: () => userApi.listUsers("EMPLOYEE"),
+    queryFn: () => userApi.listUsers(STAFF_ROLES),
     enabled: isManager,
   });
   const { data: locations } = useLocations();
@@ -253,7 +254,7 @@ export function CalendarPage() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-            {isManager && !restrictedStore && locations && locations.length > 0 && (
+            {isManager && locations && locations.length > 1 && (
               <div className="relative">
                 <select
                   value={locationFilter}
@@ -541,14 +542,7 @@ export function CalendarPage() {
             <Select
               id="location"
               label="Location"
-              options={
-                restrictedStore
-                  ? [{ value: restrictedStore, label: restrictedStore }]
-                  : [
-                      { value: "", label: "No location" },
-                      ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
-                    ]
-              }
+              options={storeOptions(locations)}
               {...shiftForm.register("location")}
             />
             <Input id="notes" label="Notes" {...shiftForm.register("notes")} />

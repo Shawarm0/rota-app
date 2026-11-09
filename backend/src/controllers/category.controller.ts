@@ -22,7 +22,7 @@ export const listCategories: RequestHandler = async (req, res, next) => {
 
 export const updateCategory: RequestHandler = async (req, res, next) => {
   try {
-    const category = await categoryService.updateCategory(param(req, "id"), req.body);
+    const category = await categoryService.updateCategory(param(req, "id"), req.body, req.user!.businessId!);
     res.json(category);
   } catch (err) {
     next(err);
@@ -31,7 +31,7 @@ export const updateCategory: RequestHandler = async (req, res, next) => {
 
 export const deleteCategory: RequestHandler = async (req, res, next) => {
   try {
-    await categoryService.deleteCategory(param(req, "id"));
+    await categoryService.deleteCategory(param(req, "id"), req.user!.businessId!);
     res.json({ message: "Category deleted" });
   } catch (err) {
     next(err);

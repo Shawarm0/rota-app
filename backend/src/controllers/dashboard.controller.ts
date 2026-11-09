@@ -1,7 +1,7 @@
 import { RequestHandler } from "express";
 import * as dashboardService from "../services/dashboard.service.js";
 import * as reportService from "../services/report.service.js";
-import { getRestrictedStore } from "../middleware/authorize.js";
+import { getVisibleStoreIds, getVisibleStores } from "../middleware/authorize.js";
 
 export const getDashboard: RequestHandler = async (req, res, next) => {
   try {
@@ -14,7 +14,7 @@ export const getDashboard: RequestHandler = async (req, res, next) => {
 
 export const getShiftsToCover: RequestHandler = async (req, res, next) => {
   try {
-    const data = await dashboardService.getShiftsToCover(req.user!.businessId!, await getRestrictedStore(req));
+    const data = await dashboardService.getShiftsToCover(req.user!.businessId!, await getVisibleStores(req));
     res.json(data);
   } catch (err) {
     next(err);
@@ -47,8 +47,7 @@ export const getEmployeeSummaries: RequestHandler = async (req, res, next) => {
 export const getHoursReport: RequestHandler = async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const store = await getRestrictedStore(req);
-    const data = await reportService.getHoursReport(req.user!.businessId!, from as string, to as string, store?.id);
+    const data = await reportService.getHoursReport(req.user!.businessId!, from as string, to as string, await getVisibleStoreIds(req));
     res.json(data);
   } catch (err) {
     next(err);
@@ -58,8 +57,7 @@ export const getHoursReport: RequestHandler = async (req, res, next) => {
 export const exportCSV: RequestHandler = async (req, res, next) => {
   try {
     const { from, to } = req.query;
-    const store = await getRestrictedStore(req);
-    const csv = await reportService.exportCSV(req.user!.businessId!, from as string, to as string, store?.id);
+    const csv = await reportService.exportCSV(req.user!.businessId!, from as string, to as string, await getVisibleStoreIds(req));
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", `attachment; filename=report-${from}-${to}.csv`);
     res.send(csv);

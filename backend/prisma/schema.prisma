@@ -9,6 +9,7 @@ datasource db {
 
 enum Role {
   SYSTEM_ADMIN
+  OWNER
   MANAGER
   EMPLOYEE
 }
@@ -59,8 +60,20 @@ model Location {
   updatedAt  DateTime @updatedAt
   users      User[]
   rotas      Rota[]
+  access     StoreAccess[]
 
   @@unique([businessId, name])
+}
+
+// Extra stores the owner has let a store manager edit, beyond their own
+model StoreAccess {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([userId, locationId])
 }
 
 model Category {
@@ -102,6 +115,7 @@ model User {
   pushTokens       PushToken[]
   auditLogs        AuditLog[]
   sessions         Session[]
+  storeAccess      StoreAccess[]
 }
 
 model Session {

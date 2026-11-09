@@ -7,80 +7,147 @@ import type { Store } from "../lib/storeScope.js";
 // Assistant managers are employees with a flag, so they're authorised separately from roles
 export type Permission = Role | "ASSISTANT_MANAGER";
 
-// Looked up per request rather than stored in the token so promotions/demotions apply immediately
-export async function isAssistantManager(req: Request) {
-  if (!req.user || req.user.role !== "EMPLOYEE") return false;
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.userId },
-    select: { isAssistantManager: true, active: true },
-  });
-  return Boolean(user?.active && user.isAssistantManager);
+export interface Access {
+  role: Role;
+  isAssistantManager: boolean;
+  homeStore: Store | null;
+  // Stores this person may change; null means every store
+  editableStores: Store[] | null;
+  // Stores whose team data this person may see; null means every store
+  visibleStores: Store[] | null;
 }
 
-// Managers, admins and assistant managers
+const accessCache = new WeakMap<Request, Promise<Access>>();
+
+async function loadAccess(req: Request): Promise<Access> {
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.userId },
+    select: {
+      role: true,
+      isAssistantManager: true,
+      location: { select: { id: true, name: true } },
+      storeAccess: { select: { location: { select: { id: true, name: true } } } },
+    },
+  });
+  const role = user?.role ?? req.user!.role;
+  const homeStore = user?.location ?? null;
+  const isAssistantManager = role === "EMPLOYEE" && Boolean(user?.isAssistantManager);
+
+  if (role === "SYSTEM_ADMIN" || role === "OWNER") {
+    return { role, isAssistantManager, homeStore, editableStores: null, visibleStores: null };
+  }
+  if (role === "MANAGER") {
+    // Store managers run their own store (plus any the owner has granted) and can view the rest
+    const extra = user?.storeAccess.map((a) => a.location) ?? [];
+    const editable = [...(homeStore ? [homeStore] : []), ...extra.filter((s) => s.id !== homeStore?.id)];
+    return { role, isAssistantManager, homeStore, editableStores: editable, visibleStores: null };
+  }
+  if (isAssistantManager) {
+    // Store-based assistant managers only see and change their own store; without a store they cover all
+    const stores = homeStore ? [homeStore] : null;
+    return { role, isAssistantManager, homeStore, editableStores: stores, visibleStores: stores };
+  }
+  return { role, isAssistantManager, homeStore, editableStores: [], visibleStores: [] };
+}
+
+// Looked up once per request rather than stored in the token, so changes apply immediately
+export function getAccess(req: Request) {
+  let access = accessCache.get(req);
+  if (!access) {
+    access = loadAccess(req);
+    accessCache.set(req, access);
+  }
+  return access;
+}
+
+export async function isAssistantManager(req: Request) {
+  return (await getAccess(req)).isAssistantManager;
+}
+
+// Owner, store managers, admins and assistant managers
 export async function canManageStaff(req: Request) {
-  if (req.user?.role === "MANAGER" || req.user?.role === "SYSTEM_ADMIN") return true;
-  return isAssistantManager(req);
+  const access = await getAccess(req);
+  return access.role !== "EMPLOYEE" || access.isAssistantManager;
+}
+
+export function canEditStoreName(access: Access, store: string | null) {
+  if (access.editableStores === null) return true;
+  return store !== null && access.editableStores.some((s) => s.name === store);
 }
 
 export function authorize(...permissions: Permission[]): RequestHandler {
   return (req, _res, next) => {
-    if (!req.user) return next(new ForbiddenError("You do not have permission to perform this action"));
-    if (permissions.includes(req.user.role)) return next();
-
-    if (!permissions.includes("ASSISTANT_MANAGER")) {
-      return next(new ForbiddenError("You do not have permission to perform this action"));
-    }
+    const denied = new ForbiddenError("You do not have permission to perform this action");
+    if (!req.user) return next(denied);
+    // The owner can do anything a manager can
+    if (req.user.role === "OWNER" || permissions.includes(req.user.role)) return next();
+    if (!permissions.includes("ASSISTANT_MANAGER")) return next(denied);
     isAssistantManager(req)
-      .then((allowed) => next(allowed ? undefined : new ForbiddenError("You do not have permission to perform this action")))
+      .then((allowed) => next(allowed ? undefined : denied))
       .catch(next);
   };
 }
 
-// Assistant managers may only act on regular employees in their own business, not themselves or other assistants
-export async function assertCanManageUser(req: Request, targetId: string) {
-  if (req.user?.role === "MANAGER" || req.user?.role === "SYSTEM_ADMIN") return;
+// Only shifts at stores this person may change
+export async function assertCanEditStore(req: Request, store: string | null) {
+  const access = await getAccess(req);
+  if (!canEditStoreName(access, store)) {
+    const names = access.editableStores?.map((s) => s.name).join(" or ");
+    throw new ForbiddenError(names ? `You can only change shifts at ${names}` : "You can't change shifts at this store");
+  }
+}
 
+// Only staff at stores this person may change
+export async function assertUserAtStore(req: Request, userId: string) {
+  const access = await getAccess(req);
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { locationId: true, businessId: true } });
+  if (!user || (req.user!.role !== "SYSTEM_ADMIN" && user.businessId !== req.user!.businessId)) {
+    throw new ForbiddenError("You can't manage this person");
+  }
+  if (access.editableStores === null) return;
+  if (!access.editableStores.some((s) => s.id === user.locationId)) {
+    const names = access.editableStores.map((s) => s.name).join(" or ");
+    throw new ForbiddenError(names ? `You can only manage staff at ${names}` : "You can't manage staff at this store");
+  }
+}
+
+interface ManageTarget {
+  id: string;
+  role: Role;
+  businessId: string | null;
+  isAssistantManager: boolean;
+  locationId: string | null;
+}
+
+// Who can manage whom: the owner manages everyone in the business, store managers manage the staff
+// at their stores, and assistant managers manage regular employees at theirs. Nobody below the owner
+// can act on themselves (e.g. approve their own leave).
+export function canManageTarget(access: Access, actor: { userId: string; businessId: string | null }, target: ManageTarget) {
+  if (access.role === "SYSTEM_ADMIN") return true;
+  if (target.businessId !== actor.businessId || target.role === "SYSTEM_ADMIN") return false;
+  if (access.role === "OWNER") return true;
+  if (target.id === actor.userId || target.role !== "EMPLOYEE") return false;
+  if (access.role === "EMPLOYEE" && (!access.isAssistantManager || target.isAssistantManager)) return false;
+  return access.editableStores === null || access.editableStores.some((s) => s.id === target.locationId);
+}
+
+export async function assertCanManageUser(req: Request, targetId: string) {
+  const access = await getAccess(req);
   const target = await prisma.user.findUnique({
     where: { id: targetId },
-    select: { role: true, businessId: true, isAssistantManager: true },
+    select: { id: true, role: true, businessId: true, isAssistantManager: true, locationId: true },
   });
-  if (
-    !target ||
-    targetId === req.user?.userId ||
-    target.role !== "EMPLOYEE" ||
-    target.isAssistantManager ||
-    target.businessId !== req.user?.businessId
-  ) {
-    throw new ForbiddenError("Assistant managers can only manage regular employees");
-  }
-  await assertUserAtStore(req, targetId);
-}
-
-// The store an assistant manager is limited to, or null if they can work across every store
-export async function getRestrictedStore(req: Request): Promise<Store | null> {
-  if (!req.user || req.user.role !== "EMPLOYEE") return null;
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.userId },
-    select: { isAssistantManager: true, location: { select: { id: true, name: true } } },
-  });
-  return user?.isAssistantManager ? (user.location ?? null) : null;
-}
-
-// Store-based assistant managers may only change shifts at their own store
-export async function assertCanEditStore(req: Request, store: string | null) {
-  const restricted = await getRestrictedStore(req);
-  if (restricted && store !== restricted.name) {
-    throw new ForbiddenError(`You can only change shifts at ${restricted.name}`);
+  if (!target || !canManageTarget(access, req.user!, target)) {
+    throw new ForbiddenError("You can't manage this person");
   }
 }
 
-// Store-based assistant managers may only deal with staff at their own store
-export async function assertUserAtStore(req: Request, userId: string) {
-  const restricted = await getRestrictedStore(req);
-  if (!restricted) return;
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { locationId: true } });
-  if (user?.locationId !== restricted.id) {
-    throw new ForbiddenError(`You can only manage staff at ${restricted.name}`);
-  }
+// Store ids to filter team lists by, or null for every store
+export async function getVisibleStoreIds(req: Request) {
+  const access = await getAccess(req);
+  return access.visibleStores?.map((s) => s.id) ?? null;
+}
+
+export async function getVisibleStores(req: Request) {
+  return (await getAccess(req)).visibleStores;
 }

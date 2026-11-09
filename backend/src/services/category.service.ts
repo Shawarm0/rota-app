@@ -21,9 +21,9 @@ export async function listCategories(businessId: string) {
   });
 }
 
-export async function updateCategory(id: string, data: { name?: string; color?: string }) {
+export async function updateCategory(id: string, data: { name?: string; color?: string }, businessId: string) {
   const category = await prisma.category.findUnique({ where: { id } });
-  if (!category) throw new NotFoundError("Category");
+  if (!category || category.businessId !== businessId) throw new NotFoundError("Category");
 
   if (data.name && data.name !== category.name) {
     const duplicate = await prisma.category.findUnique({
@@ -41,9 +41,9 @@ export async function updateCategory(id: string, data: { name?: string; color?: 
   });
 }
 
-export async function deleteCategory(id: string) {
+export async function deleteCategory(id: string, businessId: string) {
   const category = await prisma.category.findUnique({ where: { id } });
-  if (!category) throw new NotFoundError("Category");
+  if (!category || category.businessId !== businessId) throw new NotFoundError("Category");
 
   await prisma.user.updateMany({ where: { categoryId: id }, data: { categoryId: null } });
   await prisma.category.delete({ where: { id } });

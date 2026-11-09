@@ -2,6 +2,7 @@ import { RotaStatus } from "@prisma/client";
 import prisma from "../lib/db.js";
 import { sendPush } from "./push.service.js";
 import { findHolidayClashes } from "./shift.service.js";
+import { STAFF_ROLES } from "../lib/storeScope.js";
 import { AppError, ForbiddenError, NotFoundError } from "../lib/errors.js";
 
 export async function createRota(businessId: string, data: { name?: string; startDate: string; endDate: string; locationId?: string }) {
@@ -101,12 +102,15 @@ export async function publishRota(id: string) {
     data: { status: "PUBLISHED" },
   });
 
+  // The store's staff, plus anyone from elsewhere who has a shift on this rota
   const employees = await prisma.user.findMany({
     where: {
       businessId: rota.businessId,
-      role: "EMPLOYEE",
       active: true,
-      ...(rota.locationId ? { locationId: rota.locationId } : {}),
+      OR: [
+        { role: { in: STAFF_ROLES }, ...(rota.locationId ? { locationId: rota.locationId } : {}) },
+        { shifts: { some: { rotaId: id } } },
+      ],
     },
     select: { id: true },
   });

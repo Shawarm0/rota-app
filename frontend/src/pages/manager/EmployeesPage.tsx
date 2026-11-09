@@ -15,6 +15,7 @@ import { usePermissions } from "../../hooks/usePermissions";
 import { Users, Plus, UserX, UserCheck, KeyRound, MapPin, Trash2, Search, ChevronDown, Pencil, Tag } from "lucide-react";
 import clsx from "clsx";
 import type { User } from "../../types";
+import { STAFF_ROLES } from "../../types";
 
 const PRESET_COLORS = [
   "#4F46E5",
@@ -42,7 +43,7 @@ interface EditEmployeeForm {
   email: string;
   locationId: string;
   categoryId: string;
-  isAssistantManager: boolean;
+  access: "EMPLOYEE" | "ASSISTANT" | "MANAGER";
 }
 
 function initials(firstName: string, lastName: string) {
@@ -51,8 +52,8 @@ function initials(firstName: string, lastName: string) {
 
 export function EmployeesPage() {
   const currentUser = useAuthStore((s) => s.user);
-  const { isManager, restrictedStore } = usePermissions();
-  const { data: users, isLoading } = useUsers("EMPLOYEE");
+  const { isOwner, isStoreManager, isAssistantManager, storeOptions, canEditStoreId } = usePermissions();
+  const { data: users, isLoading } = useUsers(STAFF_ROLES);
   const { data: locations } = useLocations();
   const { data: categories } = useCategories();
   const createUser = useCreateUser();
@@ -74,6 +75,8 @@ export function EmployeesPage() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState(PRESET_COLORS[0]);
   const [filter, setFilter] = useState("");
+  // Stores a store manager may also edit (owner only)
+  const [extraStoreIds, setExtraStoreIds] = useState<string[]>([]);
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateEmployeeForm>();
   const editForm = useForm<EditEmployeeForm>();
   const resetForm = useForm<{ newPassword: string }>();
@@ -86,8 +89,9 @@ export function EmployeesPage() {
         email: editingUser.email,
         locationId: editingUser.locationId || "",
         categoryId: editingUser.categoryId || "",
-        isAssistantManager: Boolean(editingUser.isAssistantManager),
+        access: editingUser.role === "MANAGER" ? "MANAGER" : editingUser.isAssistantManager ? "ASSISTANT" : "EMPLOYEE",
       });
+      setExtraStoreIds(editingUser.storeAccess?.map((a) => a.locationId) ?? []);
     }
   }, [editingUser, editForm]);
 
@@ -103,11 +107,8 @@ export function EmployeesPage() {
     );
   };
 
-  // Store-based assistant managers can only keep staff at their own store
-  const locationOptions = [
-    ...(restrictedStore ? [] : [{ value: "", label: "No location" }]),
-    ...(locations?.map((l) => ({ value: l.id, label: l.name })) || []),
-  ];
+  // Staff can only be placed at stores this person runs
+  const locationOptions = storeOptions(locations, "id");
 
   const categoryOptions = [
     { value: "", label: "No category" },
@@ -118,8 +119,16 @@ export function EmployeesPage() {
     updateUser.mutate({ id: userId, data: { locationId: locationId || null } });
   };
 
-  // Assistant managers can't act on themselves or other assistant managers
-  const canEdit = (user: User) => isManager || (!user.isAssistantManager && user.id !== currentUser?.id);
+  // Mirrors the server: the owner manages everyone; store managers manage employees at their stores;
+  // assistant managers manage regular employees at theirs. Nobody below the owner edits themselves.
+  const canEdit = (user: User) => {
+    if (isOwner) return true;
+    if (user.id === currentUser?.id || user.role !== "EMPLOYEE") return false;
+    if (isAssistantManager && user.isAssistantManager) return false;
+    return canEditStoreId(user.locationId);
+  };
+  const editAccess = editForm.watch("access");
+  const editStore = editForm.watch("locationId");
 
   const filteredUsers = users?.filter((u) =>
     `${u.firstName} ${u.lastName}`.toLowerCase().includes(filter.toLowerCase())
@@ -159,7 +168,7 @@ export function EmployeesPage() {
             />
           </div>
           <div className="flex items-center gap-2.5">
-            {isManager && (
+            {isOwner && (
             <>
             <button
               onClick={() => setShowCategories(true)}
@@ -233,6 +242,11 @@ export function EmployeesPage() {
                             <span className="text-[14.5px] font-semibold text-gray-900">
                               {user.firstName} {user.lastName}
                             </span>
+                            {user.role === "MANAGER" && (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                                Store Manager
+                              </span>
+                            )}
                             {user.isAssistantManager && (
                               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
                                 Assistant Manager
@@ -336,6 +350,11 @@ export function EmployeesPage() {
                             <span className="text-[15px] font-semibold text-gray-900">
                               {user.firstName} {user.lastName}
                             </span>
+                            {user.role === "MANAGER" && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                                Store Manager
+                              </span>
+                            )}
                             {user.isAssistantManager && (
                               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
                                 Assistant Manager
@@ -433,7 +452,16 @@ export function EmployeesPage() {
                     email: data.email,
                     locationId: data.locationId || null,
                     categoryId: data.categoryId || null,
-                    ...(currentUser?.role === "MANAGER" ? { isAssistantManager: data.isAssistantManager } : {}),
+                    // The owner sets the role; store managers can only make someone an assistant manager
+                    ...(isOwner
+                      ? {
+                          role: data.access === "MANAGER" ? "MANAGER" : "EMPLOYEE",
+                          isAssistantManager: data.access === "ASSISTANT",
+                          extraStoreIds: data.access === "MANAGER" ? extraStoreIds.filter((id) => id !== data.locationId) : [],
+                        }
+                      : isStoreManager
+                        ? { isAssistantManager: data.access === "ASSISTANT" }
+                        : {}),
                   },
                 },
                 { onSuccess: () => setEditingUser(null) },
@@ -473,16 +501,49 @@ export function EmployeesPage() {
             options={categoryOptions}
             {...editForm.register("categoryId")}
           />
-          {currentUser?.role === "MANAGER" && (
-            <label className="flex items-start gap-2.5 cursor-pointer">
-              <input type="checkbox" className="mt-[3px] h-4 w-4 accent-indigo-600" {...editForm.register("isAssistantManager")} />
-              <span>
-                <span className="block text-[13px] font-semibold text-gray-700">Assistant manager</span>
-                <span className="block text-[12px] text-gray-500">
-                  Can manage employees, approve holidays, edit shifts in the calendar, and see shifts to cover and reports.
-                </span>
-              </span>
-            </label>
+          {(isOwner || isStoreManager) && (
+            <Select
+              id="editAccess"
+              label="Role"
+              options={[
+                { value: "EMPLOYEE", label: "Employee" },
+                { value: "ASSISTANT", label: "Assistant manager" },
+                ...(isOwner ? [{ value: "MANAGER", label: "Store manager" }] : []),
+              ]}
+              {...editForm.register("access")}
+            />
+          )}
+          {editAccess === "ASSISTANT" && (
+            <p className="-mt-2 text-[12px] text-gray-500">
+              Can manage employees, approve holidays, edit shifts in the calendar, and see shifts to cover and reports.
+            </p>
+          )}
+          {editAccess === "MANAGER" && (
+            <div className="-mt-2 space-y-2">
+              <p className="text-[12px] text-gray-500">
+                Builds rotas and manages staff for their store, and can view the other stores.
+              </p>
+              {isOwner && (locations?.filter((l) => l.id !== editStore).length ?? 0) > 0 && (
+                <div>
+                  <span className="block text-[13px] font-semibold text-gray-700 mb-1">Can also edit</span>
+                  {locations
+                    ?.filter((l) => l.id !== editStore)
+                    .map((l) => (
+                      <label key={l.id} className="flex items-center gap-2 text-[13px] text-gray-700 py-0.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-indigo-600"
+                          checked={extraStoreIds.includes(l.id)}
+                          onChange={(e) =>
+                            setExtraStoreIds((ids) => (e.target.checked ? [...ids, l.id] : ids.filter((id) => id !== l.id)))
+                          }
+                        />
+                        {l.name}
+                      </label>
+                    ))}
+                </div>
+              )}
+            </div>
           )}
           <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setEditingUser(null)}>Cancel</Button>

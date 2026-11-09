@@ -11,7 +11,7 @@ router.use(authenticate);
 
 router.post(
   "/",
-  authorize("MANAGER"),
+  authorize("OWNER"),
   validate(createLocationSchema),
   locationController.createLocation,
 );
@@ -20,14 +20,14 @@ router.get("/", locationController.listLocations);
 
 router.patch(
   "/:id",
-  authorize("MANAGER"),
+  authorize("OWNER"),
   validate(updateLocationSchema),
   locationController.updateLocation,
 );
 
 router.delete(
   "/:id",
-  authorize("MANAGER"),
+  authorize("OWNER"),
   locationController.deleteLocation,
 );
 

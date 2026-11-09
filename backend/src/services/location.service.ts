@@ -20,9 +20,9 @@ export async function listLocations(businessId: string) {
   });
 }
 
-export async function updateLocation(id: string, name: string) {
+export async function updateLocation(id: string, name: string, businessId: string) {
   const location = await prisma.location.findUnique({ where: { id } });
-  if (!location) throw new NotFoundError("Location");
+  if (!location || location.businessId !== businessId) throw new NotFoundError("Location");
 
   const duplicate = await prisma.location.findUnique({
     where: { businessId_name: { businessId: location.businessId, name } },
@@ -31,12 +31,16 @@ export async function updateLocation(id: string, name: string) {
     throw new ConflictError("A location with this name already exists");
   }
 
-  return prisma.location.update({ where: { id }, data: { name } });
+  // Shifts refer to their store by name, so keep them pointing at the renamed store
+  return prisma.$transaction(async (tx) => {
+    await tx.shift.updateMany({ where: { location: location.name, rota: { businessId } }, data: { location: name } });
+    return tx.location.update({ where: { id }, data: { name } });
+  });
 }
 
-export async function deleteLocation(id: string) {
+export async function deleteLocation(id: string, businessId: string) {
   const location = await prisma.location.findUnique({ where: { id } });
-  if (!location) throw new NotFoundError("Location");
+  if (!location || location.businessId !== businessId) throw new NotFoundError("Location");
 
   await prisma.user.updateMany({ where: { locationId: id }, data: { locationId: null } });
   await prisma.rota.updateMany({ where: { locationId: id }, data: { locationId: null } });

@@ -8,26 +8,30 @@ interface CreateUserInput {
   password: string;
   firstName: string;
   lastName: string;
-  role: "MANAGER" | "EMPLOYEE";
+  role: "OWNER" | "MANAGER" | "EMPLOYEE";
   businessId?: string;
   locationId?: string;
   categoryId?: string;
 }
 
+// The system admin sets up owners; the owner adds store managers; anyone who manages staff adds employees
 export async function createUser(input: CreateUserInput, creatorRole: Role, creatorBusinessId: string | null) {
-  if (input.role === "MANAGER" && creatorRole !== "SYSTEM_ADMIN") {
-    throw new ForbiddenError("Only system admins can create managers");
+  if (input.role === "OWNER" && creatorRole !== "SYSTEM_ADMIN") {
+    throw new ForbiddenError("Only system admins can create owners");
   }
-
-  // Route authorisation limits this to managers and assistant managers (who have the EMPLOYEE role)
+  if (input.role === "MANAGER" && creatorRole !== "OWNER" && creatorRole !== "SYSTEM_ADMIN") {
+    throw new ForbiddenError("Only the owner can add store managers");
+  }
   if (input.role === "EMPLOYEE" && creatorRole === "SYSTEM_ADMIN") {
     throw new ForbiddenError("Only managers can create employees");
   }
 
-  const businessId = input.role === "EMPLOYEE" ? creatorBusinessId : input.businessId;
+  const businessId = creatorRole === "SYSTEM_ADMIN" ? input.businessId : creatorBusinessId;
   if (!businessId) {
     throw new AppError(400, "Business ID is required");
   }
+  await assertBelongsToBusiness(businessId, input.locationId, input.categoryId);
+  if (input.role === "MANAGER") await assertStoreHasNoManager(input.locationId);
 
   const passwordHash = await hashPassword(input.password);
 
@@ -60,12 +64,12 @@ export async function createUser(input: CreateUserInput, creatorRole: Role, crea
   });
 }
 
-export async function listUsers(businessId: string | null, role?: Role, locationId?: string) {
+export async function listUsers(businessId: string | null, roles?: Role[], locationIds?: string[] | null) {
   return prisma.user.findMany({
     where: {
       ...(businessId ? { businessId } : {}),
-      ...(role ? { role } : {}),
-      ...(locationId ? { locationId } : {}),
+      ...(roles?.length ? { role: { in: roles } } : {}),
+      ...(locationIds ? { locationId: { in: locationIds } } : {}),
     },
     select: {
       id: true,
@@ -81,6 +85,7 @@ export async function listUsers(businessId: string | null, role?: Role, location
       category: { select: { id: true, name: true, color: true } },
       active: true,
       createdAt: true,
+      storeAccess: { select: { locationId: true } },
     },
     orderBy: { firstName: "asc" },
   });
@@ -109,32 +114,96 @@ export async function getUser(id: string) {
   return user;
 }
 
-export async function updateUser(id: string, data: { firstName?: string; lastName?: string; email?: string; locationId?: string | null; categoryId?: string | null; isAssistantManager?: boolean }) {
-  if (data.isAssistantManager !== undefined) {
-    const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
-    if (target?.role !== "EMPLOYEE") {
-      throw new AppError(400, "Only employees can be made assistant managers");
-    }
+export async function updateUser(
+  id: string,
+  data: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    locationId?: string | null;
+    categoryId?: string | null;
+    isAssistantManager?: boolean;
+    role?: "MANAGER" | "EMPLOYEE";
+    extraStoreIds?: string[];
+  },
+) {
+  const target = await prisma.user.findUnique({ where: { id }, select: { role: true, businessId: true, locationId: true } });
+  if (!target) throw new NotFoundError("User");
+  if (data.role && target.role !== "EMPLOYEE" && target.role !== "MANAGER") {
+    throw new AppError(400, "Only staff can be made store managers or employees");
   }
 
-  return prisma.user.update({
-    where: { id },
-    data,
-    select: {
-      id: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      role: true,
-      isAssistantManager: true,
-      businessId: true,
-      locationId: true,
-      location: { select: { id: true, name: true } },
-      categoryId: true,
-      category: { select: { id: true, name: true, color: true } },
-      active: true,
-    },
+  const role = data.role ?? target.role;
+  const locationId = data.locationId !== undefined ? data.locationId : target.locationId;
+  await assertBelongsToBusiness(target.businessId!, data.locationId, data.categoryId, data.extraStoreIds);
+  if (data.isAssistantManager && role !== "EMPLOYEE") {
+    throw new AppError(400, "Only employees can be made assistant managers");
+  }
+  if (data.extraStoreIds?.length && role !== "MANAGER") {
+    throw new AppError(400, "Only store managers can be given access to other stores");
+  }
+  if (role === "MANAGER" && (data.role || data.locationId !== undefined)) {
+    if (!locationId) throw new AppError(400, "A store manager needs a store");
+    await assertStoreHasNoManager(locationId, id);
+  }
+
+  const { extraStoreIds, ...fields } = data;
+  return prisma.$transaction(async (tx) => {
+    if (role !== "MANAGER" || extraStoreIds) {
+      await tx.storeAccess.deleteMany({ where: { userId: id } });
+    }
+    if (role === "MANAGER" && extraStoreIds?.length) {
+      await tx.storeAccess.createMany({
+        data: extraStoreIds.filter((s) => s !== locationId).map((locationId) => ({ userId: id, locationId })),
+      });
+    }
+    return tx.user.update({
+      where: { id },
+      // Store managers aren't also assistant managers
+      data: { ...fields, ...(role === "MANAGER" ? { isAssistantManager: false } : {}) },
+      select: userSelect,
+    });
   });
+}
+
+const userSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+  isAssistantManager: true,
+  businessId: true,
+  locationId: true,
+  location: { select: { id: true, name: true } },
+  categoryId: true,
+  category: { select: { id: true, name: true, color: true } },
+  active: true,
+  storeAccess: { select: { locationId: true } },
+} as const;
+
+// Each store has one store manager
+async function assertStoreHasNoManager(locationId: string | null | undefined, exceptUserId?: string) {
+  if (!locationId) return;
+  const existing = await prisma.user.findFirst({
+    where: { role: "MANAGER", locationId, active: true, ...(exceptUserId ? { id: { not: exceptUserId } } : {}) },
+    select: { firstName: true, lastName: true, location: { select: { name: true } } },
+  });
+  if (existing) {
+    throw new AppError(400, `${existing.location?.name} already has a store manager (${existing.firstName} ${existing.lastName})`);
+  }
+}
+
+// Stops ids from another business being attached to someone
+async function assertBelongsToBusiness(businessId: string, locationId?: string | null, categoryId?: string | null, storeIds?: string[]) {
+  const locationIds = [...(locationId ? [locationId] : []), ...(storeIds ?? [])];
+  if (locationIds.length) {
+    const count = await prisma.location.count({ where: { businessId, id: { in: locationIds } } });
+    if (count !== new Set(locationIds).size) throw new AppError(400, "Unknown store");
+  }
+  if (categoryId && !(await prisma.category.count({ where: { businessId, id: categoryId } }))) {
+    throw new AppError(400, "Unknown category");
+  }
 }
 
 export async function disableUser(id: string) {

@@ -45,7 +45,7 @@ async function main() {
       passwordHash: hash,
       firstName: "Jane",
       lastName: "Manager",
-      role: "MANAGER",
+      role: "OWNER",
       businessId: business.id,
     },
   });

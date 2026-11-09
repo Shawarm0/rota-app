@@ -17,3 +17,7 @@ export const updateShiftSchema = createShiftSchema.partial();
 export const bulkCreateShiftsSchema = z.object({
   shifts: z.array(createShiftSchema).min(1),
 });
+
+export const syncShiftsSchema = z.object({
+  shifts: z.array(createShiftSchema),
+});

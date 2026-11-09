@@ -6,7 +6,7 @@ import { authorize } from "../middleware/authorize.js";
 import { validate } from "../middleware/validate.js";
 import { auditLog } from "../middleware/auditLog.js";
 import { createRotaSchema, updateRotaSchema, copyRotaSchema } from "../validation/rota.schema.js";
-import { createShiftSchema, updateShiftSchema, bulkCreateShiftsSchema } from "../validation/shift.schema.js";
+import { createShiftSchema, updateShiftSchema, bulkCreateShiftsSchema, syncShiftsSchema } from "../validation/shift.schema.js";
 
 const router = Router();
 
@@ -71,6 +71,7 @@ router.post(
 router.put(
   "/:rotaId/shifts/sync",
   authorize("MANAGER"),
+  validate(syncShiftsSchema),
   shiftController.syncShifts,
 );
 

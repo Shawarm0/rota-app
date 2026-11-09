@@ -19,7 +19,7 @@ interface CreateManagerForm {
 }
 
 export function AdminPage() {
-  const { data: managers, isLoading: managersLoading } = useUsers("MANAGER");
+  const { data: managers, isLoading: managersLoading } = useUsers("OWNER");
   const { data: employees, isLoading: employeesLoading } = useUsers("EMPLOYEE");
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
@@ -28,7 +28,7 @@ export function AdminPage() {
 
   const onCreateManager = (data: CreateManagerForm) => {
     createUser.mutate(
-      { ...data, role: "MANAGER" },
+      { ...data, role: "OWNER" },
       { onSuccess: () => { setShowCreateManager(false); managerForm.reset(); } },
     );
   };
@@ -40,10 +40,10 @@ export function AdminPage() {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-              <Users className="h-4 w-4" /> Managers
+              <Users className="h-4 w-4" /> Owners
             </h3>
             <Button size="sm" onClick={() => setShowCreateManager(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Add Manager
+              <Plus className="h-4 w-4 mr-1" /> Add Owner
             </Button>
           </div>
           {managersLoading ? (
@@ -117,7 +117,7 @@ export function AdminPage() {
         </Card>
       </div>
 
-      <Modal open={showCreateManager} onClose={() => setShowCreateManager(false)} title="Add Manager">
+      <Modal open={showCreateManager} onClose={() => setShowCreateManager(false)} title="Add Owner">
         <form onSubmit={managerForm.handleSubmit(onCreateManager)} className="flex flex-col gap-4">
           <Input id="mFirstName" label="First Name" {...managerForm.register("firstName", { required: true })} />
           <Input id="mLastName" label="Last Name" {...managerForm.register("lastName", { required: true })} />

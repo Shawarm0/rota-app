@@ -1,6 +1,6 @@
 import prisma from "../lib/db.js";
 import { shiftMinutes, weekBounds } from "../lib/shiftHours.js";
-import { shiftsAtStore, type Store } from "../lib/storeScope.js";
+import { shiftsAtStores, STAFF_ROLES, type Store } from "../lib/storeScope.js";
 
 export async function getDashboardData(businessId: string) {
   const [pendingHolidays, shiftsNeedingCover, totalEmployees, recentActivity] =
@@ -12,7 +12,7 @@ export async function getDashboardData(businessId: string) {
         where: { rota: { businessId, status: "PUBLISHED" }, status: "AVAILABLE", date: { gte: new Date() } },
       }),
       prisma.user.count({
-        where: { businessId, role: "EMPLOYEE", active: true },
+        where: { businessId, role: { in: STAFF_ROLES }, active: true },
       }),
       prisma.auditLog.findMany({
         where: { user: { businessId } },
@@ -30,12 +30,12 @@ export async function getDashboardData(businessId: string) {
   };
 }
 
-export async function getShiftsToCover(businessId: string, store?: Store | null) {
+export async function getShiftsToCover(businessId: string, stores?: Store[] | null) {
   return prisma.shift.findMany({
     where: {
       rota: { businessId, status: "PUBLISHED" },
       status: "AVAILABLE",
-      ...(store ? { AND: [shiftsAtStore(store)] } : {}),
+      ...(stores ? { AND: [shiftsAtStores(stores)] } : {}),
       date: { gte: new Date() },
     },
     include: {
@@ -81,7 +81,7 @@ export async function getEmployeeSummaries(businessId: string, weekStart: string
 
   // Anyone who worked this week counts towards it, even if they've since been disabled
   const employees = await prisma.user.findMany({
-    where: { businessId, role: "EMPLOYEE", OR: [{ active: true }, { shifts: { some: weekShifts } }] },
+    where: { businessId, role: { in: STAFF_ROLES }, OR: [{ active: true }, { shifts: { some: weekShifts } }] },
     select: {
       id: true,
       firstName: true,

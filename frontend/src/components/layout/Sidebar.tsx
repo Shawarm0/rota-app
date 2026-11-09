@@ -138,7 +138,7 @@ export function Sidebar() {
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-gray-900 truncate">{user.firstName} {user.lastName}</p>
-            <p className="text-[12px] text-gray-500">{user.role === "MANAGER" ? "Manager" : user.role === "SYSTEM_ADMIN" ? "Admin" : isAssistantManager ? "Assistant Manager" : "Employee"}</p>
+            <p className="text-[12px] text-gray-500">{user.role === "OWNER" ? "Owner" : user.role === "MANAGER" ? "Store Manager" : user.role === "SYSTEM_ADMIN" ? "Admin" : isAssistantManager ? "Assistant Manager" : "Employee"}</p>
           </div>
         </div>
       )}

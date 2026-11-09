@@ -1,7 +1,8 @@
 import { ShiftStatus } from "@prisma/client";
 import prisma from "../lib/db.js";
 import { sendPush } from "./push.service.js";
-import { shiftsAtStore, type Store } from "../lib/storeScope.js";
+import { findLocationId, findStoreManagerIds } from "./recipients.service.js";
+import { shiftsAtStores, STAFF_ROLES, type Store } from "../lib/storeScope.js";
 import { AppError, ConflictError, NotFoundError } from "../lib/errors.js";
 
 interface CreateShiftInput {
@@ -186,7 +187,7 @@ export async function getShiftsForUser(userId: string, from?: string, to?: strin
   });
 }
 
-export async function getAllShifts(businessId: string, from?: string, to?: string, location?: string, store?: Store | null) {
+export async function getAllShifts(businessId: string, from?: string, to?: string, location?: string, stores?: Store[] | null) {
   return prisma.shift.findMany({
     where: {
       rota: {
@@ -194,7 +195,7 @@ export async function getAllShifts(businessId: string, from?: string, to?: strin
         status: "PUBLISHED",
       },
       ...(location ? { location } : {}),
-      ...(store ? { AND: [shiftsAtStore(store)] } : {}),
+      ...(stores ? { AND: [shiftsAtStores(stores)] } : {}),
       ...(from || to
         ? {
             date: {
@@ -243,7 +244,10 @@ export async function claimShift(shiftId: string, userId: string) {
       include: { rota: true },
     });
 
-    if (!shift) throw new NotFoundError("Shift");
+    const claimer = await tx.user.findUnique({ where: { id: userId }, select: { businessId: true } });
+    if (!shift || shift.rota.businessId !== claimer?.businessId || shift.rota.status !== "PUBLISHED") {
+      throw new NotFoundError("Shift");
+    }
     if (shift.status !== "AVAILABLE") {
       throw new ConflictError("This shift is no longer available");
     }
@@ -274,14 +278,13 @@ export async function claimShift(shiftId: string, userId: string) {
       select: { firstName: true, lastName: true },
     });
 
-    const managers = await tx.user.findMany({
-      where: { businessId: shift.rota.businessId, role: "MANAGER", active: true },
-      select: { id: true },
-    });
+    // The owner and whoever runs the shift's store
+    const storeId = (await findLocationId(shift.rota.businessId, shift.location)) ?? shift.rota.locationId;
+    const managerIds = await findStoreManagerIds(shift.rota.businessId, storeId, userId);
 
     const notifications = [
-      ...managers.map((m) => ({
-        userId: m.id,
+      ...managerIds.map((id) => ({
+        userId: id,
         title: "Shift Claimed",
         body: `${claimingUser?.firstName} ${claimingUser?.lastName} claimed a shift on ${dateStr}.`,
         data: JSON.stringify({ type: "SHIFT_CLAIMED", shiftId }),
@@ -311,7 +314,7 @@ export async function requestCover(shiftId: string) {
   const employees = await prisma.user.findMany({
     where: {
       businessId: shift.rota.businessId,
-      role: "EMPLOYEE",
+      role: { in: STAFF_ROLES },
       active: true,
       ...(shift.location
         ? { OR: [{ location: { name: shift.location } }, { locationId: null }] }
@@ -338,7 +341,7 @@ export async function syncShifts(
   rotaId: string,
   shifts: { userId?: string | null; date: string; startTime: string; endTime: string; location?: string | null; notes?: string | null; status?: ShiftStatus }[],
 ) {
-  const rota = await prisma.rota.findUnique({ where: { id: rotaId } });
+  const rota = await prisma.rota.findUnique({ where: { id: rotaId }, include: { location: { select: { name: true } } } });
   if (!rota) throw new NotFoundError("Rota");
   if (rota.status === "PUBLISHED") {
     throw new AppError(400, "Cannot modify shifts on a published rota");
@@ -364,7 +367,7 @@ export async function syncShifts(
           date: new Date(s.date),
           startTime: s.startTime,
           endTime: s.endTime,
-          location: s.location || null,
+          location: s.location || rota.location?.name || null,
           notes: s.notes || null,
           status: s.status || "ASSIGNED",
         })),
@@ -388,10 +391,13 @@ export async function createAdditionalShift(
 
   const shiftDate = new Date(data.date);
 
+  // Use a published rota for the shift's store covering that date, creating one if needed
+  const locationId = await findLocationId(businessId, data.location ?? null);
   let rota = await prisma.rota.findFirst({
     where: {
       businessId,
       status: "PUBLISHED",
+      locationId,
       startDate: { lte: shiftDate },
       endDate: { gte: shiftDate },
     },
@@ -406,6 +412,7 @@ export async function createAdditionalShift(
     rota = await prisma.rota.create({
       data: {
         businessId,
+        locationId,
         name: "Additional Shifts",
         startDate: start,
         endDate: end,
@@ -507,12 +514,12 @@ export async function getShiftSnapshot(id: string) {
 }
 
 // The store a shift belongs to: its own location, falling back to its rota's
-export async function getShiftStore(id: string) {
+export async function getShiftStore(id: string, businessId: string) {
   const shift = await prisma.shift.findUnique({
     where: { id },
-    select: { location: true, rota: { select: { location: { select: { name: true } } } } },
+    select: { location: true, rota: { select: { businessId: true, location: { select: { name: true } } } } },
   });
-  if (!shift) throw new NotFoundError("Shift");
+  if (!shift || shift.rota.businessId !== businessId) throw new NotFoundError("Shift");
   return shift.location ?? shift.rota.location?.name ?? null;
 }
 

@@ -2,10 +2,13 @@ import { RequestHandler } from "express";
 import * as shiftService from "../services/shift.service.js";
 import { param } from "../lib/params.js";
 import { writeAuditLog } from "../middleware/auditLog.js";
-import { assertCanEditStore, assertUserAtStore, getRestrictedStore } from "../middleware/authorize.js";
+import { assertCanEditStore, assertUserAtStore, getVisibleStores } from "../middleware/authorize.js";
+import { assertCanEditRota, assertShiftsAtEditableStores } from "../middleware/rotaAccess.js";
 
 export const createShift: RequestHandler = async (req, res, next) => {
   try {
+    const rota = await assertCanEditRota(req, param(req, "rotaId"));
+    await assertShiftsAtEditableStores(req, rota.location?.name ?? null, [req.body]);
     const shift = await shiftService.createShift(param(req, "rotaId"), req.body);
     res.status(201).json(shift);
   } catch (err) {
@@ -15,7 +18,7 @@ export const createShift: RequestHandler = async (req, res, next) => {
 
 export const updateShift: RequestHandler = async (req, res, next) => {
   try {
-    await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id")));
+    await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id"), req.user!.businessId!));
     // Moving a shift to another store counts as changing that store too
     if (req.body.location !== undefined) await assertCanEditStore(req, req.body.location || null);
     if (req.body.userId && req.body.userId !== (await shiftService.getShiftAssigneeId(param(req, "id")))) {
@@ -38,7 +41,7 @@ export const updateShift: RequestHandler = async (req, res, next) => {
 
 export const deleteShift: RequestHandler = async (req, res, next) => {
   try {
-    await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id")));
+    await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id"), req.user!.businessId!));
     const shift = await shiftService.getShiftSnapshot(param(req, "id"));
     await shiftService.deleteShift(param(req, "id"));
     writeAuditLog({
@@ -56,6 +59,8 @@ export const deleteShift: RequestHandler = async (req, res, next) => {
 
 export const bulkCreateShifts: RequestHandler = async (req, res, next) => {
   try {
+    const rota = await assertCanEditRota(req, param(req, "rotaId"));
+    await assertShiftsAtEditableStores(req, rota.location?.name ?? null, req.body.shifts);
     const result = await shiftService.bulkCreateShifts(param(req, "rotaId"), req.body.shifts);
     res.status(201).json(result);
   } catch (err) {
@@ -85,7 +90,7 @@ export const getAllShifts: RequestHandler = async (req, res, next) => {
       from as string | undefined,
       to as string | undefined,
       location as string | undefined,
-      await getRestrictedStore(req),
+      await getVisibleStores(req),
     );
     res.json(shifts);
   } catch (err) {
@@ -104,7 +109,7 @@ export const getAvailableShifts: RequestHandler = async (req, res, next) => {
 
 export const requestCover: RequestHandler = async (req, res, next) => {
   try {
-    await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id")));
+    await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id"), req.user!.businessId!));
     const result = await shiftService.requestCover(param(req, "id"));
     writeAuditLog({
       userId: req.user!.userId,
@@ -121,6 +126,8 @@ export const requestCover: RequestHandler = async (req, res, next) => {
 
 export const syncShifts: RequestHandler = async (req, res, next) => {
   try {
+    const rota = await assertCanEditRota(req, param(req, "rotaId"));
+    await assertShiftsAtEditableStores(req, rota.location?.name ?? null, req.body.shifts);
     const shifts = await shiftService.syncShifts(param(req, "rotaId"), req.body.shifts);
     res.json(shifts);
   } catch (err) {
