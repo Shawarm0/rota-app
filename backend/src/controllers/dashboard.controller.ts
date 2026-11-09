@@ -3,6 +3,7 @@ import * as dashboardService from "../services/dashboard.service.js";
 import * as reportService from "../services/report.service.js";
 import { findStore } from "../services/location.service.js";
 import { AppError } from "../lib/errors.js";
+import { renderHoursReportPdf } from "../services/reportPdf.service.js";
 import { getVisibleStores } from "../middleware/authorize.js";
 
 export const getDashboard: RequestHandler = async (req, res, next) => {
@@ -84,6 +85,29 @@ export const exportCSV: RequestHandler = async (req, res, next) => {
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", `attachment; filename=report-${from}-${to}.csv`);
     res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const exportPDF: RequestHandler = async (req, res, next) => {
+  try {
+    const { from, to } = reportRange(req);
+    const stores = await storesToReport(req);
+    const [detail, context] = await Promise.all([
+      reportService.getHoursReportDetail(req.user!.businessId!, from, to, stores),
+      reportService.getReportContext(req.user!.businessId!, req.user!.userId),
+    ]);
+    const pdf = await renderHoursReportPdf({
+      ...context,
+      ...detail,
+      from,
+      to,
+      storesLabel: stores ? stores.map((s) => s.name).join(", ") || "No stores" : "All stores",
+    });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=hours-report-${from}-${to}.pdf`);
+    res.send(pdf);
   } catch (err) {
     next(err);
   }

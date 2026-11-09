@@ -16,5 +16,6 @@ router.get("/staffing", managers, dashboardController.getStaffing);
 router.get("/employees", managers, dashboardController.getEmployeeSummaries);
 router.get("/reports/hours", managersAndAssistants, dashboardController.getHoursReport);
 router.get("/reports/export", managersAndAssistants, dashboardController.exportCSV);
+router.get("/reports/pdf", managersAndAssistants, dashboardController.exportPDF);
 
 export default router;

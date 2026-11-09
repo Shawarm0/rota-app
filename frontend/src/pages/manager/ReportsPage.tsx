@@ -7,12 +7,14 @@ import { Input } from "../../components/ui/Input";
 import { Spinner } from "../../components/ui/Spinner";
 import * as dashboardApi from "../../api/dashboard.api";
 import { toDateString, addDays, getMonday } from "../../lib/dateUtils";
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
+import { toast } from "../../components/ui/Toast";
 
 export function ReportsPage() {
   const now = new Date();
   const [from, setFrom] = useState(toDateString(addDays(getMonday(now), -28)));
   const [to, setTo] = useState(toDateString(now));
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const validRange = !!from && !!to && from <= to;
   const { data: report, isLoading } = useQuery({
@@ -47,11 +49,24 @@ export function ReportsPage() {
             <Button
               variant="secondary"
               size="sm"
-              className="col-span-2 sm:col-span-1"
               disabled={!validRange}
               onClick={() => dashboardApi.exportCSV(from, to)}
             >
               <Download className="h-4 w-4 mr-1" /> Export CSV
+            </Button>
+            <Button
+              size="sm"
+              disabled={!validRange}
+              loading={exportingPdf}
+              onClick={() => {
+                setExportingPdf(true);
+                dashboardApi
+                  .exportPDF(from, to)
+                  .catch(() => toast("Couldn't create the PDF", "error"))
+                  .finally(() => setExportingPdf(false));
+              }}
+            >
+              {!exportingPdf && <FileText className="h-4 w-4 mr-1" />} Export PDF
             </Button>
           </div>
         </Card>

@@ -80,15 +80,20 @@ export async function getHoursReport(from: string, to: string): Promise<HoursRep
   return data;
 }
 
-export async function exportCSV(from: string, to: string) {
-  const response = await client.get("/dashboard/reports/export", {
-    params: { from, to },
-    responseType: "blob",
-  });
+async function download(path: string, params: Record<string, string>, filename: string) {
+  const response = await client.get(path, { params, responseType: "blob" });
   const url = URL.createObjectURL(response.data as Blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `report-${from}-${to}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export async function exportCSV(from: string, to: string) {
+  await download("/dashboard/reports/export", { from, to }, `report-${from}-${to}.csv`);
+}
+
+export async function exportPDF(from: string, to: string) {
+  await download("/dashboard/reports/pdf", { from, to }, `hours-report-${from}-${to}.pdf`);
 }

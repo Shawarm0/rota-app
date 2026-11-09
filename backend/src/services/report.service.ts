@@ -4,7 +4,7 @@ import { shiftsAtStores, STAFF_ROLES, type Store } from "../lib/storeScope.js";
 
 // Hours between two dates (inclusive), counted at the store each shift was worked.
 // stores: the stores to include, or null for every store.
-export async function getHoursReport(businessId: string, from: string, to: string, stores: Store[] | null) {
+async function loadReport(businessId: string, from: string, to: string, stores: Store[] | null) {
   const shiftsInRange = {
     date: { gte: new Date(from), lte: new Date(to) },
     rota: { status: "PUBLISHED" as const },
@@ -27,19 +27,29 @@ export async function getHoursReport(businessId: string, from: string, to: strin
       id: true,
       firstName: true,
       lastName: true,
+      location: { select: { name: true } },
       shifts: {
         where: shiftsInRange,
-        select: { status: true, startTime: true, endTime: true },
+        select: { status: true, startTime: true, endTime: true, location: true, rota: { select: { location: { select: { name: true } } } } },
       },
     },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
   });
+  return employees;
+}
 
+export async function getHoursReport(businessId: string, from: string, to: string, stores: Store[] | null) {
+  return toRows(await loadReport(businessId, from, to, stores));
+}
+
+function toRows(employees: Awaited<ReturnType<typeof loadReport>>) {
   return employees.map((emp) => {
     const totals = summariseShifts(emp.shifts);
     return {
       id: emp.id,
       name: `${emp.firstName} ${emp.lastName}`,
+      // Home store; their hours may include cover worked elsewhere
+      store: emp.location?.name ?? null,
       totalShifts: totals.rotaShifts + totals.extraShifts,
       rotaHours: minutesToHours(totals.rotaMinutes),
       extraHours: minutesToHours(totals.extraMinutes),
@@ -60,4 +70,36 @@ export async function exportCSV(businessId: string, from: string, to: string, st
   const header = ["Name", "Total Shifts", "Rota Hours", "Extra Hours", "Total Hours"].map(csvField).join(",");
   const rows = data.map((d) => [d.name, d.totalShifts, d.rotaHours, d.extraHours, d.totalHours].map(csvField).join(","));
   return [header, ...rows].join("\n");
+}
+
+// The same report plus hours grouped by the store each shift was worked at, for the PDF
+export async function getHoursReportDetail(businessId: string, from: string, to: string, stores: Store[] | null) {
+  const employees = await loadReport(businessId, from, to, stores);
+  const shiftsByStore = new Map<string, { status: string; startTime: string; endTime: string }[]>();
+  for (const shift of employees.flatMap((e) => e.shifts)) {
+    const store = shift.location ?? shift.rota.location?.name ?? "No store";
+    shiftsByStore.set(store, [...(shiftsByStore.get(store) ?? []), shift]);
+  }
+  const byStore = [...shiftsByStore.entries()]
+    .map(([store, shifts]) => {
+      const totals = summariseShifts(shifts);
+      return {
+        store,
+        totalShifts: totals.rotaShifts + totals.extraShifts,
+        rotaHours: minutesToHours(totals.rotaMinutes),
+        extraHours: minutesToHours(totals.extraMinutes),
+        totalHours: minutesToHours(totals.totalMinutes),
+      };
+    })
+    .sort((a, b) => a.store.localeCompare(b.store));
+  return { rows: toRows(employees), byStore };
+}
+
+// Names printed on the PDF
+export async function getReportContext(businessId: string, userId: string) {
+  const [business, user] = await Promise.all([
+    prisma.business.findUnique({ where: { id: businessId }, select: { name: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } }),
+  ]);
+  return { businessName: business?.name ?? "Rota", generatedBy: user ? `${user.firstName} ${user.lastName}` : "" };
 }
