@@ -79,8 +79,8 @@ export function authorize(...permissions: Permission[]): RequestHandler {
   return (req, _res, next) => {
     const denied = new ForbiddenError("You do not have permission to perform this action");
     if (!req.user) return next(denied);
-    // The owner can do anything a manager can
-    if (req.user.role === "OWNER" || permissions.includes(req.user.role)) return next();
+    // The owner can do anything a manager can (but not system-admin-only actions)
+    if (permissions.includes(req.user.role) || (req.user.role === "OWNER" && permissions.includes("MANAGER"))) return next();
     if (!permissions.includes("ASSISTANT_MANAGER")) return next(denied);
     isAssistantManager(req)
       .then((allowed) => next(allowed ? undefined : denied))

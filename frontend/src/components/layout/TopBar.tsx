@@ -2,6 +2,7 @@ import { Bell, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useUiStore } from "../../stores/uiStore";
 import { useUnreadCount } from "../../hooks/useNotifications";
+import { useAuthStore } from "../../stores/authStore";
 
 interface TopBarProps {
   title: string;
@@ -12,7 +13,9 @@ interface TopBarProps {
 export function TopBar({ title, subtitle, actions }: TopBarProps) {
   const navigate = useNavigate();
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
-  const { data: unreadCount } = useUnreadCount();
+  // The system admin doesn't get notifications
+  const isSystemAdmin = useAuthStore((s) => s.user?.role) === "SYSTEM_ADMIN";
+  const { data: unreadCount } = useUnreadCount(!isSystemAdmin);
 
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-3 gap-3">
@@ -27,6 +30,7 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
         {actions}
+        {!isSystemAdmin && (
         <button
           onClick={() => navigate("/notifications")}
           className="relative border border-gray-200 rounded-lg w-9 h-9 flex items-center justify-center hover:bg-gray-50 transition-colors"
@@ -36,6 +40,7 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
             <span className="absolute top-1.5 right-[7px] h-[7px] w-[7px] rounded-full bg-red-500 border-[1.5px] border-white" />
           ) : null}
         </button>
+        )}
       </div>
     </header>
   );

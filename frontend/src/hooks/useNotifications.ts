@@ -8,11 +8,12 @@ export function useNotifications(page = 1) {
   });
 }
 
-export function useUnreadCount() {
+export function useUnreadCount(enabled = true) {
   return useQuery({
     queryKey: ["unreadCount"],
     queryFn: notificationApi.getUnreadCount,
     refetchInterval: 30_000,
+    enabled,
   });
 }
 

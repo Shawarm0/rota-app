@@ -19,7 +19,6 @@ import { useAuthStore } from "../../stores/authStore";
 import { useUiStore } from "../../stores/uiStore";
 import { useLogout } from "../../hooks/useAuth";
 import { useIsDesktop } from "../../hooks/useMediaQuery";
-import { RoleGate } from "../auth/RoleGate";
 import { usePermissions } from "../../hooks/usePermissions";
 import clsx from "clsx";
 
@@ -35,6 +34,7 @@ const navIconClass = (isActive: boolean) =>
 export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const { isManager, isAssistantManager } = usePermissions();
+  const isSystemAdmin = user?.role === "SYSTEM_ADMIN";
   const logoutMutation = useLogout();
   const isDesktop = useIsDesktop();
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
@@ -61,62 +61,64 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        <NavLink to="/dashboard" className={navLinkClass}>
-          {({ isActive }) => <><LayoutDashboard className={navIconClass(isActive)} />Dashboard</>}
-        </NavLink>
-        <NavLink to="/calendar" className={navLinkClass}>
-          {({ isActive }) => <><Calendar className={navIconClass(isActive)} />Calendar</>}
-        </NavLink>
-        <NavLink to="/my-shifts" className={navLinkClass}>
-          {({ isActive }) => <><Clock className={navIconClass(isActive)} />My Shifts</>}
-        </NavLink>
-        <NavLink to="/shift-pot" className={navLinkClass}>
-          {({ isActive }) => <><ShoppingBag className={navIconClass(isActive)} />Shift Pot</>}
-        </NavLink>
-        <NavLink to="/holidays" className={navLinkClass}>
-          {({ isActive }) => <><Palmtree className={navIconClass(isActive)} />Holidays</>}
-        </NavLink>
-        <NavLink to="/notifications" className={navLinkClass}>
-          {({ isActive }) => <><Bell className={navIconClass(isActive)} />Notifications</>}
-        </NavLink>
-
-        {(isManager || isAssistantManager) && (
+        {/* The system admin only deals with admin features */}
+        {!isSystemAdmin && (
           <>
-            <div className="pt-4 pb-1">
-              <p className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-[0.04em]">
-                {isManager ? "Manager" : "Team"}
-              </p>
-            </div>
-            {isManager && (
-              <NavLink to="/manager" end className={navLinkClass}>
-                {({ isActive }) => <><LayoutDashboard className={navIconClass(isActive)} />Dashboard</>}
+          <NavLink to="/dashboard" className={navLinkClass}>
+            {({ isActive }) => <><LayoutDashboard className={navIconClass(isActive)} />Dashboard</>}
+          </NavLink>
+          <NavLink to="/calendar" className={navLinkClass}>
+            {({ isActive }) => <><Calendar className={navIconClass(isActive)} />Calendar</>}
+          </NavLink>
+          <NavLink to="/my-shifts" className={navLinkClass}>
+            {({ isActive }) => <><Clock className={navIconClass(isActive)} />My Shifts</>}
+          </NavLink>
+          <NavLink to="/shift-pot" className={navLinkClass}>
+            {({ isActive }) => <><ShoppingBag className={navIconClass(isActive)} />Shift Pot</>}
+          </NavLink>
+          <NavLink to="/holidays" className={navLinkClass}>
+            {({ isActive }) => <><Palmtree className={navIconClass(isActive)} />Holidays</>}
+          </NavLink>
+          <NavLink to="/notifications" className={navLinkClass}>
+            {({ isActive }) => <><Bell className={navIconClass(isActive)} />Notifications</>}
+          </NavLink>
+
+          {(isManager || isAssistantManager) && (
+            <>
+              <div className="pt-4 pb-1">
+                <p className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-[0.04em]">
+                  {isManager ? "Manager" : "Team"}
+                </p>
+              </div>
+              {isManager && (
+                <NavLink to="/manager" end className={navLinkClass}>
+                  {({ isActive }) => <><LayoutDashboard className={navIconClass(isActive)} />Dashboard</>}
+                </NavLink>
+              )}
+              <NavLink to="/manager/employees" className={navLinkClass}>
+                {({ isActive }) => <><Users className={navIconClass(isActive)} />Employees</>}
               </NavLink>
-            )}
-            <NavLink to="/manager/employees" className={navLinkClass}>
-              {({ isActive }) => <><Users className={navIconClass(isActive)} />Employees</>}
-            </NavLink>
-            {isManager && (
-              <NavLink to="/manager/rota-builder" className={navLinkClass}>
-                {({ isActive }) => <><CalendarPlus className={navIconClass(isActive)} />Rota Builder</>}
+              {isManager && (
+                <NavLink to="/manager/rota-builder" className={navLinkClass}>
+                  {({ isActive }) => <><CalendarPlus className={navIconClass(isActive)} />Rota Builder</>}
+                </NavLink>
+              )}
+              <NavLink to="/manager/shifts-to-cover" className={navLinkClass}>
+                {({ isActive }) => <><AlertCircle className={navIconClass(isActive)} />Shifts to Cover</>}
               </NavLink>
-            )}
-            <NavLink to="/manager/shifts-to-cover" className={navLinkClass}>
-              {({ isActive }) => <><AlertCircle className={navIconClass(isActive)} />Shifts to Cover</>}
-            </NavLink>
-            <NavLink to="/manager/reports" className={navLinkClass}>
-              {({ isActive }) => <><BarChart3 className={navIconClass(isActive)} />Reports</>}
-            </NavLink>
+              <NavLink to="/manager/reports" className={navLinkClass}>
+                {({ isActive }) => <><BarChart3 className={navIconClass(isActive)} />Reports</>}
+              </NavLink>
+            </>
+          )}
           </>
         )}
 
-        <RoleGate allowedRoles={["SYSTEM_ADMIN"]}>
-          <div className="pt-4 pb-1">
-            <p className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-[0.04em]">Admin</p>
-          </div>
+        {isSystemAdmin && (
           <NavLink to="/admin" className={navLinkClass}>
             {({ isActive }) => <><Shield className={navIconClass(isActive)} />System Admin</>}
           </NavLink>
-        </RoleGate>
+        )}
       </nav>
 
       <div className="border-t border-gray-200 px-3 py-2 space-y-0.5">
