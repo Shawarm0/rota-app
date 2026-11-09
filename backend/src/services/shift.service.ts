@@ -207,7 +207,7 @@ export async function getAllShifts(businessId: string, from?: string, to?: strin
     },
     include: {
       user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
-      rota: { select: { id: true, startDate: true, endDate: true, status: true } },
+      rota: { select: { id: true, startDate: true, endDate: true, status: true, location: { select: { name: true } } } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });

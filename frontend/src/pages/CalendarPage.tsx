@@ -490,9 +490,9 @@ export function CalendarPage() {
                 key={shift.id}
                 className={clsx(
                   "flex items-center justify-between rounded-lg border p-3",
-                  isManager && canEditStore(shift.location) && "cursor-pointer hover:bg-gray-50",
+                  isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && "cursor-pointer hover:bg-gray-50",
                 )}
-                onClick={() => isManager && canEditStore(shift.location) && handleEditShift(shift)}
+                onClick={() => isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && handleEditShift(shift)}
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -521,7 +521,7 @@ export function CalendarPage() {
                   </p>
                   {shift.notes && <p className="text-xs text-gray-400">{shift.notes}</p>}
                 </div>
-                {isManager && canEditStore(shift.location) && (
+                {isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && (
                   <span className="text-xs text-gray-400">Edit &rarr;</span>
                 )}
               </div>

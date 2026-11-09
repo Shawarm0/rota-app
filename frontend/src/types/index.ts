@@ -74,6 +74,8 @@ export interface Shift {
   location: string | null;
   notes: string | null;
   status: ShiftStatus;
+  // Included on team calendar shifts; a shift without its own store belongs to its rota's
+  rota?: { id: string; location?: { name: string } | null };
 }
 
 export interface HolidayRequest {
