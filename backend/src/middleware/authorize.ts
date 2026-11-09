@@ -54,3 +54,21 @@ export async function assertCanManageUser(req: Request, targetId: string) {
     throw new ForbiddenError("Assistant managers can only manage regular employees");
   }
 }
+
+// The store an assistant manager is limited to, or null if they can work across every store
+export async function getRestrictedStore(req: Request) {
+  if (!req.user || req.user.role !== "EMPLOYEE") return null;
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.userId },
+    select: { isAssistantManager: true, location: { select: { name: true } } },
+  });
+  return user?.isAssistantManager ? (user.location?.name ?? null) : null;
+}
+
+// Store-based assistant managers may only change shifts at their own store
+export async function assertCanEditStore(req: Request, store: string | null) {
+  const restricted = await getRestrictedStore(req);
+  if (restricted && store !== restricted) {
+    throw new ForbiddenError(`You can only change shifts at ${restricted}`);
+  }
+}

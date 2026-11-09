@@ -16,6 +16,12 @@ import { formatDate, formatDay } from "../../lib/dateUtils";
 import { AlertCircle, Clock, MapPin, Trash2, Megaphone } from "lucide-react";
 import type { ShiftToCover } from "../../api/dashboard.api";
 import type { ShiftStatus } from "../../types";
+import { usePermissions } from "../../hooks/usePermissions";
+import clsx from "clsx";
+
+function storeOf(shift: ShiftToCover) {
+  return shift.location ?? shift.rota.location?.name ?? null;
+}
 
 const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
   { value: "ASSIGNED", label: "Assigned" },
@@ -39,6 +45,7 @@ export function ShiftsToCoverPage() {
   const updateShift = useUpdateShift();
   const deleteShift = useDeleteShift();
   const requestCover = useRequestCover();
+  const { canEditStore, restrictedStore } = usePermissions();
   const [editingShift, setEditingShift] = useState<ShiftToCover | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const shiftForm = useForm<ShiftEditForm>();
@@ -72,10 +79,13 @@ export function ShiftsToCoverPage() {
     })) || []),
   ];
 
-  const locationSelectOptions = [
-    { value: "", label: "No location" },
-    ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
-  ];
+  // Store-based assistant managers can't move shifts to another store
+  const locationSelectOptions = restrictedStore
+    ? [{ value: restrictedStore, label: restrictedStore }]
+    : [
+        { value: "", label: "No location" },
+        ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
+      ];
 
   const count = shifts?.length || 0;
 
@@ -97,7 +107,10 @@ export function ShiftsToCoverPage() {
               key={shift.id}
               className="bg-white border border-gray-200 rounded-xl px-5 py-[18px] flex items-center justify-between gap-4 flex-wrap"
             >
-              <div className="min-w-0 cursor-pointer" onClick={() => handleEdit(shift)}>
+              <div
+                className={clsx("min-w-0", canEditStore(storeOf(shift)) && "cursor-pointer")}
+                onClick={() => canEditStore(storeOf(shift)) && handleEdit(shift)}
+              >
                 <div className="flex items-center gap-[10px] flex-wrap">
                   <div className="text-[14.5px] font-semibold text-gray-900">
                     {formatDay(shift.date)} {formatDate(shift.date)}
@@ -120,6 +133,7 @@ export function ShiftsToCoverPage() {
                   <p className="text-[12px] text-gray-400 mt-1">{shift.rota.name}</p>
                 )}
               </div>
+              {canEditStore(storeOf(shift)) && (
               <button
                 onClick={() => requestCover.mutate(shift.id)}
                 disabled={requestCover.isPending}
@@ -127,6 +141,7 @@ export function ShiftsToCoverPage() {
               >
                 <Megaphone className="h-[15px] w-[15px]" /> Request Cover
               </button>
+              )}
             </div>
           ))
         )}

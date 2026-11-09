@@ -4,7 +4,7 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken, TokenPayload } f
 import { UnauthorizedError } from "../lib/errors.js";
 
 export async function login(email: string, password: string) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({ where: { email }, include: { location: { select: { id: true, name: true } } } });
   if (!user || !user.active) {
     throw new UnauthorizedError("Invalid email or password");
   }
@@ -45,6 +45,8 @@ export async function login(email: string, password: string) {
       role: user.role,
       isAssistantManager: user.isAssistantManager,
       businessId: user.businessId,
+      locationId: user.locationId,
+      location: user.location,
     },
   };
 }

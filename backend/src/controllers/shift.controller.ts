@@ -2,6 +2,7 @@ import { RequestHandler } from "express";
 import * as shiftService from "../services/shift.service.js";
 import { param } from "../lib/params.js";
 import { writeAuditLog } from "../middleware/auditLog.js";
+import { assertCanEditStore } from "../middleware/authorize.js";
 
 export const createShift: RequestHandler = async (req, res, next) => {
   try {
@@ -14,6 +15,9 @@ export const createShift: RequestHandler = async (req, res, next) => {
 
 export const updateShift: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id")));
+    // Moving a shift to another store counts as changing that store too
+    if (req.body.location !== undefined) await assertCanEditStore(req, req.body.location || null);
     const before = await shiftService.getShiftSnapshot(param(req, "id"));
     const shift = await shiftService.updateShift(param(req, "id"), req.body);
     writeAuditLog({
@@ -31,6 +35,7 @@ export const updateShift: RequestHandler = async (req, res, next) => {
 
 export const deleteShift: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id")));
     const shift = await shiftService.getShiftSnapshot(param(req, "id"));
     await shiftService.deleteShift(param(req, "id"));
     writeAuditLog({
@@ -95,6 +100,7 @@ export const getAvailableShifts: RequestHandler = async (req, res, next) => {
 
 export const requestCover: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanEditStore(req, await shiftService.getShiftStore(param(req, "id")));
     const result = await shiftService.requestCover(param(req, "id"));
     writeAuditLog({
       userId: req.user!.userId,
@@ -120,6 +126,7 @@ export const syncShifts: RequestHandler = async (req, res, next) => {
 
 export const createAdditionalShift: RequestHandler = async (req, res, next) => {
   try {
+    await assertCanEditStore(req, req.body.location || null);
     const shift = await shiftService.createAdditionalShift(req.user!.businessId!, req.body);
     writeAuditLog({
       userId: req.user!.userId,

@@ -44,6 +44,8 @@ export const me: RequestHandler = async (req, res, next) => {
         role: true,
         isAssistantManager: true,
         businessId: true,
+        locationId: true,
+        location: { select: { id: true, name: true } },
         active: true,
       },
     });

@@ -115,7 +115,7 @@ export function CalendarPage() {
   const [showAddShift, setShowAddShift] = useState(false);
 
   // Managers and assistant managers see the whole team and can edit shifts
-  const { canManageStaff: isManager } = usePermissions();
+  const { canManageStaff: isManager, canEditStore, restrictedStore } = usePermissions();
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -485,9 +485,9 @@ export function CalendarPage() {
                 key={shift.id}
                 className={clsx(
                   "flex items-center justify-between rounded-lg border p-3",
-                  isManager && "cursor-pointer hover:bg-gray-50",
+                  isManager && canEditStore(shift.location) && "cursor-pointer hover:bg-gray-50",
                 )}
-                onClick={() => isManager && handleEditShift(shift)}
+                onClick={() => isManager && canEditStore(shift.location) && handleEditShift(shift)}
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -516,7 +516,7 @@ export function CalendarPage() {
                   </p>
                   {shift.notes && <p className="text-xs text-gray-400">{shift.notes}</p>}
                 </div>
-                {isManager && (
+                {isManager && canEditStore(shift.location) && (
                   <span className="text-xs text-gray-400">Edit &rarr;</span>
                 )}
               </div>
@@ -537,10 +537,14 @@ export function CalendarPage() {
             <Select
               id="location"
               label="Location"
-              options={[
-                { value: "", label: "No location" },
-                ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
-              ]}
+              options={
+                restrictedStore
+                  ? [{ value: restrictedStore, label: restrictedStore }]
+                  : [
+                      { value: "", label: "No location" },
+                      ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
+                    ]
+              }
               {...shiftForm.register("location")}
             />
             <Input id="notes" label="Notes" {...shiftForm.register("notes")} />

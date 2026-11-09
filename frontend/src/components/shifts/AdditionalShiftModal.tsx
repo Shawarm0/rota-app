@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { useCreateAdditionalShift } from "../../hooks/useShifts";
 import { useUsers } from "../../hooks/useUsers";
 import { useLocations } from "../../hooks/useLocations";
+import { usePermissions } from "../../hooks/usePermissions";
 
 interface AdditionalShiftForm {
   userId: string;
@@ -22,10 +23,11 @@ export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boo
   const { data: locations } = useLocations();
   const createAdditionalShift = useCreateAdditionalShift();
   const form = useForm<AdditionalShiftForm>();
+  const { restrictedStore } = usePermissions();
 
   useEffect(() => {
-    if (open) form.reset({ userId: "", date: defaultDate ?? "", startTime: "", endTime: "", location: "", notes: "" });
-  }, [open, defaultDate, form]);
+    if (open) form.reset({ userId: "", date: defaultDate ?? "", startTime: "", endTime: "", location: restrictedStore ?? "", notes: "" });
+  }, [open, defaultDate, form, restrictedStore]);
 
   return (
     <Modal open={open} onClose={onClose} title="Add Additional Shift">
@@ -58,10 +60,15 @@ export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boo
         <Select
           id="location"
           label="Location"
-          options={[
-            { value: "", label: "No location" },
-            ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
-          ]}
+          options={
+            // Store-based assistant managers can only add shifts at their own store
+            restrictedStore
+              ? [{ value: restrictedStore, label: restrictedStore }]
+              : [
+                  { value: "", label: "No location" },
+                  ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
+                ]
+          }
           {...form.register("location")}
         />
         <Input id="notes" label="Notes (optional)" {...form.register("notes")} />

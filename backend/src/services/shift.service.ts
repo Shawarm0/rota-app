@@ -503,3 +503,13 @@ export async function getShiftSnapshot(id: string) {
     location: shift.location,
   };
 }
+
+// The store a shift belongs to: its own location, falling back to its rota's
+export async function getShiftStore(id: string) {
+  const shift = await prisma.shift.findUnique({
+    where: { id },
+    select: { location: true, rota: { select: { location: { select: { name: true } } } } },
+  });
+  if (!shift) throw new NotFoundError("Shift");
+  return shift.location ?? shift.rota.location?.name ?? null;
+}
