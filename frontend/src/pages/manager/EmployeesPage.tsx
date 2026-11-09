@@ -46,6 +46,23 @@ interface EditEmployeeForm {
   access: "EMPLOYEE" | "ASSISTANT" | "MANAGER";
 }
 
+function FilterSelect({ value, onChange, options }: { value: string; onChange: (value: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none py-[9px] pl-3 pr-8 border border-gray-200 rounded-lg text-[13.5px] text-gray-800 bg-white cursor-pointer outline-none"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+    </div>
+  );
+}
+
 function initials(firstName: string, lastName: string) {
   return `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase();
 }
@@ -75,6 +92,8 @@ export function EmployeesPage() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState(PRESET_COLORS[0]);
   const [filter, setFilter] = useState("");
+  const [storeFilter, setStoreFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   // Stores a store manager may also edit (owner only)
   const [extraStoreIds, setExtraStoreIds] = useState<string[]>([]);
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateEmployeeForm>();
@@ -130,9 +149,16 @@ export function EmployeesPage() {
   const editAccess = editForm.watch("access");
   const editStore = editForm.watch("locationId");
 
-  const filteredUsers = users?.filter((u) =>
-    `${u.firstName} ${u.lastName}`.toLowerCase().includes(filter.toLowerCase())
+  // "" = all, "none" = not set, otherwise an id
+  const matchesFilter = (value: string | null | undefined, selected: string) =>
+    !selected || (selected === "none" ? !value : value === selected);
+  const filteredUsers = users?.filter(
+    (u) =>
+      `${u.firstName} ${u.lastName}`.toLowerCase().includes(filter.toLowerCase()) &&
+      matchesFilter(u.locationId, storeFilter) &&
+      matchesFilter(u.categoryId, categoryFilter),
   );
+  const isFiltering = Boolean(filter || storeFilter || categoryFilter);
 
   // Grouped under category headings like the Holidays page, with uncategorised staff last
   const groups: { key: string; name: string; color?: string; users: User[] }[] = [];
@@ -158,14 +184,38 @@ export function EmployeesPage() {
       <div className="p-4 md:p-7 max-w-[1400px] space-y-5">
         {/* Toolbar */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-            <input
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Search employees"
-              className="pl-8 pr-3 py-[9px] border border-gray-200 rounded-lg text-[13.5px] w-[220px] outline-none text-gray-900 bg-white"
-            />
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Search employees"
+                className="pl-8 pr-3 py-[9px] border border-gray-200 rounded-lg text-[13.5px] w-[220px] outline-none text-gray-900 bg-white"
+              />
+            </div>
+            {locations && locations.length > 1 && (
+              <FilterSelect
+                value={storeFilter}
+                onChange={setStoreFilter}
+                options={[
+                  { value: "", label: "All stores" },
+                  ...locations.map((l) => ({ value: l.id, label: l.name })),
+                  { value: "none", label: "No store" },
+                ]}
+              />
+            )}
+            {categories && categories.length > 0 && (
+              <FilterSelect
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+                options={[
+                  { value: "", label: "All categories" },
+                  ...categories.map((c) => ({ value: c.id, label: c.name })),
+                  { value: "none", label: "No category" },
+                ]}
+              />
+            )}
           </div>
           <div className="flex items-center gap-2.5">
             {isOwner && (
@@ -204,9 +254,9 @@ export function EmployeesPage() {
           <EmptyState
             icon={Users}
             title="No employees"
-            description={filter ? "No employees match your search" : "Add your first employee to get started"}
+            description={isFiltering ? "No employees match your filters" : "Add your first employee to get started"}
             action={
-              !filter ? (
+              !isFiltering ? (
                 <Button onClick={() => setShowCreate(true)}>
                   <Plus className="h-4 w-4 mr-1" /> Add Employee
                 </Button>
