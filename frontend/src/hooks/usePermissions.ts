@@ -31,6 +31,11 @@ export function usePermissions() {
       editableStores === null || (!!store && editableStores.some((s) => s.name === store)),
     canEditStoreId: (storeId: string | null | undefined) =>
       editableStores === null || (!!storeId && editableStores.some((s) => s.id === storeId)),
+    // Category names: the owner for every store, a store manager for their own store only
+    canSeeCategoryNames: isOwner || isStoreManager,
+    seesCategoryNamesFor: (storeId: string | null | undefined) =>
+      isOwner || (isStoreManager && !!storeId && storeId === homeStore?.id),
+    homeStore,
     // Location dropdown options limited to the stores this person can change
     storeOptions: (locations: { id: string; name: string }[] | undefined, by: "id" | "name" = "name") =>
       editableStores === null

@@ -1,8 +1,15 @@
 import { RequestHandler } from "express";
+
+// Only show each shift's staff category to people allowed to see it
+async function withVisibleCategory<T extends { user?: Parameters<typeof redactCategory>[1] | null }>(req: Request, shift: T): Promise<T> {
+  const access = await getAccess(req);
+  return shift.user ? { ...shift, user: redactCategory(access, shift.user) } : shift;
+}
 import * as shiftService from "../services/shift.service.js";
 import { param } from "../lib/params.js";
 import { writeAuditLog } from "../middleware/auditLog.js";
-import { assertCanEditStore, assertUserAtStore, getVisibleStores } from "../middleware/authorize.js";
+import { assertCanEditStore, assertUserAtStore, getAccess, getVisibleStores, redactCategory } from "../middleware/authorize.js";
+import type { Request } from "express";
 import { assertCanEditRota, assertShiftsAtEditableStores } from "../middleware/rotaAccess.js";
 
 export const createShift: RequestHandler = async (req, res, next) => {
@@ -10,7 +17,7 @@ export const createShift: RequestHandler = async (req, res, next) => {
     const rota = await assertCanEditRota(req, param(req, "rotaId"));
     await assertShiftsAtEditableStores(req, rota.location?.name ?? null, [req.body]);
     const shift = await shiftService.createShift(param(req, "rotaId"), req.body);
-    res.status(201).json(shift);
+    res.status(201).json(await withVisibleCategory(req, shift));
   } catch (err) {
     next(err);
   }
@@ -33,7 +40,7 @@ export const updateShift: RequestHandler = async (req, res, next) => {
       entityId: shift.id,
       details: { before, after: await shiftService.getShiftSnapshot(shift.id) },
     });
-    res.json(shift);
+    res.json(await withVisibleCategory(req, shift));
   } catch (err) {
     next(err);
   }
@@ -92,7 +99,7 @@ export const getAllShifts: RequestHandler = async (req, res, next) => {
       location as string | undefined,
       await getVisibleStores(req),
     );
-    res.json(shifts);
+    res.json(await Promise.all(shifts.map((s) => withVisibleCategory(req, s))));
   } catch (err) {
     next(err);
   }
@@ -153,7 +160,7 @@ export const createAdditionalShift: RequestHandler = async (req, res, next) => {
         location: shift.location,
       },
     });
-    res.status(201).json(shift);
+    res.status(201).json(await withVisibleCategory(req, shift));
   } catch (err) {
     next(err);
   }

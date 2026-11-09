@@ -69,10 +69,11 @@ function initials(firstName: string, lastName: string) {
 
 export function EmployeesPage() {
   const currentUser = useAuthStore((s) => s.user);
-  const { isOwner, isStoreManager, isAssistantManager, storeOptions, canEditStoreId } = usePermissions();
+  const { isOwner, isStoreManager, isAssistantManager, storeOptions, canEditStoreId, canSeeCategoryNames, seesCategoryNamesFor, homeStore } =
+    usePermissions();
   const { data: users, isLoading } = useUsers(STAFF_ROLES);
   const { data: locations } = useLocations();
-  const { data: categories } = useCategories();
+  const { data: categories } = useCategories(canSeeCategoryNames);
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const disableUser = useDisableUser();
@@ -91,12 +92,14 @@ export function EmployeesPage() {
   const [newLocationName, setNewLocationName] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState(PRESET_COLORS[0]);
+  // The owner picks which store a new category is for; store managers always use their own
+  const [newCategoryStore, setNewCategoryStore] = useState("");
   const [filter, setFilter] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   // Stores a store manager may also edit (owner only)
   const [storeAccess, setStoreAccess] = useState<Record<string, "view" | "edit">>({});
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateEmployeeForm>();
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateEmployeeForm>();
   const editForm = useForm<EditEmployeeForm>();
   const resetForm = useForm<{ newPassword: string }>();
 
@@ -116,7 +119,12 @@ export function EmployeesPage() {
 
   const onCreateSubmit = (data: CreateEmployeeForm) => {
     createUser.mutate(
-      { ...data, role: "EMPLOYEE", locationId: data.locationId || undefined, categoryId: data.categoryId || undefined },
+      {
+        ...data,
+        role: "EMPLOYEE",
+        locationId: data.locationId || undefined,
+        categoryId: seesCategoryNamesFor(data.locationId) ? data.categoryId || undefined : undefined,
+      },
       {
         onSuccess: () => {
           setShowCreate(false);
@@ -129,10 +137,15 @@ export function EmployeesPage() {
   // Staff can only be placed at stores this person runs
   const locationOptions = storeOptions(locations, "id");
 
-  const categoryOptions = [
+  // Categories belong to one store, so only that store's are offered
+  const categoryOptionsFor = (storeId: string) => [
     { value: "", label: "No category" },
-    ...(categories?.map((c) => ({ value: c.id, label: c.name })) || []),
+    ...(categories?.filter((c) => c.locationId === storeId).map((c) => ({ value: c.id, label: c.name })) || []),
   ];
+  const multiStore = (locations?.length ?? 0) > 1;
+  const categoryLabel = (c: { name: string; location?: { name: string } | null }) =>
+    isOwner && multiStore && c.location ? `${c.name} · ${c.location.name}` : c.name;
+  const createStore = watch("locationId");
 
   const handleLocationChange = (userId: string, locationId: string) => {
     updateUser.mutate({ id: userId, data: { locationId: locationId || null } });
@@ -160,18 +173,25 @@ export function EmployeesPage() {
   );
   const isFiltering = Boolean(filter || storeFilter || categoryFilter);
 
-  // Grouped under category headings like the Holidays page, with uncategorised staff last
-  const groups: { key: string; name: string; color?: string; users: User[] }[] = [];
+  // Grouped under category headings like the Holidays page. Categories only show for staff the viewer
+  // can see them for, so staff at other stores are grouped by store instead. Order: categories,
+  // uncategorised, then other stores.
+  const groups: { key: string; rank: number; name: string; color?: string; users: User[] }[] = [];
   for (const user of filteredUsers ?? []) {
-    const key = user.category?.id ?? "";
-    let group = groups.find((g) => g.key === key);
-    if (!group) {
-      group = { key, name: user.category?.name ?? "No category", color: user.category?.color, users: [] };
-      groups.push(group);
+    const otherStore = homeStore && user.locationId !== homeStore.id;
+    const group = user.category?.name
+      ? { key: user.category.id, rank: 0, name: categoryLabel(user.category), color: user.category.color }
+      : otherStore
+        ? { key: `store:${user.locationId ?? ""}`, rank: 2, name: user.location?.name ?? "No store" }
+        : { key: "", rank: 1, name: "No category" };
+    let existing = groups.find((g) => g.key === group.key);
+    if (!existing) {
+      existing = { ...group, users: [] };
+      groups.push(existing);
     }
-    group.users.push(user);
+    existing.users.push(user);
   }
-  groups.sort((a, b) => (!a.key !== !b.key ? (a.key ? -1 : 1) : a.name.localeCompare(b.name)));
+  groups.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
   // A lone "No category" heading would just be noise
   const showHeadings = groups.length > 1 || Boolean(groups[0]?.key);
 
@@ -205,21 +225,20 @@ export function EmployeesPage() {
                 ]}
               />
             )}
-            {categories && categories.length > 0 && (
+            {canSeeCategoryNames && categories && categories.length > 0 && (
               <FilterSelect
                 value={categoryFilter}
                 onChange={setCategoryFilter}
                 options={[
                   { value: "", label: "All categories" },
-                  ...categories.map((c) => ({ value: c.id, label: c.name })),
+                  ...categories.map((c) => ({ value: c.id, label: categoryLabel(c) })),
                   { value: "none", label: "No category" },
                 ]}
               />
             )}
           </div>
           <div className="flex items-center gap-2.5">
-            {isOwner && (
-            <>
+            {canSeeCategoryNames && (
             <button
               onClick={() => setShowCategories(true)}
               className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-3.5 py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-200 transition-colors"
@@ -227,6 +246,8 @@ export function EmployeesPage() {
               <Tag className="h-[15px] w-[15px]" />
               Categories
             </button>
+            )}
+            {isOwner && (
             <button
               onClick={() => setShowLocations(true)}
               className="flex items-center gap-[7px] bg-gray-100 text-gray-800 border border-gray-200 rounded-lg px-3.5 py-[9px] text-[13.5px] font-semibold cursor-pointer hover:bg-gray-200 transition-colors"
@@ -234,7 +255,6 @@ export function EmployeesPage() {
               <MapPin className="h-[15px] w-[15px]" />
               Locations
             </button>
-            </>
             )}
             <button
               onClick={() => setShowCreate(true)}
@@ -289,6 +309,10 @@ export function EmployeesPage() {
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
+                            {/* Assistant managers see a category's colour but not its name */}
+                            {user.category?.color && !user.category.name && (
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: user.category.color }} />
+                            )}
                             <span className="text-[14.5px] font-semibold text-gray-900">
                               {user.firstName} {user.lastName}
                             </span>
@@ -397,6 +421,10 @@ export function EmployeesPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
+                            {/* Assistant managers see a category's colour but not its name */}
+                            {user.category?.color && !user.category.name && (
+                              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: user.category.color }} />
+                            )}
                             <span className="text-[15px] font-semibold text-gray-900">
                               {user.firstName} {user.lastName}
                             </span>
@@ -480,7 +508,9 @@ export function EmployeesPage() {
           <Input id="email" label="Email" type="email" error={errors.email?.message} {...register("email", { required: "Required" })} />
           <Input id="password" label="Password" type="password" error={errors.password?.message} {...register("password", { required: "Required", minLength: { value: 8, message: "Min 8 characters" } })} />
           <Select id="locationId" label="Store Location" options={locationOptions} {...register("locationId")} />
-          <Select id="categoryId" label="Category" options={categoryOptions} {...register("categoryId")} />
+          {seesCategoryNamesFor(createStore) && (
+            <Select id="categoryId" label="Category" options={categoryOptionsFor(createStore)} {...register("categoryId")} />
+          )}
           <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
             <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button type="submit" loading={createUser.isPending}>Create</Button>
@@ -501,7 +531,8 @@ export function EmployeesPage() {
                     lastName: data.lastName,
                     email: data.email,
                     locationId: data.locationId || null,
-                    categoryId: data.categoryId || null,
+                    // Only the store's manager or the owner sets categories
+                    ...(seesCategoryNamesFor(data.locationId) ? { categoryId: data.categoryId || null } : {}),
                     // The owner sets the role; store managers can only make someone an assistant manager
                     ...(isOwner
                       ? {
@@ -550,12 +581,14 @@ export function EmployeesPage() {
             options={locationOptions}
             {...editForm.register("locationId")}
           />
-          <Select
-            id="editCategoryId"
-            label="Category"
-            options={categoryOptions}
-            {...editForm.register("categoryId")}
-          />
+          {seesCategoryNamesFor(editStore) && (
+            <Select
+              id="editCategoryId"
+              label="Category"
+              options={categoryOptionsFor(editStore)}
+              {...editForm.register("categoryId")}
+            />
+          )}
           {(isOwner || isStoreManager) && (
             <Select
               id="editAccess"
@@ -703,7 +736,7 @@ export function EmployeesPage() {
                 onClick={() => {
                   if (newCategoryName.trim()) {
                     createCategory.mutate(
-                      { name: newCategoryName.trim(), color: newCategoryColor },
+                      { name: newCategoryName.trim(), color: newCategoryColor, locationId: newCategoryStore || locations?.[0]?.id },
                       { onSuccess: () => setNewCategoryName("") },
                     );
                   }
@@ -713,6 +746,14 @@ export function EmployeesPage() {
                 Add
               </Button>
             </div>
+            {isOwner && multiStore && (
+              <Select
+                id="newCategoryStore"
+                options={locations?.map((l) => ({ value: l.id, label: l.name })) ?? []}
+                value={newCategoryStore || locations?.[0]?.id}
+                onChange={(e) => setNewCategoryStore(e.target.value)}
+              />
+            )}
             <div className="flex items-center gap-1.5">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -736,7 +777,10 @@ export function EmployeesPage() {
                     <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
                     <div>
                       <p className="text-sm font-semibold text-gray-900">{cat.name}</p>
-                      <p className="text-xs text-gray-400">{cat._count?.users || 0} employees</p>
+                      <p className="text-xs text-gray-400">
+                        {isOwner && multiStore && cat.location ? `${cat.location.name} · ` : ""}
+                        {cat._count?.users || 0} employees
+                      </p>
                     </div>
                   </div>
                   <button

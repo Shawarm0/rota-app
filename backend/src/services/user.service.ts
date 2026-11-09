@@ -127,7 +127,10 @@ export async function updateUser(
     storeAccess?: { locationId: string; canEdit: boolean }[];
   },
 ) {
-  const target = await prisma.user.findUnique({ where: { id }, select: { role: true, businessId: true, locationId: true } });
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: { role: true, businessId: true, locationId: true, category: { select: { locationId: true } } },
+  });
   if (!target) throw new NotFoundError("User");
   if (data.role && target.role !== "EMPLOYEE" && target.role !== "MANAGER") {
     throw new AppError(400, "Only staff can be made store managers or employees");
@@ -135,7 +138,8 @@ export async function updateUser(
 
   const role = data.role ?? target.role;
   const locationId = data.locationId !== undefined ? data.locationId : target.locationId;
-  await assertBelongsToBusiness(target.businessId!, data.locationId, data.categoryId, data.storeAccess?.map((a) => a.locationId));
+  const storeIds = data.storeAccess?.map((a) => a.locationId);
+  await assertBelongsToBusiness(target.businessId!, locationId, data.categoryId, storeIds);
   if (data.isAssistantManager && role !== "EMPLOYEE") {
     throw new AppError(400, "Only employees can be made assistant managers");
   }
@@ -148,6 +152,10 @@ export async function updateUser(
   }
 
   const { storeAccess, ...fields } = data;
+  // Moving to another store drops a category that belongs to the old one
+  if (fields.categoryId === undefined && target.category && target.category.locationId !== locationId) {
+    fields.categoryId = null;
+  }
   return prisma.$transaction(async (tx) => {
     if (role !== "MANAGER" || storeAccess) {
       await tx.storeAccess.deleteMany({ where: { userId: id } });
@@ -201,8 +209,9 @@ async function assertBelongsToBusiness(businessId: string, locationId?: string |
     const count = await prisma.location.count({ where: { businessId, id: { in: locationIds } } });
     if (count !== new Set(locationIds).size) throw new AppError(400, "Unknown store");
   }
-  if (categoryId && !(await prisma.category.count({ where: { businessId, id: categoryId } }))) {
-    throw new AppError(400, "Unknown category");
+  // A category belongs to one store, so it can only be given to staff at that store
+  if (categoryId && !(await prisma.category.count({ where: { businessId, id: categoryId, locationId: locationId ?? "" } }))) {
+    throw new AppError(400, "That category belongs to a different store");
   }
 }
 

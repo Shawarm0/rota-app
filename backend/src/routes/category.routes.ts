@@ -11,24 +11,24 @@ router.use(authenticate);
 
 router.post(
   "/",
-  authorize("OWNER"),
+  authorize("MANAGER"),
   validate(createCategorySchema),
   categoryController.createCategory,
 );
 
-// Categories are for managers to organise staff; employees never see them
-router.get("/", authorize("MANAGER", "ASSISTANT_MANAGER"), categoryController.listCategories);
+// Category names are only for the owner and each store's manager
+router.get("/", authorize("MANAGER"), categoryController.listCategories);
 
 router.patch(
   "/:id",
-  authorize("OWNER"),
+  authorize("MANAGER"),
   validate(updateCategorySchema),
   categoryController.updateCategory,
 );
 
 router.delete(
   "/:id",
-  authorize("OWNER"),
+  authorize("MANAGER"),
   categoryController.deleteCategory,
 );
 

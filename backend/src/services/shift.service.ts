@@ -75,7 +75,7 @@ export async function createShift(rotaId: string, data: CreateShiftInput) {
       status: data.status || "ASSIGNED",
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
+      user: { select: { id: true, firstName: true, lastName: true, locationId: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
     },
   });
 }
@@ -120,7 +120,7 @@ export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
       ...(autoStatus ? { status: autoStatus } : {}),
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
+      user: { select: { id: true, firstName: true, lastName: true, locationId: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
     },
   });
 }
@@ -206,7 +206,7 @@ export async function getAllShifts(businessId: string, from?: string, to?: strin
         : {}),
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
+      user: { select: { id: true, firstName: true, lastName: true, locationId: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
       rota: { select: { id: true, startDate: true, endDate: true, status: true, location: { select: { name: true } } } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
@@ -433,7 +433,7 @@ export async function createAdditionalShift(
       status: "ADDITIONAL",
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
+      user: { select: { id: true, firstName: true, lastName: true, locationId: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
     },
   });
 

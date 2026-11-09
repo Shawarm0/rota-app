@@ -29,9 +29,10 @@ const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAYS_SHORT = ["M", "T", "W", "T", "F", "S", "S"];
-const DEFAULT_CAT_COLOR = "#9CA3AF";
-// Employees never see categories, so their own shifts use one colour
-const OWN_SHIFT_COLOR = "#4F46E5";
+// Staff without a category the viewer can see (including other stores' staff) show in the default blue
+const DEFAULT_CAT_COLOR = "#4F46E5";
+// Employees never see categories, so their own shifts use the default colour too
+const OWN_SHIFT_COLOR = DEFAULT_CAT_COLOR;
 
 function getInitials(s: Shift): string {
   if (!s.user) return "—";
@@ -143,7 +144,9 @@ export function CalendarPage() {
     enabled: isManager,
   });
   const { data: locations } = useLocations();
-  const { data: categories } = useCategories(isManager);
+  const { canSeeCategoryNames, isOwner } = usePermissions();
+  const { data: categories } = useCategories(canSeeCategoryNames);
+  const multiStore = (locations?.length ?? 0) > 1;
   const shiftColor = (shift: Shift) => (isManager ? getCatColor(shift) : OWN_SHIFT_COLOR);
   const updateShift = useUpdateShift();
   const deleteShift = useDeleteShift();
@@ -427,12 +430,12 @@ export function CalendarPage() {
                 Your shift
               </div>
             )}
-            {isManager && categories?.map((c) => (
+            {canSeeCategoryNames && categories?.map((c) => (
               <div key={c.id} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
                 <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: c.color }}>
                   AB
                 </span>
-                {c.name}
+                {isOwner && multiStore && c.location ? `${c.name} · ${c.location.name}` : c.name}
               </div>
             ))}
             {isManager && (
@@ -440,7 +443,7 @@ export function CalendarPage() {
                 <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: DEFAULT_CAT_COLOR }}>
                   AB
                 </span>
-                Uncategorized
+                {canSeeCategoryNames ? "No category" : "Staff"}
               </div>
             )}
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">

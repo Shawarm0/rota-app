@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as categoryApi from "../api/category.api";
 import { toast } from "../components/ui/Toast";
 
-// Categories are manager-only; pass false for employee views
+// Category names are only for the owner and store managers; pass false for everyone else
 export function useCategories(enabled = true) {
   return useQuery({
     queryKey: ["categories"],

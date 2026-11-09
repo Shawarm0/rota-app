@@ -157,3 +157,29 @@ export async function getVisibleStoreIds(req: Request) {
 export async function getVisibleStores(req: Request) {
   return (await getAccess(req)).visibleStores;
 }
+
+// What someone may see of a staff member's category: the owner sees every store's names and colours,
+// store managers only their own store's, assistant managers only the colours for their stores' staff.
+// Everyone else (and anyone looking at another store's staff) sees no category.
+export function categoryVisibility(access: Access, staffLocationId: string | null): "full" | "colour" | "none" {
+  if (access.role === "OWNER" || access.role === "SYSTEM_ADMIN") return "full";
+  if (access.role === "MANAGER") return staffLocationId && staffLocationId === access.homeStore?.id ? "full" : "none";
+  if (access.isAssistantManager && (access.editableStores === null || access.editableStores.some((s) => s.id === staffLocationId))) {
+    return "colour";
+  }
+  return "none";
+}
+
+interface WithCategory {
+  locationId?: string | null;
+  categoryId?: string | null;
+  category?: { id: string; name: string; color: string } | null;
+}
+
+// Strips category details from a staff member the viewer isn't allowed to see them for
+export function redactCategory<T extends WithCategory>(access: Access, user: T): T {
+  const visibility = categoryVisibility(access, user.locationId ?? null);
+  if (visibility === "full" || !user.category) return visibility === "full" ? user : { ...user, categoryId: null, category: null };
+  if (visibility === "colour") return { ...user, categoryId: null, category: { id: "", name: "", color: user.category.color } };
+  return { ...user, categoryId: null, category: null };
+}

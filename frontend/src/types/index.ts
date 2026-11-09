@@ -19,11 +19,15 @@ export interface Location {
   _count?: { users: number };
 }
 
+// Each category belongs to one store. Staff the viewer can't see the category for come back without one
+// (assistant managers get only the colour, with an empty name).
 export interface Category {
   id: string;
   name: string;
   color: string;
   businessId?: string;
+  locationId?: string | null;
+  location?: { id: string; name: string } | null;
   _count?: { users: number };
 }
 

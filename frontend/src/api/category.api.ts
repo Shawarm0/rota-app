@@ -6,7 +6,7 @@ export async function listCategories(): Promise<Category[]> {
   return data;
 }
 
-export async function createCategory(input: { name: string; color: string }): Promise<Category> {
+export async function createCategory(input: { name: string; color: string; locationId?: string }): Promise<Category> {
   const { data } = await client.post<Category>("/categories", input);
   return data;
 }

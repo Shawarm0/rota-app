@@ -61,6 +61,7 @@ model Location {
   users      User[]
   rotas      Rota[]
   access     StoreAccess[]
+  categories Category[]
 
   @@unique([businessId, name])
 }
@@ -77,17 +78,20 @@ model StoreAccess {
   @@id([userId, locationId])
 }
 
+// Categories belong to one store: its manager uses them to organise that store's staff
 model Category {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   name       String
   color      String
   businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  business   Business  @relation(fields: [businessId], references: [id])
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   users      User[]
 
-  @@unique([businessId, name])
+  @@unique([locationId, name])
 }
 
 model User {

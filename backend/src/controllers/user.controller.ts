@@ -2,7 +2,7 @@ import { RequestHandler } from "express";
 import { Role } from "@prisma/client";
 import * as userService from "../services/user.service.js";
 import { param } from "../lib/params.js";
-import { assertCanManageUser, canManageStaff, getAccess, getVisibleStoreIds } from "../middleware/authorize.js";
+import { assertCanManageUser, canManageStaff, categoryVisibility, getAccess, getVisibleStoreIds, redactCategory } from "../middleware/authorize.js";
 import { ForbiddenError } from "../lib/errors.js";
 
 export const createUser: RequestHandler = async (req, res, next) => {
@@ -15,8 +15,11 @@ export const createUser: RequestHandler = async (req, res, next) => {
         throw new ForbiddenError("You can only add staff to stores you manage");
       }
     }
+    if (req.body.categoryId && categoryVisibility(access, req.body.locationId ?? null) !== "full") {
+      throw new ForbiddenError("Only the store's manager can set categories");
+    }
     const user = await userService.createUser(req.body, req.user!.role, req.user!.businessId);
-    res.status(201).json(user);
+    res.status(201).json(redactCategory(access, user));
   } catch (err) {
     next(err);
   }
@@ -35,7 +38,8 @@ export const listUsers: RequestHandler = async (req, res, next) => {
       roles,
       locationIds,
     );
-    res.json(users);
+    const access = await getAccess(req);
+    res.json(users.map((u) => redactCategory(access, u)));
   } catch (err) {
     next(err);
   }
@@ -54,11 +58,7 @@ export const getUser: RequestHandler = async (req, res, next) => {
     if (!isSelf && !canSee) {
       throw new ForbiddenError("You can't view this person");
     }
-    if (!(await canManageStaff(req))) {
-      const { category: _category, categoryId: _categoryId, ...visible } = user;
-      return res.json(visible);
-    }
-    res.json(user);
+    res.json(redactCategory(await getAccess(req), user));
   } catch (err) {
     next(err);
   }
@@ -82,8 +82,15 @@ export const updateUser: RequestHandler = async (req, res, next) => {
     ) {
       throw new ForbiddenError("You can only move staff to stores you manage");
     }
+    if (req.body.categoryId !== undefined) {
+      const target = await userService.getUser(param(req, "id"));
+      const store = req.body.locationId !== undefined ? req.body.locationId : target.locationId;
+      if (categoryVisibility(access, store) !== "full") {
+        throw new ForbiddenError("Only the store's manager can set categories");
+      }
+    }
     const user = await userService.updateUser(param(req, "id"), req.body);
-    res.json(user);
+    res.json(redactCategory(access, user));
   } catch (err) {
     next(err);
   }
