@@ -18,6 +18,11 @@ export const bulkCreateShiftsSchema = z.object({
   shifts: z.array(createShiftSchema).min(1),
 });
 
+export const createAdditionalShiftSchema = createShiftSchema.omit({ status: true }).extend({
+  // Ask staff to cover an open (unassigned) shift as soon as it's created
+  requestCover: z.boolean().optional(),
+});
+
 export const syncShiftsSchema = z.object({
   shifts: z.array(createShiftSchema),
 });

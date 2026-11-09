@@ -17,6 +17,7 @@ interface AdditionalShiftForm {
   endTime: string;
   location: string;
   notes: string;
+  requestCover: boolean;
 }
 
 export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boolean; onClose: () => void; defaultDate?: string }) {
@@ -26,9 +27,10 @@ export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boo
   const form = useForm<AdditionalShiftForm>();
   const { editableStores, storeOptions } = usePermissions();
   const defaultStore = editableStores?.[0]?.name ?? "";
+  const isAssigned = Boolean(form.watch("userId"));
 
   useEffect(() => {
-    if (open) form.reset({ userId: "", date: defaultDate ?? "", startTime: "", endTime: "", location: defaultStore, notes: "" });
+    if (open) form.reset({ userId: "", date: defaultDate ?? "", startTime: "", endTime: "", location: defaultStore, notes: "", requestCover: true });
   }, [open, defaultDate, form, defaultStore]);
 
   return (
@@ -36,7 +38,14 @@ export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boo
       <form
         onSubmit={form.handleSubmit((data) => {
           createAdditionalShift.mutate(
-            { ...data, location: data.location || undefined, notes: data.notes || undefined },
+            {
+              ...data,
+              // Leaving the employee empty creates an open shift
+              userId: data.userId || undefined,
+              location: data.location || undefined,
+              notes: data.notes || undefined,
+              requestCover: !data.userId && data.requestCover,
+            },
             { onSuccess: onClose },
           );
         })}
@@ -46,7 +55,7 @@ export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boo
           id="userId"
           label="Employee"
           options={[
-            { value: "", label: "Select employee..." },
+            { value: "", label: "Open shift (anyone can pick it up)" },
             ...(employees
               ?.filter((e) => e.active !== false)
               .map((e) => ({
@@ -54,8 +63,14 @@ export function AdditionalShiftModal({ open, onClose, defaultDate }: { open: boo
                 label: `${e.firstName} ${e.lastName}${e.location ? ` (${e.location.name})` : ""}`,
               })) || []),
           ]}
-          {...form.register("userId", { required: true })}
+          {...form.register("userId")}
         />
+        {!isAssigned && (
+          <label className="-mt-2 flex items-center gap-2 text-[13px] text-gray-700 cursor-pointer">
+            <input type="checkbox" className="h-4 w-4 accent-indigo-600" {...form.register("requestCover")} />
+            Ask staff to cover it now
+          </label>
+        )}
         <Input id="date" label="Date" type="date" {...form.register("date", { required: true })} />
         <Input id="startTime" label="Start Time" type="time" {...form.register("startTime", { required: true })} />
         <Input id="endTime" label="End Time" type="time" {...form.register("endTime", { required: true })} />

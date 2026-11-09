@@ -41,12 +41,14 @@ export async function claimShift(id: string): Promise<Shift> {
 }
 
 export async function createAdditionalShift(input: {
-  userId: string;
+  // Omit for an open shift anyone can pick up
+  userId?: string;
   date: string;
   startTime: string;
   endTime: string;
   location?: string;
   notes?: string;
+  requestCover?: boolean;
 }): Promise<Shift> {
   const { data } = await client.post<Shift>("/shifts/additional", input);
   return data;

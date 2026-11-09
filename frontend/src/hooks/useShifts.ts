@@ -42,12 +42,14 @@ export function useCreateAdditionalShift() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: shiftApi.createAdditionalShift,
-    onSuccess: () => {
+    onSuccess: (shift) => {
       qc.invalidateQueries({ queryKey: ["allShifts"] });
       qc.invalidateQueries({ queryKey: ["myShifts"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["employeeSummaries"] });
-      toast("Additional shift created", "success");
+      qc.invalidateQueries({ queryKey: ["shiftsToCover"] });
+      qc.invalidateQueries({ queryKey: ["availableShifts"] });
+      toast(shift.userId ? "Additional shift created" : "Open shift created", "success");
     },
     onError: (err: any) => {
       const msg = err.response?.data?.error?.message || "Failed to create shift";

@@ -145,8 +145,10 @@ export const syncShifts: RequestHandler = async (req, res, next) => {
 export const createAdditionalShift: RequestHandler = async (req, res, next) => {
   try {
     await assertCanEditStore(req, req.body.location || null);
-    await assertUserAtStore(req, req.body.userId);
+    if (req.body.userId) await assertUserAtStore(req, req.body.userId);
     const shift = await shiftService.createAdditionalShift(req.user!.businessId!, req.body);
+    // An open shift can be put up for cover straight away
+    const cover = !shift.userId && req.body.requestCover ? await shiftService.requestCover(shift.id) : null;
     writeAuditLog({
       userId: req.user!.userId,
       action: "ADD_ADDITIONAL",
@@ -160,6 +162,15 @@ export const createAdditionalShift: RequestHandler = async (req, res, next) => {
         location: shift.location,
       },
     });
+    if (cover) {
+      writeAuditLog({
+        userId: req.user!.userId,
+        action: "REQUEST_COVER",
+        entity: "Shift",
+        entityId: shift.id,
+        details: { ...(await shiftService.getShiftSnapshot(shift.id)), notified: cover.notified },
+      });
+    }
     res.status(201).json(await withVisibleCategory(req, shift));
   } catch (err) {
     next(err);

@@ -91,7 +91,7 @@ function describeActivity(log: DashboardData["recentActivity"][number]) {
   const d = log.details;
   if (log.action === "ADD_ADDITIONAL" && d?.date) {
     return {
-      summary: `added an additional shift for ${d.assignee ?? "an employee"}`,
+      summary: d.assignee ? `added an additional shift for ${d.assignee}` : "added an open shift",
       detail: describeShift(d as unknown as ShiftSnapshot),
     };
   }

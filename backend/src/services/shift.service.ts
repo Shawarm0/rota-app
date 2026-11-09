@@ -384,10 +384,13 @@ export async function syncShifts(
 
 export async function createAdditionalShift(
   businessId: string,
-  data: { userId: string; date: string; startTime: string; endTime: string; location?: string | null; notes?: string | null },
+  data: { userId?: string | null; date: string; startTime: string; endTime: string; location?: string | null; notes?: string | null },
 ) {
-  await checkApprovedHoliday(data.userId, data.date);
-  await checkTimeConflict(data.userId, data.date, data.startTime, data.endTime);
+  // No one assigned makes it an open shift that staff can pick up
+  if (data.userId) {
+    await checkApprovedHoliday(data.userId, data.date);
+    await checkTimeConflict(data.userId, data.date, data.startTime, data.endTime);
+  }
 
   const shiftDate = new Date(data.date);
 
@@ -424,18 +427,20 @@ export async function createAdditionalShift(
   const shift = await prisma.shift.create({
     data: {
       rotaId: rota.id,
-      userId: data.userId,
+      userId: data.userId || null,
       date: shiftDate,
       startTime: data.startTime,
       endTime: data.endTime,
       location: data.location || null,
       notes: data.notes || null,
-      status: "ADDITIONAL",
+      status: data.userId ? "ADDITIONAL" : "AVAILABLE",
     },
     include: {
       user: { select: { id: true, firstName: true, lastName: true, locationId: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
     },
   });
+
+  if (!data.userId) return shift;
 
   const dateStr = shiftDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
   const notification = {
