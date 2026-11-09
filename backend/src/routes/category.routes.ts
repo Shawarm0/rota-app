@@ -16,7 +16,8 @@ router.post(
   categoryController.createCategory,
 );
 
-router.get("/", categoryController.listCategories);
+// Categories are for managers to organise staff; employees never see them
+router.get("/", authorize("MANAGER", "ASSISTANT_MANAGER"), categoryController.listCategories);
 
 router.patch(
   "/:id",

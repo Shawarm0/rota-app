@@ -181,7 +181,7 @@ export async function getShiftsForUser(userId: string, from?: string, to?: strin
     },
     include: {
       rota: { select: { id: true, startDate: true, endDate: true, status: true } },
-      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
+      user: { select: { id: true, firstName: true, lastName: true } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
   });
@@ -230,7 +230,7 @@ export async function getAvailableShifts(businessId: string, userId: string) {
         : {}),
     },
     include: {
-      user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
+      user: { select: { id: true, firstName: true, lastName: true } },
       rota: { select: { id: true, startDate: true, endDate: true } },
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
@@ -269,7 +269,7 @@ export async function claimShift(shiftId: string, userId: string) {
       where: { id: shiftId },
       data: { userId, status: newStatus },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, categoryId: true, category: { select: { id: true, name: true, color: true } } } },
+        user: { select: { id: true, firstName: true, lastName: true } },
       },
     });
 

@@ -30,6 +30,8 @@ const ALL_STATUSES: { value: ShiftStatus; label: string }[] = [
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAYS_SHORT = ["M", "T", "W", "T", "F", "S", "S"];
 const DEFAULT_CAT_COLOR = "#9CA3AF";
+// Employees never see categories, so their own shifts use one colour
+const OWN_SHIFT_COLOR = "#4F46E5";
 
 function getInitials(s: Shift): string {
   if (!s.user) return "—";
@@ -60,8 +62,8 @@ function sortShifts(shifts: Shift[]): Shift[] {
 }
 
 // Employees only see their own shifts, so show when the shift is rather than their own initials
-function ShiftPill({ shift, label }: { shift: Shift; label?: string }) {
-  const catColor = getCatColor(shift);
+function ShiftPill({ shift, label, color }: { shift: Shift; label?: string; color?: string }) {
+  const catColor = color ?? getCatColor(shift);
 
   if (shift.status === "AVAILABLE") {
     return (
@@ -141,7 +143,8 @@ export function CalendarPage() {
     enabled: isManager,
   });
   const { data: locations } = useLocations();
-  const { data: categories } = useCategories();
+  const { data: categories } = useCategories(isManager);
+  const shiftColor = (shift: Shift) => (isManager ? getCatColor(shift) : OWN_SHIFT_COLOR);
   const updateShift = useUpdateShift();
   const deleteShift = useDeleteShift();
   const shiftForm = useForm<ShiftEditForm>();
@@ -329,7 +332,7 @@ export function CalendarPage() {
                               <span className="w-2 h-2 rounded-full bg-amber-400" />
                             )}
                             {dayShifts.slice(0, hasApprovedHoliday ? 1 : 2).map((s) => (
-                              <ShiftPill key={s.id} shift={s} label={isManager ? undefined : s.startTime} />
+                              <ShiftPill key={s.id} shift={s} label={isManager ? undefined : s.startTime} color={shiftColor(s)} />
                             ))}
                             {dayShifts.length > (hasApprovedHoliday ? 1 : 2) && (
                               <span className="text-[9px] text-gray-400 font-medium">
@@ -393,7 +396,7 @@ export function CalendarPage() {
                           {dayShifts.length > 0 && (
                             <div className="flex flex-col gap-[3px] mt-1">
                               {dayShifts.slice(0, 3).map((s) => (
-                                <ShiftPill key={s.id} shift={s} label={isManager ? undefined : `${s.startTime}–${s.endTime}`} />
+                                <ShiftPill key={s.id} shift={s} label={isManager ? undefined : `${s.startTime}–${s.endTime}`} color={shiftColor(s)} />
                               ))}
                               {dayShifts.length > 3 && (
                                 <span className="text-[10px] text-gray-400 font-medium">
@@ -416,7 +419,15 @@ export function CalendarPage() {
 
           {/* Legend */}
           <div className="flex items-center gap-5 flex-wrap px-5 py-4 border-t border-gray-200">
-            {categories?.map((c) => (
+            {!isManager && (
+              <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
+                <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: OWN_SHIFT_COLOR }}>
+                  9:00
+                </span>
+                Your shift
+              </div>
+            )}
+            {isManager && categories?.map((c) => (
               <div key={c.id} className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
                 <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: c.color }}>
                   AB
@@ -424,15 +435,17 @@ export function CalendarPage() {
                 {c.name}
               </div>
             ))}
+            {isManager && (
+              <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
+                <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: DEFAULT_CAT_COLOR }}>
+                  AB
+                </span>
+                Uncategorized
+              </div>
+            )}
             <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-bold text-white leading-[16px]" style={{ backgroundColor: DEFAULT_CAT_COLOR }}>
-                AB
-              </span>
-              Uncategorized
-            </div>
-            <div className="flex items-center gap-[7px] text-[12.5px] text-gray-600">
-              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-semibold leading-[16px]" style={{ backgroundColor: `${DEFAULT_CAT_COLOR}18`, color: DEFAULT_CAT_COLOR, border: `1px solid ${DEFAULT_CAT_COLOR}40` }}>
-                +AB
+              <span className="inline-flex items-center rounded px-1 py-0 text-[9px] font-semibold leading-[16px]" style={{ backgroundColor: `${isManager ? DEFAULT_CAT_COLOR : OWN_SHIFT_COLOR}18`, color: isManager ? DEFAULT_CAT_COLOR : OWN_SHIFT_COLOR, border: `1px solid ${isManager ? DEFAULT_CAT_COLOR : OWN_SHIFT_COLOR}40` }}>
+                {isManager ? "+AB" : "9:00"}
               </span>
               Additional
             </div>
@@ -504,8 +517,8 @@ export function CalendarPage() {
                       <span
                         className="inline-flex items-center rounded-full px-3 py-[5px] text-xs font-semibold"
                         style={{
-                          backgroundColor: `${getCatColor(shift)}18`,
-                          color: getCatColor(shift),
+                          backgroundColor: `${shiftColor(shift)}18`,
+                          color: shiftColor(shift),
                         }}
                       >
                         {shift.status === "ADDITIONAL" ? "Additional" : "Assigned"}
