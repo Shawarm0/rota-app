@@ -101,6 +101,7 @@ export async function getEmployeeSummaries(businessId: string, weekStart: string
       firstName: true,
       lastName: true,
       email: true,
+      locationId: true,
       shifts: {
         where: weekShifts,
         select: { status: true, startTime: true, endTime: true },
@@ -135,6 +136,7 @@ export async function getEmployeeSummaries(businessId: string, weekStart: string
       firstName: emp.firstName,
       lastName: emp.lastName,
       email: emp.email,
+      locationId: emp.locationId,
       totalShifts: emp.shifts.length,
       totalHours: assignedMinutes / 60,
       assignedCount,

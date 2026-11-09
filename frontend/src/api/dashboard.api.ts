@@ -20,6 +20,7 @@ export interface EmployeeSummary {
   firstName: string;
   lastName: string;
   email: string;
+  locationId: string | null;
   totalShifts: number;
   totalHours: number;
   assignedCount: number;

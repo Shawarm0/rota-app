@@ -8,8 +8,10 @@ import { useDashboard, useEmployeeSummaries } from "../../hooks/useDashboard";
 import { useHolidayRequests, useApproveHoliday, useRejectHoliday } from "../../hooks/useHolidays";
 import { formatDate, getMonday, toDateString } from "../../lib/dateUtils";
 import {
-  Users, Palmtree, AlertCircle, BarChart3, Check, X, Plus, Search, Trash2, FileText, Pencil,
+  Users, Palmtree, AlertCircle, BarChart3, Check, X, Plus, Search, Trash2, FileText, Pencil, ChevronDown,
 } from "lucide-react";
+import { usePermissions } from "../../hooks/usePermissions";
+import { useLocations } from "../../hooks/useLocations";
 
 function getInitials(first: string, last: string) {
   return `${first[0] || ""}${last[0] || ""}`.toUpperCase();
@@ -138,13 +140,21 @@ export function ManagerDashboardPage() {
   const [showAddShift, setShowAddShift] = useState(false);
   const [empFilter, setEmpFilter] = useState("");
 
+  // Store managers start on their own store; the owner starts on every store
+  const { homeStore } = usePermissions();
+  const { data: locations } = useLocations();
+  const [storeFilter, setStoreFilter] = useState<string | null>(null);
+  const selectedStore = storeFilter ?? homeStore?.id ?? "";
+
+  const storeEmployees = useMemo(
+    () => (employees ?? []).filter((e) => !selectedStore || e.locationId === selectedStore),
+    [employees, selectedStore],
+  );
+
   const filteredEmployees = useMemo(() => {
-    if (!employees) return [];
     const q = empFilter.toLowerCase();
-    return q
-      ? employees.filter((e) => `${e.firstName} ${e.lastName}`.toLowerCase().includes(q))
-      : employees;
-  }, [employees, empFilter]);
+    return q ? storeEmployees.filter((e) => `${e.firstName} ${e.lastName}`.toLowerCase().includes(q)) : storeEmployees;
+  }, [storeEmployees, empFilter]);
 
   const groupedActivity = useMemo(() => {
     if (!dashboard?.recentActivity) return [];
@@ -157,9 +167,9 @@ export function ManagerDashboardPage() {
     return Object.entries(groups).map(([date, items]) => ({ date, items }));
   }, [dashboard?.recentActivity]);
 
-  // Summed before rounding so the total matches the real hours
-  const totalHours = employees ? employees.reduce((s, e) => s + e.totalHours, 0) : 0;
-  const totalAdditionalHours = employees ? employees.reduce((s, e) => s + e.additionalHours, 0) : 0;
+  // For the selected store, summed before rounding so the total matches the real hours
+  const totalHours = storeEmployees.reduce((s, e) => s + e.totalHours, 0);
+  const totalAdditionalHours = storeEmployees.reduce((s, e) => s + e.additionalHours, 0);
 
   if (isLoading) {
     return (
@@ -288,6 +298,22 @@ export function ManagerDashboardPage() {
                 <div className="text-[15px] font-bold text-gray-900">Employee Summary</div>
                 <div className="text-[12.5px] text-gray-500 mt-0.5">{getWeekRange()}</div>
               </div>
+              <div className="flex items-center gap-2 flex-wrap">
+              {locations && locations.length > 1 && (
+                <div className="relative">
+                  <select
+                    value={selectedStore}
+                    onChange={(e) => setStoreFilter(e.target.value)}
+                    className="appearance-none py-2 pl-3 pr-8 border border-gray-200 rounded-lg text-[13px] text-gray-800 bg-white cursor-pointer outline-none"
+                  >
+                    <option value="">All stores</option>
+                    {locations.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+                </div>
+              )}
               <div className="relative">
                 <Search className="absolute left-[10px] top-1/2 -translate-y-1/2 h-[14px] w-[14px] text-gray-400 pointer-events-none" />
                 <input
@@ -296,6 +322,7 @@ export function ManagerDashboardPage() {
                   placeholder="Search employees"
                   className="pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-[13px] w-[180px] outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder:text-gray-400"
                 />
+              </div>
               </div>
             </div>
 
