@@ -15,6 +15,9 @@ export interface Access {
   editableStores: Store[] | null;
   // Stores whose team data this person may see; null means every store
   visibleStores: Store[] | null;
+  // Stores whose calendar this person may look at; null means every store. A store-based assistant
+  // manager also gets the stores they work at, one at a time and read-only.
+  calendarStores: Store[] | null;
 }
 
 const accessCache = new WeakMap<Request, Promise<Access>>();
@@ -27,6 +30,7 @@ async function loadAccess(req: Request): Promise<Access> {
       isAssistantManager: true,
       location: { select: { id: true, name: true } },
       storeAccess: { select: { canEdit: true, location: { select: { id: true, name: true } } } },
+      workStores: { select: { location: { select: { id: true, name: true } } } },
     },
   });
   const role = user?.role ?? req.user!.role;
@@ -34,26 +38,36 @@ async function loadAccess(req: Request): Promise<Access> {
   const isAssistantManager = role === "EMPLOYEE" && Boolean(user?.isAssistantManager);
 
   if (role === "SYSTEM_ADMIN" || role === "OWNER") {
-    return { role, isAssistantManager, homeStore, editableStores: null, visibleStores: null };
+    return { role, isAssistantManager, homeStore, editableStores: null, visibleStores: null, calendarStores: null };
   }
   if (role === "MANAGER") {
     // Store managers run their own store, and only see or edit other stores the owner has granted
     const home = homeStore ? [homeStore] : [];
     const extra = (user?.storeAccess ?? []).filter((a) => a.location.id !== homeStore?.id);
+    const visibleStores = [...home, ...extra.map((a) => a.location)];
     return {
       role,
       isAssistantManager,
       homeStore,
       editableStores: [...home, ...extra.filter((a) => a.canEdit).map((a) => a.location)],
-      visibleStores: [...home, ...extra.map((a) => a.location)],
+      visibleStores,
+      calendarStores: visibleStores,
     };
   }
   if (isAssistantManager) {
     // Store-based assistant managers only see and change their own store; without a store they cover all
     const stores = homeStore ? [homeStore] : null;
-    return { role, isAssistantManager, homeStore, editableStores: stores, visibleStores: stores };
+    const worksAt = (user?.workStores ?? []).map((w) => w.location).filter((s) => s.id !== homeStore?.id);
+    return {
+      role,
+      isAssistantManager,
+      homeStore,
+      editableStores: stores,
+      visibleStores: stores,
+      calendarStores: homeStore ? [homeStore, ...worksAt] : null,
+    };
   }
-  return { role, isAssistantManager, homeStore, editableStores: [], visibleStores: [] };
+  return { role, isAssistantManager, homeStore, editableStores: [], visibleStores: [], calendarStores: [] };
 }
 
 // Looked up once per request rather than stored in the token, so changes apply immediately

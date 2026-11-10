@@ -61,6 +61,8 @@ export interface User {
   workStores?: { locationId: string }[];
   // Stores the signed-in person can change; null means every store (from /auth/me)
   editableStores?: { id: string; name: string }[] | null;
+  // Stores whose calendar they can look at; null means every store (from /auth/me)
+  calendarStores?: { id: string; name: string }[] | null;
 }
 
 export interface Business {

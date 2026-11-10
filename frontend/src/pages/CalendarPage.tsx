@@ -19,6 +19,7 @@ import * as userApi from "../api/user.api";
 import { isSameDay, toDateString, formatDate } from "../lib/dateUtils";
 import type { Shift, ShiftStatus } from "../types";
 import clsx from "clsx";
+import { useAuthStore } from "../stores/authStore";
 import { STAFF_ROLES } from "../types";
 import { ShiftTemplatePicker } from "../components/shifts/ShiftTemplatePicker";
 import { applyShiftTemplate } from "../lib/shiftTemplates";
@@ -145,7 +146,11 @@ export function CalendarPage() {
   const [showAddShift, setShowAddShift] = useState(false);
 
   // Managers and assistant managers see the whole team and can edit shifts
-  const { canManageStaff: isManager, canEditStore, storeOptions } = usePermissions();
+  const { canManageStaff: isManager, canEditStore, storeOptions, calendarStores, homeStore } = usePermissions();
+  const userId = useAuthStore((s) => s.user?.id);
+  // Assistant managers who also work at another store switch between stores, never both at once
+  const oneStoreAtATime = !!calendarStores && calendarStores.length > 1;
+  const viewingOtherStore = oneStoreAtATime && !!locationFilter && locationFilter !== homeStore?.name;
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -190,7 +195,9 @@ export function CalendarPage() {
   // Managers see one pill per person. Employees see a pill per shift, as theirs show the times.
   const getPillsForDay = (dayShifts: Shift[]) =>
     isManager ? groupByPerson(dayShifts).map((g) => g.find((s) => s.crossStoreStatus === "PENDING") ?? g[0]) : dayShifts;
-  const getHolidaysForDay = (day: Date) => holidays?.filter((h) => isSameDay(h.date, day)) || [];
+  // The holiday list covers their home store's team, so on another store's calendar show only their own
+  const getHolidaysForDay = (day: Date) =>
+    holidays?.filter((h) => isSameDay(h.date, day) && (!viewingOtherStore || h.userId === userId)) || [];
 
   const today = new Date();
   const monthLabel = currentDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
@@ -235,10 +242,9 @@ export function CalendarPage() {
       : []),
   ];
 
-  const locationOptions = [
-    { value: "", label: "All locations" },
-    ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
-  ];
+  const locationOptions = oneStoreAtATime
+    ? calendarStores.map((l) => ({ value: l.name === homeStore?.name ? "" : l.name, label: l.name }))
+    : [{ value: "", label: "All locations" }, ...(locations?.map((l) => ({ value: l.name, label: l.name })) || [])];
 
   // One shift in the day view. Nested rows sit under a person's combined bar.
   const renderShiftRow = (shift: Shift, nested = false) => (
@@ -337,7 +343,7 @@ export function CalendarPage() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
-            {isManager && locations && locations.length > 1 && (
+            {isManager && (oneStoreAtATime || (locations?.length ?? 0) > 1) && (
               <div className="relative">
                 <select
                   value={locationFilter}

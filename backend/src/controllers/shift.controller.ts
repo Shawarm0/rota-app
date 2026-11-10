@@ -9,7 +9,7 @@ async function withVisibleCategory<T extends { user?: Parameters<typeof redactCa
 import * as shiftService from "../services/shift.service.js";
 import { param } from "../lib/params.js";
 import { writeAuditLog } from "../middleware/auditLog.js";
-import { assertCanEditStore, assertUserAtStore, getAccess, getVisibleStores, redactCategory } from "../middleware/authorize.js";
+import { assertCanEditStore, assertUserAtStore, getAccess, redactCategory } from "../middleware/authorize.js";
 import type { Request } from "express";
 import { assertCanEditRota, assertShiftsAtEditableStores } from "../middleware/rotaAccess.js";
 
@@ -96,12 +96,18 @@ export const getMyShifts: RequestHandler = async (req, res, next) => {
 export const getAllShifts: RequestHandler = async (req, res, next) => {
   try {
     const { from, to, location } = req.query;
+    const access = await getAccess(req);
+    let stores = access.visibleStores;
+    // A store-based assistant manager looks at one store at a time: their own, or one they work at
+    if (access.isAssistantManager && access.calendarStores && access.homeStore) {
+      stores = [access.calendarStores.find((s) => s.name === location) ?? access.homeStore];
+    }
     const shifts = await shiftService.getAllShifts(
       req.user!.businessId!,
       from as string | undefined,
       to as string | undefined,
       location as string | undefined,
-      await getVisibleStores(req),
+      stores,
     );
     res.json(await Promise.all(shifts.map((s) => withVisibleCategory(req, s))));
   } catch (err) {

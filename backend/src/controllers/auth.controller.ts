@@ -52,7 +52,7 @@ export const me: RequestHandler = async (req, res, next) => {
     });
     // Stores this person can change (null means every store), so the app can hide what they can't edit
     const access = await getAccess(req);
-    res.json({ ...user, editableStores: access.editableStores });
+    res.json({ ...user, editableStores: access.editableStores, calendarStores: access.calendarStores });
   } catch (err) {
     next(err);
   }

@@ -36,6 +36,8 @@ export function usePermissions() {
     seesCategoryNamesFor: (storeId: string | null | undefined) =>
       isOwner || (isStoreManager && !!storeId && storeId === homeStore?.id),
     homeStore,
+    // A store-based assistant manager who also works elsewhere views one store's calendar at a time
+    calendarStores: isAssistantManager && homeStore ? (user?.calendarStores ?? [homeStore]) : null,
     // Location dropdown options limited to the stores this person can change
     storeOptions: (locations: { id: string; name: string }[] | undefined, by: "id" | "name" = "name") =>
       editableStores === null
