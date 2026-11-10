@@ -152,8 +152,8 @@ export function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedShifts, setSelectedShifts] = useState<Shift[] | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  // The person whose split-day shifts are opened out in the day view
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  // A person's split-day shifts, shown on their own screen within the day view
+  const [openGroup, setOpenGroup] = useState<Shift[] | null>(null);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [locationFilter, setLocationFilter] = useState<string>("");
@@ -222,7 +222,7 @@ export function CalendarPage() {
     if (dayShifts.length > 0 || dayHolidays.length > 0) {
       setSelectedShifts(dayShifts);
       setSelectedDay(day);
-      setExpandedUserId(null);
+      setOpenGroup(null);
     }
   };
 
@@ -573,10 +573,26 @@ export function CalendarPage() {
       {/* Shift details modal */}
       <Modal
         open={!!selectedShifts}
-        onClose={() => { setSelectedShifts(null); setSelectedDay(null); }}
+        onClose={() => { setSelectedShifts(null); setSelectedDay(null); setOpenGroup(null); }}
         title={selectedDay ? `Shifts — ${formatDate(selectedDay)}` : "Shift Details"}
       >
-        {selectedDay && getHolidaysForDay(selectedDay).length > 0 && (
+        {openGroup && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setOpenGroup(null)}
+              className="-ml-1.5 -mt-1.5 mb-3 flex items-center gap-1 rounded-md px-1.5 py-1 text-[13px] font-semibold text-indigo-600 hover:bg-indigo-50"
+            >
+              <ChevronLeft className="h-4 w-4" /> Back
+            </button>
+            <h3 className="flex items-baseline gap-2 text-[15px] font-bold text-gray-900 mb-2.5">
+              {openGroup[0].user ? `${openGroup[0].user.firstName} ${openGroup[0].user.lastName}` : "Shifts"}
+              <span className="text-xs font-medium text-gray-400">{openGroup.length} shifts</span>
+            </h3>
+            <div className="space-y-3">{openGroup.map((s) => renderShiftRow(s, true))}</div>
+          </div>
+        )}
+        {!openGroup && selectedDay && getHolidaysForDay(selectedDay).length > 0 && (
           <div className="mb-4 space-y-2">
             {getHolidaysForDay(selectedDay).map((h) => (
               <div
@@ -599,7 +615,7 @@ export function CalendarPage() {
             ))}
           </div>
         )}
-        {selectedShifts && selectedShifts.length > 0 ? (
+        {openGroup ? null : selectedShifts && selectedShifts.length > 0 ? (
           <div className="space-y-5">
             {groupByStore(selectedShifts).map(({ store, shifts: storeShifts }, _i, sections) => (
               <div key={store || "none"}>
@@ -616,17 +632,14 @@ export function CalendarPage() {
               if (group.length === 1) return renderShiftRow(group[0]);
               const first = group[0];
               const personKey = `${store}:${first.userId}`;
-              const open = expandedUserId === personKey;
               const stores = [...new Set(group.map((s) => s.location).filter(Boolean))];
               const statuses = [...new Set(group.map((s) => s.status))];
-              const editable = isManager && group.some((s) => canEditStore(s.location ?? s.rota?.location?.name));
               return (
                 <div key={personKey} className="rounded-lg border">
                   <button
                     type="button"
-                    aria-expanded={open}
                     className="flex w-full items-center justify-between rounded-lg p-3 text-left cursor-pointer hover:bg-gray-50"
-                    onClick={() => setExpandedUserId(open ? null : personKey)}
+                    onClick={() => setOpenGroup(group)}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -652,15 +665,9 @@ export function CalendarPage() {
                     </div>
                     <span className="flex items-center gap-1 text-xs text-gray-400 shrink-0 ml-3">
                       {group.length} shifts
-                      <ChevronRight className={clsx("h-3.5 w-3.5 transition-transform", open && "rotate-90")} />
+                      <ChevronRight className="h-3.5 w-3.5" />
                     </span>
                   </button>
-                  {open && (
-                    <div className="space-y-2 border-t border-gray-100 bg-gray-50/60 p-2.5">
-                      {editable && <p className="px-0.5 text-xs text-gray-500">Choose which shift to edit</p>}
-                      {group.map((s) => renderShiftRow(s, true))}
-                    </div>
-                  )}
                 </div>
               );
             })}
