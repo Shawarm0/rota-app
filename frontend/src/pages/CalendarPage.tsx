@@ -75,6 +75,14 @@ function groupByPerson(shifts: Shift[]): Shift[][] {
   return [...groups.values()].map((g) => [...g].sort((a, b) => a.startTime.localeCompare(b.startTime)));
 }
 
+const shiftStore = (s: Shift) => s.location ?? s.rota?.location?.name ?? "";
+
+// The day's shifts under a heading per store, alphabetically, with shifts that have no store last
+function groupByStore(shifts: Shift[]): { store: string; shifts: Shift[] }[] {
+  const stores = [...new Set(shifts.map(shiftStore))].sort((a, b) => (!a ? 1 : !b ? -1 : a.localeCompare(b)));
+  return stores.map((store) => ({ store, shifts: shifts.filter((s) => shiftStore(s) === store) }));
+}
+
 // Employees only see their own shifts, so show when the shift is rather than their own initials
 function ShiftPill({ shift, label, color }: { shift: Shift; label?: string; color?: string }) {
   const catColor = color ?? getCatColor(shift);
@@ -585,21 +593,33 @@ export function CalendarPage() {
           </div>
         )}
         {selectedShifts && selectedShifts.length > 0 ? (
-          <div className="space-y-3">
-            {groupByPerson(selectedShifts).map((group) => {
+          <div className="space-y-5">
+            {groupByStore(selectedShifts).map(({ store, shifts: storeShifts }, _i, sections) => (
+              <div key={store || "none"}>
+                {sections.length > 1 && (
+                  <h3 className="flex items-baseline gap-2 text-[15px] font-bold text-gray-900 mb-2.5">
+                    {store || "No store"}
+                    <span className="text-xs font-medium text-gray-400">
+                      {storeShifts.length} shift{storeShifts.length === 1 ? "" : "s"}
+                    </span>
+                  </h3>
+                )}
+                <div className="space-y-3">
+            {groupByPerson(storeShifts).map((group) => {
               if (group.length === 1) return renderShiftRow(group[0]);
               const first = group[0];
-              const open = expandedUserId === first.userId;
+              const personKey = `${store}:${first.userId}`;
+              const open = expandedUserId === personKey;
               const stores = [...new Set(group.map((s) => s.location).filter(Boolean))];
               const statuses = [...new Set(group.map((s) => s.status))];
               const editable = isManager && group.some((s) => canEditStore(s.location ?? s.rota?.location?.name));
               return (
-                <div key={first.userId} className="rounded-lg border">
+                <div key={personKey} className="rounded-lg border">
                   <button
                     type="button"
                     aria-expanded={open}
                     className="flex w-full items-center justify-between rounded-lg p-3 text-left cursor-pointer hover:bg-gray-50"
-                    onClick={() => setExpandedUserId(open ? null : first.userId)}
+                    onClick={() => setExpandedUserId(open ? null : personKey)}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -637,6 +657,9 @@ export function CalendarPage() {
                 </div>
               );
             })}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <p className="text-sm text-gray-500">No shifts on this day.</p>
