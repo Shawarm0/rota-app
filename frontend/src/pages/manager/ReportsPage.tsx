@@ -9,18 +9,27 @@ import * as dashboardApi from "../../api/dashboard.api";
 import { toDateString, addDays, getMonday } from "../../lib/dateUtils";
 import { Download, FileText } from "lucide-react";
 import { toast } from "../../components/ui/Toast";
+import { Select } from "../../components/ui/Select";
+import { usePermissions } from "../../hooks/usePermissions";
+import { useLocations } from "../../hooks/useLocations";
 
 export function ReportsPage() {
   const now = new Date();
   const [from, setFrom] = useState(toDateString(addDays(getMonday(now), -28)));
   const [to, setTo] = useState(toDateString(now));
   const [exportingPdf, setExportingPdf] = useState(false);
+  // Store managers start on their own store; the owner starts on every store
+  const { homeStore } = usePermissions();
+  const { data: locations } = useLocations();
+  const [storeFilter, setStoreFilter] = useState<string | null>(null);
+  const storeId = storeFilter ?? homeStore?.id ?? "";
+  const store = locations?.find((l) => l.id === storeId);
 
   // Matches the server's limit of a year per report
   const validRange = !!from && !!to && from <= to && new Date(to).getTime() - new Date(from).getTime() <= 366 * 86_400_000;
   const { data: report, isLoading } = useQuery({
-    queryKey: ["hoursReport", from, to],
-    queryFn: () => dashboardApi.getHoursReport(from, to),
+    queryKey: ["hoursReport", from, to, storeId],
+    queryFn: () => dashboardApi.getHoursReport(from, to, storeId),
     enabled: validRange,
   });
   // Rounded to 2dp after adding, so floating-point sums don't show as 7.250000001
@@ -47,11 +56,22 @@ export function ReportsPage() {
               value={to}
               onChange={(e) => setTo(e.target.value)}
             />
+            {locations && locations.length > 1 && (
+              <div className="col-span-2 sm:col-span-1">
+                <Select
+                  id="reportStore"
+                  label="Store"
+                  value={storeId}
+                  onChange={(e) => setStoreFilter(e.target.value)}
+                  options={[{ value: "", label: "All stores" }, ...locations.map((l) => ({ value: l.id, label: l.name }))]}
+                />
+              </div>
+            )}
             <Button
               variant="secondary"
               size="sm"
               disabled={!validRange}
-              onClick={() => dashboardApi.exportCSV(from, to).catch(() => toast("Couldn't export the CSV", "error"))}
+              onClick={() => dashboardApi.exportCSV(from, to, store).catch(() => toast("Couldn't export the CSV", "error"))}
             >
               <Download className="h-4 w-4 mr-1" /> Export CSV
             </Button>
@@ -62,7 +82,7 @@ export function ReportsPage() {
               onClick={() => {
                 setExportingPdf(true);
                 dashboardApi
-                  .exportPDF(from, to)
+                  .exportPDF(from, to, store)
                   .catch(() => toast("Couldn't create the PDF", "error"))
                   .finally(() => setExportingPdf(false));
               }}

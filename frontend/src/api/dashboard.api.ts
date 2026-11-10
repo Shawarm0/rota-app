@@ -75,12 +75,15 @@ export interface HoursReportRow {
   totalHours: number;
 }
 
-export async function getHoursReport(from: string, to: string): Promise<HoursReportRow[]> {
-  const { data } = await client.get<HoursReportRow[]>("/dashboard/reports/hours", { params: { from, to } });
+// storeId: only shifts worked at this store (empty for every store you can see)
+export async function getHoursReport(from: string, to: string, storeId?: string): Promise<HoursReportRow[]> {
+  const { data } = await client.get<HoursReportRow[]>("/dashboard/reports/hours", {
+    params: { from, to, storeId: storeId || undefined },
+  });
   return data;
 }
 
-async function download(path: string, params: Record<string, string>, filename: string) {
+async function download(path: string, params: Record<string, string | undefined>, filename: string) {
   const response = await client.get(path, { params, responseType: "blob" });
   const url = URL.createObjectURL(response.data as Blob);
   const a = document.createElement("a");
@@ -91,10 +94,16 @@ async function download(path: string, params: Record<string, string>, filename: 
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-export async function exportCSV(from: string, to: string) {
-  await download("/dashboard/reports/export", { from, to }, `report-${from}-${to}.csv`);
+// Adds the store to the file name, e.g. hours-report-euxton-2026-11-01-2026-11-30.pdf
+function reportFileName(prefix: string, from: string, to: string, storeName: string | undefined, ext: string) {
+  const store = storeName ? `-${storeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : "";
+  return `${prefix}${store}-${from}-${to}.${ext}`;
 }
 
-export async function exportPDF(from: string, to: string) {
-  await download("/dashboard/reports/pdf", { from, to }, `hours-report-${from}-${to}.pdf`);
+export async function exportCSV(from: string, to: string, store?: { id: string; name: string }) {
+  await download("/dashboard/reports/export", { from, to, storeId: store?.id }, reportFileName("report", from, to, store?.name, "csv"));
+}
+
+export async function exportPDF(from: string, to: string, store?: { id: string; name: string }) {
+  await download("/dashboard/reports/pdf", { from, to, storeId: store?.id }, reportFileName("hours-report", from, to, store?.name, "pdf"));
 }
