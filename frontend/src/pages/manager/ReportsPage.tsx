@@ -6,7 +6,7 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Spinner } from "../../components/ui/Spinner";
 import * as dashboardApi from "../../api/dashboard.api";
-import { toDateString, addDays, getMonday } from "../../lib/dateUtils";
+import { toDateString } from "../../lib/dateUtils";
 import { Download, FileText } from "lucide-react";
 import { toast } from "../../components/ui/Toast";
 import { Select } from "../../components/ui/Select";
@@ -15,8 +15,9 @@ import { useLocations } from "../../hooks/useLocations";
 
 export function ReportsPage() {
   const now = new Date();
-  const [from, setFrom] = useState(toDateString(addDays(getMonday(now), -28)));
-  const [to, setTo] = useState(toDateString(now));
+  // Defaults to the current month
+  const [from, setFrom] = useState(toDateString(new Date(now.getFullYear(), now.getMonth(), 1)));
+  const [to, setTo] = useState(toDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
   const [exportingPdf, setExportingPdf] = useState(false);
   // Store managers start on their own store; the owner starts on every store
   const { homeStore } = usePermissions();
