@@ -88,6 +88,8 @@ export async function getEmployeeSummaries(businessId: string, weekStart: string
     date: { gte: start, lt: end },
     rota: { status: "PUBLISHED" as const },
     status: { not: "AVAILABLE" as const },
+    // Not counted until their home store manager approves
+    crossStoreStatus: { not: "PENDING" as const },
     ...(stores ? { AND: [shiftsAtStores(stores)] } : {}),
   };
 

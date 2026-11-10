@@ -40,6 +40,8 @@ interface LocalShift {
   location: string | null;
   notes: string | null;
   status: ShiftStatus;
+  // PENDING while waiting for a visiting staff member's home store manager to approve
+  crossStoreStatus?: Shift["crossStoreStatus"];
 }
 
 interface ShiftForm {
@@ -72,6 +74,7 @@ function serverShiftsToLocal(shifts: Shift[]): LocalShift[] {
     location: s.location,
     notes: s.notes,
     status: s.status,
+    crossStoreStatus: s.crossStoreStatus,
   }));
 }
 
@@ -119,11 +122,16 @@ export function RotaBuilderPage() {
   // Store managers only build rotas for the stores they run
   const draftRotas = rotas?.filter((r) => r.status === "DRAFT" && canEditStoreId(r.locationId)) || [];
 
+  // The store's staff, people who also work there, and anyone already on this rota (so no shift is hidden)
   const employees = useMemo(() => {
     if (!allEmployees) return [];
-    if (!selectedRota?.locationId) return allEmployees;
-    return allEmployees.filter((e) => e.locationId === selectedRota.locationId);
-  }, [allEmployees, selectedRota?.locationId]);
+    const storeId = selectedRota?.locationId;
+    if (!storeId) return allEmployees;
+    const onRota = new Set(localShifts.map((s) => s.userId));
+    return allEmployees
+      .filter((e) => e.locationId === storeId || e.workStores?.some((w) => w.locationId === storeId) || onRota.has(e.id))
+      .sort((a, b) => Number(a.locationId !== storeId) - Number(b.locationId !== storeId));
+  }, [allEmployees, selectedRota?.locationId, localShifts]);
 
   const days = useMemo(() => {
     if (!selectedRota) return [];
@@ -417,7 +425,9 @@ export function RotaBuilderPage() {
                       <td className="px-5 py-[14px] sticky left-0 bg-white min-w-[160px] z-[1]">
                         <div className="text-[13.5px] font-semibold text-gray-900">{emp.firstName} {emp.lastName}</div>
                         {emp.location && (
-                          <div className="text-[11.5px] text-gray-500">{emp.location.name}</div>
+                          <div className={clsx("text-[11.5px]", selectedRota?.locationId && emp.locationId !== selectedRota.locationId ? "text-indigo-600" : "text-gray-500")}>
+                            {selectedRota?.locationId && emp.locationId !== selectedRota.locationId ? `Visiting from ${emp.location.name}` : emp.location.name}
+                          </div>
                         )}
                       </td>
                       {days.map((day) => {
@@ -467,9 +477,12 @@ export function RotaBuilderPage() {
                                   className={clsx(
                                     "block w-full rounded-[5px] px-1.5 py-1 text-[10px] font-semibold border truncate cursor-grab active:cursor-grabbing",
                                     STATUS_COLORS[s.status],
+                                    s.crossStoreStatus === "PENDING" && "border-dashed border-amber-500 opacity-80",
                                   )}
+                                  title={s.crossStoreStatus === "PENDING" ? "Waiting for their home store manager to approve" : undefined}
                                 >
                                   {s.startTime}-{s.endTime}
+                                  {s.crossStoreStatus === "PENDING" && <span className="block text-[9px] text-amber-700">Awaiting approval</span>}
                                 </button>
                               ))}
                               <button

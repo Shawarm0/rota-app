@@ -2,7 +2,9 @@ import { RequestHandler } from "express";
 import * as rotaService from "../services/rota.service.js";
 import { param } from "../lib/params.js";
 import { assertCanEditRota, assertCanUseStore } from "../middleware/rotaAccess.js";
-import { NotFoundError } from "../lib/errors.js";
+import { ConflictError, NotFoundError } from "../lib/errors.js";
+import * as crossStore from "../services/crossStore.service.js";
+import { findDoubleBooking, getRotaShifts } from "../services/shift.service.js";
 import { getVisibleStoreIds } from "../middleware/authorize.js";
 
 export const createRota: RequestHandler = async (req, res, next) => {
@@ -63,6 +65,9 @@ export const deleteRota: RequestHandler = async (req, res, next) => {
 export const publishRota: RequestHandler = async (req, res, next) => {
   try {
     await assertCanEditRota(req, param(req, "id"));
+    // Someone may have been booked elsewhere since this rota was saved
+    const doubleBooked = await findDoubleBooking(param(req, "id"), await getRotaShifts(param(req, "id")));
+    if (doubleBooked) throw new ConflictError(`${doubleBooked}. Fix it before publishing.`);
     const rota = await rotaService.publishRota(param(req, "id"));
     res.json(rota);
   } catch (err) {
@@ -75,6 +80,7 @@ export const copyRota: RequestHandler = async (req, res, next) => {
     // The copy is for the same store, so the person must run it
     await assertCanEditRota(req, param(req, "id"));
     const rota = await rotaService.copyRota(param(req, "id"), req.body.newStartDate, req.user!.businessId!);
+    if (rota) await crossStore.requestApprovalsIfNeeded(req, { rotaId: rota.id });
     res.json(rota);
   } catch (err) {
     next(err);

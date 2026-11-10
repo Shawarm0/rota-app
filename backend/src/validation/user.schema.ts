@@ -21,6 +21,8 @@ export const updateUserSchema = z.object({
   role: z.enum(["MANAGER", "EMPLOYEE"]).optional(),
   // Other stores the owner lets a store manager see, and whether they can edit them
   storeAccess: z.array(z.object({ locationId: z.string(), canEdit: z.boolean() })).optional(),
+  // Other stores this person also works at, so those stores can schedule them
+  workStoreIds: z.array(z.string()).optional(),
 });
 
 export const changePasswordSchema = z.object({

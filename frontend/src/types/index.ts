@@ -57,6 +57,8 @@ export interface User {
   active?: boolean;
   // Other stores the owner lets a store manager see, and whether they can edit them
   storeAccess?: { locationId: string; canEdit: boolean }[];
+  // Other stores they also work at, which can schedule them
+  workStores?: { locationId: string }[];
   // Stores the signed-in person can change; null means every store (from /auth/me)
   editableStores?: { id: string; name: string }[] | null;
 }
@@ -91,6 +93,8 @@ export interface Shift {
   status: ShiftStatus;
   // Included on team calendar shifts; a shift without its own store belongs to its rota's
   rota?: { id: string; location?: { name: string } | null };
+  // PENDING while someone from another store waits for their home store manager's approval
+  crossStoreStatus?: "NONE" | "PENDING" | "APPROVED";
 }
 
 export interface HolidayRequest {

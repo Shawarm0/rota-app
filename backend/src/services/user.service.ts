@@ -1,5 +1,6 @@
 import { Role } from "@prisma/client";
 import prisma from "../lib/db.js";
+import { staffAtStores } from "../lib/storeScope.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import { AppError, ForbiddenError, NotFoundError, UnauthorizedError } from "../lib/errors.js";
 
@@ -69,7 +70,8 @@ export async function listUsers(businessId: string | null, roles?: Role[], locat
     where: {
       ...(businessId ? { businessId } : {}),
       ...(roles?.length ? { role: { in: roles } } : {}),
-      ...(locationIds ? { locationId: { in: locationIds } } : {}),
+      // Staff based at these stores or who also work at them
+      ...(locationIds ? staffAtStores(locationIds) : {}),
     },
     select: {
       id: true,
@@ -86,6 +88,7 @@ export async function listUsers(businessId: string | null, roles?: Role[], locat
       active: true,
       createdAt: true,
       storeAccess: { select: { locationId: true, canEdit: true } },
+      workStores: { select: { locationId: true } },
     },
     orderBy: { firstName: "asc" },
   });
@@ -125,6 +128,7 @@ export async function updateUser(
     isAssistantManager?: boolean;
     role?: "MANAGER" | "EMPLOYEE";
     storeAccess?: { locationId: string; canEdit: boolean }[];
+    workStoreIds?: string[];
   },
 ) {
   const target = await prisma.user.findUnique({
@@ -138,7 +142,7 @@ export async function updateUser(
 
   const role = data.role ?? target.role;
   const locationId = data.locationId !== undefined ? data.locationId : target.locationId;
-  const storeIds = data.storeAccess?.map((a) => a.locationId);
+  const storeIds = [...(data.storeAccess?.map((a) => a.locationId) ?? []), ...(data.workStoreIds ?? [])];
   await assertBelongsToBusiness(target.businessId!, locationId, data.categoryId, storeIds);
   if (data.isAssistantManager && role !== "EMPLOYEE") {
     throw new AppError(400, "Only employees can be made assistant managers");
@@ -151,7 +155,7 @@ export async function updateUser(
     await assertStoreHasNoManager(locationId, id);
   }
 
-  const { storeAccess, ...fields } = data;
+  const { storeAccess, workStoreIds, ...fields } = data;
   // Moving to another store drops a category that belongs to the old one
   if (fields.categoryId === undefined && target.category && target.category.locationId !== locationId) {
     fields.categoryId = null;
@@ -164,6 +168,14 @@ export async function updateUser(
       await tx.storeAccess.createMany({
         data: storeAccess.filter((a) => a.locationId !== locationId).map((a) => ({ userId: id, ...a })),
       });
+    }
+    if (workStoreIds) {
+      await tx.userWorkStore.deleteMany({ where: { userId: id } });
+      const others = [...new Set(workStoreIds)].filter((s) => s !== locationId);
+      if (others.length) await tx.userWorkStore.createMany({ data: others.map((locationId) => ({ userId: id, locationId })) });
+    } else if (data.locationId !== undefined && locationId) {
+      // Their new home store is no longer an "also works at" store
+      await tx.userWorkStore.deleteMany({ where: { userId: id, locationId } });
     }
     return tx.user.update({
       where: { id },
@@ -188,6 +200,7 @@ const userSelect = {
   category: { select: { id: true, name: true, color: true } },
   active: true,
   storeAccess: { select: { locationId: true, canEdit: true } },
+      workStores: { select: { locationId: true } },
 } as const;
 
 // Each store has one store manager

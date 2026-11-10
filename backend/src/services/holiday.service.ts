@@ -113,7 +113,7 @@ export async function approveHoliday(requestId: string) {
         date: request.date,
         status: { not: "AVAILABLE" },
       },
-      data: { status: "AVAILABLE", userId: null },
+      data: { status: "AVAILABLE", userId: null, crossStoreStatus: "NONE", requestedById: null },
     });
 
     await tx.notification.create({ data: notification });
@@ -122,6 +122,7 @@ export async function approveHoliday(requestId: string) {
   });
 
   sendPush([notification]);
+  await notifyOtherStores(request.userId, request.date);
   return updated;
 }
 
@@ -215,12 +216,13 @@ export async function updateHoliday(requestId: string, data: { date?: string; re
           date: effectiveDate,
           status: { not: "AVAILABLE" },
         },
-        data: { status: "AVAILABLE", userId: null },
+        data: { status: "AVAILABLE", userId: null, crossStoreStatus: "NONE", requestedById: null },
       });
 
       return updated;
     });
     await notifyDecision(request.userId, requestId, approved.date, "APPROVED");
+    await notifyOtherStores(request.userId, approved.date);
     return approved;
   }
 
@@ -239,6 +241,28 @@ export async function updateHoliday(requestId: string, data: { date?: string; re
     await notifyDecision(request.userId, requestId, updated.date, "REJECTED");
   }
   return updated;
+}
+
+// Tells the managers of other stores someone also works at, since their rotas may be affected
+async function notifyOtherStores(userId: string, date: Date) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { firstName: true, lastName: true, businessId: true, workStores: { select: { locationId: true } } },
+  });
+  if (!user?.workStores.length) return;
+  const managers = await prisma.user.findMany({
+    where: { businessId: user.businessId, active: true, role: "MANAGER", locationId: { in: user.workStores.map((w) => w.locationId) } },
+    select: { id: true },
+  });
+  if (!managers.length) return;
+  await prisma.notification.createMany({
+    data: managers.map((m) => ({
+      userId: m.id,
+      title: "Holiday Booked",
+      body: `${user.firstName} ${user.lastName} is on holiday on ${date.toISOString().split("T")[0]}.`,
+      data: { type: "HOLIDAY_NOTICE" },
+    })),
+  });
 }
 
 // Tells the employee when their leave is approved or rejected from the edit form

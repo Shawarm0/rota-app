@@ -16,6 +16,10 @@ router.post("/additional", authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAG
 router.patch("/:id", authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"), validate(updateShiftSchema), shiftController.updateShift);
 router.delete("/:id", authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"), shiftController.deleteShift);
 router.post("/:id/claim", shiftController.claimShift);
+// Home store managers approve or reject their staff working shifts at another store
+router.get("/approvals", authorize("MANAGER"), shiftController.listApprovals);
+router.post("/:id/approve", authorize("MANAGER"), shiftController.approveCrossStore);
+router.post("/:id/reject", authorize("MANAGER"), shiftController.rejectCrossStore);
 router.post("/:id/request-cover", authorize("MANAGER", "SYSTEM_ADMIN", "ASSISTANT_MANAGER"), shiftController.requestCover);
 
 export default router;

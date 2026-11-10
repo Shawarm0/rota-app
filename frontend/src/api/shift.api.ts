@@ -58,3 +58,24 @@ export async function requestCover(id: string): Promise<{ notified: number }> {
   const { data } = await client.post<{ notified: number }>(`/shifts/${id}/request-cover`);
   return data;
 }
+
+// Shifts at other stores waiting for approval from the signed-in manager (as the staff member's home store)
+export interface CrossStoreRequest {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  store: string | null;
+  draft: boolean;
+  requestedBy: string | null;
+  user: { id: string; firstName: string; lastName: string };
+}
+
+export async function listCrossStoreRequests(): Promise<CrossStoreRequest[]> {
+  const { data } = await client.get<CrossStoreRequest[]>("/shifts/approvals");
+  return data;
+}
+
+export async function decideCrossStoreRequest(id: string, approve: boolean) {
+  await client.post(`/shifts/${id}/${approve ? "approve" : "reject"}`);
+}

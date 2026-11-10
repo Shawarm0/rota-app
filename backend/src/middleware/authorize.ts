@@ -103,15 +103,19 @@ export async function assertCanEditStore(req: Request, store: string | null) {
   }
 }
 
-// Only staff at stores this person may change
+// Only staff who are based at, or also work at, a store this person may change
 export async function assertUserAtStore(req: Request, userId: string) {
   const access = await getAccess(req);
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { locationId: true, businessId: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { locationId: true, businessId: true, workStores: { select: { locationId: true } } },
+  });
   if (!user || (req.user!.role !== "SYSTEM_ADMIN" && user.businessId !== req.user!.businessId)) {
     throw new ForbiddenError("You can't manage this person");
   }
   if (access.editableStores === null) return;
-  if (!access.editableStores.some((s) => s.id === user.locationId)) {
+  const stores = [user.locationId, ...user.workStores.map((w) => w.locationId)];
+  if (!access.editableStores.some((s) => stores.includes(s.id))) {
     const names = access.editableStores.map((s) => s.name).join(" or ");
     throw new ForbiddenError(names ? `You can only manage staff at ${names}` : "You can't manage staff at this store");
   }

@@ -69,6 +69,9 @@ export async function getEmployeeSummaries(weekStart: string, storeId?: string):
 export interface HoursReportRow {
   id: string;
   name: string;
+  store: string | null;
+  // Hours at each store worked, when they split time between stores
+  stores: { store: string; hours: number }[];
   totalShifts: number;
   rotaHours: number;
   extraHours: number;

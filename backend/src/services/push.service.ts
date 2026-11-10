@@ -15,6 +15,8 @@ const PUSH_TYPES = new Set([
   "HOLIDAY_REQUEST",
   "HOLIDAY_APPROVED",
   "HOLIDAY_REJECTED",
+  "CROSS_STORE_REQUEST",
+  "CROSS_STORE_DECISION",
 ]);
 
 // Where tapping the notification takes the user
@@ -25,6 +27,8 @@ const PUSH_URLS: Record<string, string> = {
   SWAP_COMPLETED: "/my-shifts",
   HOLIDAY_APPROVED: "/holidays",
   HOLIDAY_REJECTED: "/holidays",
+  CROSS_STORE_REQUEST: "/manager",
+  CROSS_STORE_DECISION: "/calendar",
 };
 
 const pushEnabled = Boolean(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY);

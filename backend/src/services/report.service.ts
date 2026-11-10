@@ -9,6 +9,8 @@ async function loadReport(businessId: string, from: string, to: string, stores: 
     date: { gte: new Date(from), lte: new Date(to) },
     rota: { status: "PUBLISHED" as const },
     status: { not: "AVAILABLE" as const },
+    // Not counted until their home store manager approves
+    crossStoreStatus: { not: "PENDING" as const },
     ...(stores ? { AND: [shiftsAtStores(stores)] } : {}),
   };
 
@@ -42,9 +44,19 @@ export async function getHoursReport(businessId: string, from: string, to: strin
   return toRows(await loadReport(businessId, from, to, stores));
 }
 
+// Where each shift was worked: its own store, or its rota's
+const shiftStore = (shift: { location: string | null; rota: { location: { name: string } | null } }) =>
+  shift.location || shift.rota.location?.name || "No store";
+
 function toRows(employees: Awaited<ReturnType<typeof loadReport>>) {
   return employees.map((emp) => {
     const totals = summariseShifts(emp.shifts);
+    // Hours per store worked, for staff who split their time between stores
+    const storeNames = [...new Set(emp.shifts.map(shiftStore))].sort();
+    const stores = storeNames.map((store) => ({
+      store,
+      hours: minutesToHours(summariseShifts(emp.shifts.filter((s) => shiftStore(s) === store)).totalMinutes),
+    }));
     return {
       id: emp.id,
       name: `${emp.firstName} ${emp.lastName}`,
@@ -55,6 +67,7 @@ function toRows(employees: Awaited<ReturnType<typeof loadReport>>) {
       extraHours: minutesToHours(totals.extraMinutes),
       // Rounded from the exact total, so it can differ from rota + extra by 0.01
       totalHours: minutesToHours(totals.totalMinutes),
+      stores,
     };
   });
 }
@@ -67,8 +80,12 @@ function csvField(value: string | number) {
 
 export async function exportCSV(businessId: string, from: string, to: string, stores: Store[] | null) {
   const data = await getHoursReport(businessId, from, to, stores);
-  const header = ["Name", "Total Shifts", "Rota Hours", "Extra Hours", "Total Hours"].map(csvField).join(",");
-  const rows = data.map((d) => [d.name, d.totalShifts, d.rotaHours, d.extraHours, d.totalHours].map(csvField).join(","));
+  const header = ["Name", "Home Store", "Total Shifts", "Rota Hours", "Extra Hours", "Total Hours", "Hours by Store"].map(csvField).join(",");
+  const rows = data.map((d) =>
+    [d.name, d.store ?? "", d.totalShifts, d.rotaHours, d.extraHours, d.totalHours, d.stores.map((s) => `${s.store} ${s.hours}`).join("; ")]
+      .map(csvField)
+      .join(","),
+  );
   return [header, ...rows].join("\n");
 }
 
@@ -90,7 +107,7 @@ export async function getHoursReportDetail(businessId: string, from: string, to:
 
   const shiftsByStore = new Map<string, typeof allShifts>();
   for (const shift of allShifts) {
-    const store = shift.location || shift.rota.location?.name || "No store";
+    const store = shiftStore(shift);
     const group = shiftsByStore.get(store);
     if (group) group.push(shift);
     else shiftsByStore.set(store, [shift]);

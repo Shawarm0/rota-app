@@ -2,6 +2,7 @@ import { ShiftStatus } from "@prisma/client";
 import prisma from "../lib/db.js";
 import { sendPush } from "./push.service.js";
 import { findLocationId, findStoreManagerIds } from "./recipients.service.js";
+import { shiftMinutes } from "../lib/shiftHours.js";
 import { shiftsAtStores, STAFF_ROLES, type Store } from "../lib/storeScope.js";
 import { AppError, ConflictError, NotFoundError } from "../lib/errors.js";
 
@@ -112,6 +113,8 @@ export async function updateShift(id: string, data: Partial<CreateShiftInput>) {
     where: { id },
     data: {
       ...(data.userId !== undefined ? { userId: data.userId || null } : {}),
+      // A different person (or nobody) means any cross-store approval no longer applies
+      ...(data.userId !== undefined && (data.userId || null) !== shift.userId ? { crossStoreStatus: "NONE", requestedById: null } : {}),
       ...(data.date ? { date: new Date(data.date) } : {}),
       ...(data.startTime ? { startTime: data.startTime } : {}),
       ...(data.endTime ? { endTime: data.endTime } : {}),
@@ -169,6 +172,8 @@ export async function getShiftsForUser(userId: string, from?: string, to?: strin
   return prisma.shift.findMany({
     where: {
       userId,
+      // Shifts at another store waiting for their home manager's approval aren't theirs yet
+      crossStoreStatus: { not: "PENDING" },
       ...(from || to
         ? {
             date: {
@@ -216,18 +221,19 @@ export async function getAllShifts(businessId: string, from?: string, to?: strin
 export async function getAvailableShifts(businessId: string, userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { locationId: true, location: { select: { name: true } } },
+    select: { location: { select: { name: true } }, workStores: { select: { location: { select: { name: true } } } } },
   });
 
-  const locationName = user?.location?.name;
+  // Open shifts at their home store and any store they also work at (plus shifts with no store)
+  const storeNames = [user?.location?.name, ...(user?.workStores.map((w) => w.location.name) ?? [])].filter(
+    (name): name is string => Boolean(name),
+  );
   return prisma.shift.findMany({
     where: {
       rota: { businessId, status: "PUBLISHED" },
       status: "AVAILABLE",
       date: { gte: new Date() },
-      ...(locationName
-        ? { OR: [{ location: locationName }, { location: null }] }
-        : {}),
+      ...(storeNames.length ? { OR: [{ location: { in: storeNames } }, { location: null }] } : {}),
     },
     include: {
       user: { select: { id: true, firstName: true, lastName: true } },
@@ -316,8 +322,15 @@ export async function requestCover(shiftId: string) {
       businessId: shift.rota.businessId,
       role: { in: STAFF_ROLES },
       active: true,
+      // Staff based at the store, who also work there, or who have no store
       ...(shift.location
-        ? { OR: [{ location: { name: shift.location } }, { locationId: null }] }
+        ? {
+            OR: [
+              { location: { name: shift.location } },
+              { workStores: { some: { location: { name: shift.location } } } },
+              { locationId: null },
+            ],
+          }
         : {}),
     },
     select: { id: true },
@@ -356,35 +369,48 @@ export async function syncShifts(
     );
   }
 
+  const withStore = shifts.map((s) => ({ ...s, location: s.location || rota.location?.name || null }));
+  const doubleBooked = await findDoubleBooking(rotaId, withStore);
+  if (doubleBooked) throw new ConflictError(`${doubleBooked}. Change one of the shifts before saving.`);
+
+  // Saving replaces every shift, so carry over cross-store approvals for shifts that haven't changed
+  const existing = await prisma.shift.findMany({
+    where: { rotaId, crossStoreStatus: { not: "NONE" } },
+    select: { userId: true, date: true, startTime: true, endTime: true, location: true, crossStoreStatus: true, requestedById: true },
+  });
+  const key = (s: { userId?: string | null; date: string | Date; startTime: string; endTime: string; location: string | null }) =>
+    `${s.userId}|${new Date(s.date).toISOString().split("T")[0]}|${s.startTime}|${s.endTime}|${s.location}`;
+  const approvals = new Map(existing.map((s) => [key(s), s]));
+
   return prisma.$transaction(async (tx) => {
     await tx.shift.deleteMany({ where: { rotaId } });
 
-    if (shifts.length > 0) {
+    if (withStore.length > 0) {
       await tx.shift.createMany({
-        data: shifts.map((s) => ({
-          rotaId,
-          userId: s.userId || null,
-          date: new Date(s.date),
-          startTime: s.startTime,
-          endTime: s.endTime,
-          location: s.location || rota.location?.name || null,
-          notes: s.notes || null,
-          status: s.status || "ASSIGNED",
-        })),
+        data: withStore.map((s) => {
+          const approval = s.userId ? approvals.get(key(s)) : undefined;
+          return {
+            rotaId,
+            userId: s.userId || null,
+            date: new Date(s.date),
+            startTime: s.startTime,
+            endTime: s.endTime,
+            location: s.location,
+            notes: s.notes || null,
+            status: s.status || "ASSIGNED",
+            ...(approval ? { crossStoreStatus: approval.crossStoreStatus, requestedById: approval.requestedById } : {}),
+          };
+        }),
       });
     }
-
-    return tx.shift.findMany({
-      where: { rotaId },
-      include: { user: { select: { id: true, firstName: true, lastName: true } } },
-      orderBy: [{ date: "asc" }, { startTime: "asc" }],
-    });
   });
 }
 
 export async function createAdditionalShift(
   businessId: string,
   data: { userId?: string | null; date: string; startTime: string; endTime: string; location?: string | null; notes?: string | null },
+  // False while the shift waits for another store's approval; they're told once it's approved
+  notifyEmployee = true,
 ) {
   // No one assigned makes it an open shift that staff can pick up
   if (data.userId) {
@@ -440,7 +466,7 @@ export async function createAdditionalShift(
     },
   });
 
-  if (!data.userId) return shift;
+  if (!data.userId || !notifyEmployee) return shift;
 
   const dateStr = shiftDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
   const notification = {
@@ -532,4 +558,68 @@ export async function getShiftAssigneeId(id: string) {
   const shift = await prisma.shift.findUnique({ where: { id }, select: { userId: true } });
   if (!shift) throw new NotFoundError("Shift");
   return shift.userId;
+}
+
+// Finds the first time someone in these shifts would be working two overlapping shifts on the same day,
+// within these shifts or against their shifts on other rotas at any store (open shifts don't count).
+// Returns a message describing the clash, or null.
+export async function findDoubleBooking(
+  rotaId: string,
+  shifts: { userId?: string | null; date: string | Date; startTime: string; endTime: string; location?: string | null }[],
+) {
+  const assigned = shifts
+    .filter((s): s is typeof s & { userId: string } => Boolean(s.userId))
+    .map((s) => ({ ...s, day: new Date(s.date).toISOString().split("T")[0] }));
+  if (!assigned.length) return null;
+
+  const others = await prisma.shift.findMany({
+    where: {
+      rotaId: { not: rotaId },
+      userId: { in: [...new Set(assigned.map((s) => s.userId))] },
+      date: { in: [...new Set(assigned.map((s) => s.day))].map((d) => new Date(d)) },
+      status: { not: "AVAILABLE" },
+    },
+    select: { userId: true, date: true, startTime: true, endTime: true, location: true, rota: { select: { location: { select: { name: true } } } } },
+  });
+  const all = [
+    ...assigned.map((s, i) => ({ ...s, index: i, store: s.location ?? null })),
+    ...others.map((s) => ({
+      userId: s.userId!,
+      day: s.date.toISOString().split("T")[0],
+      startTime: s.startTime,
+      endTime: s.endTime,
+      index: -1,
+      store: s.location || s.rota.location?.name || null,
+    })),
+  ];
+
+  const toRange = (s: { startTime: string; endTime: string }) => {
+    const [h, m] = s.startTime.split(":").map(Number);
+    const start = h * 60 + m;
+    return [start, start + shiftMinutes(s.startTime, s.endTime)];
+  };
+  for (const shift of all.filter((s) => s.index >= 0)) {
+    const [start, end] = toRange(shift);
+    const clash = all.find((other) => {
+      if (other === shift || other.userId !== shift.userId || other.day !== shift.day) return false;
+      // Count each pair within these shifts once
+      if (other.index >= 0 && other.index < shift.index) return false;
+      const [otherStart, otherEnd] = toRange(other);
+      return start < otherEnd && otherStart < end;
+    });
+    if (clash) {
+      const user = await prisma.user.findUnique({ where: { id: shift.userId }, select: { firstName: true, lastName: true } });
+      const day = new Date(`${shift.day}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+      return `${user?.firstName} ${user?.lastName} is already working ${clash.startTime}–${clash.endTime}${clash.store ? ` at ${clash.store}` : ""} on ${day}`;
+    }
+  }
+  return null;
+}
+
+export async function getRotaShifts(rotaId: string) {
+  return prisma.shift.findMany({
+    where: { rotaId },
+    include: { user: { select: { id: true, firstName: true, lastName: true } } },
+    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+  });
 }

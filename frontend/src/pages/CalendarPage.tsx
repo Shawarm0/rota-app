@@ -76,6 +76,18 @@ function ShiftPill({ shift, label, color }: { shift: Shift; label?: string; colo
     );
   }
 
+  // Someone from another store, waiting for their home store manager to approve
+  if (shift.crossStoreStatus === "PENDING") {
+    return (
+      <span
+        title="Awaiting approval from their home store"
+        className="inline-flex items-center rounded px-0.5 py-0 text-[9.5px] font-semibold border border-dashed border-amber-500 text-amber-700 bg-amber-50 leading-[16px]"
+      >
+        {label ?? getInitials(shift)}?
+      </span>
+    );
+  }
+
   if (shift.status === "ADDITIONAL") {
     return (
       <span
@@ -538,6 +550,9 @@ export function CalendarPage() {
                     {shift.location && ` · ${shift.location}`}
                   </p>
                   {shift.notes && <p className="text-xs text-gray-400">{shift.notes}</p>}
+                  {shift.crossStoreStatus === "PENDING" && (
+                    <p className="text-xs font-medium text-amber-700">Awaiting approval from their home store's manager</p>
+                  )}
                 </div>
                 {isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && (
                   <span className="text-xs text-gray-400">Edit &rarr;</span>

@@ -5,6 +5,7 @@ import { AdditionalShiftModal } from "../../components/shifts/AdditionalShiftMod
 import { TopBar } from "../../components/layout/TopBar";
 import { Spinner } from "../../components/ui/Spinner";
 import { useDashboard, useEmployeeSummaries } from "../../hooks/useDashboard";
+import { useCrossStoreRequests, useDecideCrossStoreRequest } from "../../hooks/useShifts";
 import { useHolidayRequests, useApproveHoliday, useRejectHoliday } from "../../hooks/useHolidays";
 import { formatDate, getMonday, toDateString } from "../../lib/dateUtils";
 import {
@@ -113,6 +114,13 @@ function describeActivity(log: DashboardData["recentActivity"][number]) {
       detail: `${describeShift(d as unknown as ShiftSnapshot)} · ${notified} ${notified === 1 ? "person" : "people"} notified`,
     };
   }
+  if ((log.action === "APPROVE_CROSS_STORE" || log.action === "REJECT_CROSS_STORE") && d?.name) {
+    const approved = log.action === "APPROVE_CROSS_STORE";
+    return {
+      summary: `${approved ? "approved" : "rejected"} ${d.name} working at another store`,
+      detail: `${d.when}${approved ? "" : " · now open for cover"}`,
+    };
+  }
   return { summary: `${log.action.toLowerCase()} ${log.entity.toLowerCase()}`, detail: null };
 }
 
@@ -137,6 +145,8 @@ export function ManagerDashboardPage() {
 
   const { data: holidays } = useHolidayRequests("PENDING");
   const approveHoliday = useApproveHoliday();
+  const { data: shiftRequests } = useCrossStoreRequests(true);
+  const decideShiftRequest = useDecideCrossStoreRequest();
   const rejectHoliday = useRejectHoliday();
   const [showAddShift, setShowAddShift] = useState(false);
   const [empFilter, setEmpFilter] = useState("");
@@ -257,6 +267,54 @@ export function ManagerDashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* Shifts at other stores for this manager's staff, waiting for approval */}
+        {shiftRequests && shiftRequests.length > 0 && (
+          <div className="bg-white border border-amber-200 rounded-xl overflow-hidden">
+            <div className="px-5 py-[18px] border-b border-gray-100">
+              <div className="text-[15px] font-bold text-gray-900">Shift Requests from Other Stores</div>
+              <div className="text-[12.5px] text-gray-500 mt-0.5">Your staff have been asked to work at another store</div>
+            </div>
+            <div>
+              {shiftRequests.map((req) => (
+                <div key={req.id} className="flex items-center justify-between gap-3 px-5 py-[13px] border-t first:border-t-0 border-gray-100">
+                  <div className="flex items-center gap-[10px] min-w-0">
+                    <div className="h-[30px] w-[30px] rounded-full bg-amber-50 text-amber-700 flex items-center justify-center text-[12px] font-bold flex-shrink-0">
+                      {getInitials(req.user.firstName, req.user.lastName)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[13.5px] font-semibold text-gray-900">
+                        {req.user.firstName} {req.user.lastName}
+                        {req.store && <span className="font-normal text-gray-500"> · {req.store}</span>}
+                      </div>
+                      <div className="text-[12px] text-gray-500">
+                        {formatDate(req.date)}, {req.startTime}–{req.endTime}
+                        {req.requestedBy && ` · asked by ${req.requestedBy}`}
+                        {req.draft && " · draft rota"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => decideShiftRequest.mutate({ id: req.id, approve: true })}
+                      className="p-1.5 rounded-lg hover:bg-green-50 transition-colors"
+                      title="Approve"
+                    >
+                      <Check className="h-4 w-4 text-green-600" />
+                    </button>
+                    <button
+                      onClick={() => decideShiftRequest.mutate({ id: req.id, approve: false })}
+                      className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                      title="Reject (the shift becomes open for cover)"
+                    >
+                      <X className="h-4 w-4 text-red-500" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Pending Holiday Requests */}
         {holidays && holidays.length > 0 && (

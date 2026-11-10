@@ -22,7 +22,7 @@ interface PdfReport {
   generatedBy: string;
   from: string;
   to: string;
-  rows: (ReportTotals & { name: string; store: string | null })[];
+  rows: (ReportTotals & { name: string; store: string | null; stores: { store: string; hours: number }[] })[];
   byStore: (ReportTotals & { store: string })[];
   // Worked out from exact minutes, so they match every table's figures
   totals: ReportTotals;
@@ -188,6 +188,21 @@ export function renderHoursReportPdf(report: PdfReport): Promise<Buffer> {
       ],
       report.rows.map((r) => [r.name, r.store ?? "—", String(r.totalShifts), hours(r.rotaHours), extraCell(r.extraHours), hours(r.totalHours)]),
       report.rows.length > 1 ? ["Total", "", ...totalCells] : undefined,
+    );
+  }
+
+  // Staff who worked at more than one store, with their hours at each
+  const splitStaff = report.rows.filter((r) => r.stores.length > 1);
+  if (splitStaff.length > 0) {
+    sectionTitle("Staff working at more than one store", "Hours each person worked at each store.");
+    table(
+      [
+        { label: "Employee", width: pageWidth * 0.34 },
+        { label: "Home store", width: pageWidth * 0.22 },
+        { label: "Worked at", width: pageWidth * 0.26 },
+        { label: "Hours", width: pageWidth * 0.18, align: "right" },
+      ],
+      splitStaff.flatMap((r) => r.stores.map((s, i) => [i === 0 ? r.name : "", i === 0 ? (r.store ?? "—") : "", s.store, hours(s.hours)])),
     );
   }
 

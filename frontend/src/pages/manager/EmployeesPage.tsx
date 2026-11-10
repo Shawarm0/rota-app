@@ -99,6 +99,8 @@ export function EmployeesPage() {
   const [categoryFilter, setCategoryFilter] = useState("");
   // Stores a store manager may also edit (owner only)
   const [storeAccess, setStoreAccess] = useState<Record<string, "view" | "edit">>({});
+  // Other stores this person also works at (set by the owner or a store manager)
+  const [workStoreIds, setWorkStoreIds] = useState<string[]>([]);
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<CreateEmployeeForm>();
   const editForm = useForm<EditEmployeeForm>();
   const resetForm = useForm<{ newPassword: string }>();
@@ -114,6 +116,7 @@ export function EmployeesPage() {
         access: editingUser.role === "MANAGER" ? "MANAGER" : editingUser.isAssistantManager ? "ASSISTANT" : "EMPLOYEE",
       });
       setStoreAccess(Object.fromEntries((editingUser.storeAccess ?? []).map((a) => [a.locationId, a.canEdit ? "edit" : "view"])));
+      setWorkStoreIds(editingUser.workStores?.map((w) => w.locationId) ?? []);
     }
   }, [editingUser, editForm]);
 
@@ -150,6 +153,12 @@ export function EmployeesPage() {
   const handleLocationChange = (userId: string, locationId: string) => {
     updateUser.mutate({ id: userId, data: { locationId: locationId || null } });
   };
+
+  const alsoWorksAt = (user: User) =>
+    user.workStores
+      ?.map((w) => locations?.find((l) => l.id === w.locationId)?.name)
+      .filter(Boolean)
+      .join(", ");
 
   // Mirrors the server: the owner manages everyone; store managers manage employees at their stores;
   // assistant managers manage regular employees at theirs. Nobody below the owner edits themselves.
@@ -328,6 +337,7 @@ export function EmployeesPage() {
                             )}
                           </div>
                           <div className="text-[12.5px] text-gray-500">{user.email}</div>
+                          {alsoWorksAt(user) && <div className="text-[12px] text-indigo-600">Also works at {alsoWorksAt(user)}</div>}
                           {user.location && (
                             <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
                               <MapPin className="h-[11px] w-[11px]" />
@@ -440,6 +450,7 @@ export function EmployeesPage() {
                             )}
                           </div>
                           <div className="text-[12.5px] text-gray-500">{user.email}</div>
+                          {alsoWorksAt(user) && <div className="text-[12px] text-indigo-600">Also works at {alsoWorksAt(user)}</div>}
                         </div>
                         <span className={clsx(
                           "text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap",
@@ -548,6 +559,7 @@ export function EmployeesPage() {
                       : isStoreManager
                         ? { isAssistantManager: data.access === "ASSISTANT" }
                         : {}),
+                    ...(isOwner || isStoreManager ? { workStoreIds: workStoreIds.filter((id) => id !== data.locationId) } : {}),
                   },
                 },
                 { onSuccess: () => setEditingUser(null) },
@@ -636,6 +648,29 @@ export function EmployeesPage() {
                     ))}
                 </div>
               )}
+            </div>
+          )}
+          {(isOwner || isStoreManager) && (locations?.filter((l) => l.id !== editStore).length ?? 0) > 0 && (
+            <div>
+              <span className="block text-[13px] font-semibold text-gray-700">Also works at</span>
+              <span className="block text-[12px] text-gray-500 mb-1">
+                Those stores can put them on rotas. Shifts there need approval from their home store's manager.
+              </span>
+              {locations
+                ?.filter((l) => l.id !== editStore)
+                .map((l) => (
+                  <label key={l.id} className="flex items-center gap-2 text-[13px] text-gray-700 py-0.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-indigo-600"
+                      checked={workStoreIds.includes(l.id)}
+                      onChange={(e) =>
+                        setWorkStoreIds((ids) => (e.target.checked ? [...ids, l.id] : ids.filter((id) => id !== l.id)))
+                      }
+                    />
+                    {l.name}
+                  </label>
+                ))}
             </div>
           )}
           <div className="flex justify-end gap-2.5 border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">

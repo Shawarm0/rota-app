@@ -113,7 +113,13 @@ export function ReportsPage() {
                 <tbody>
                   {report.map((row) => (
                     <tr key={row.id} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="px-5 py-3 font-medium">{row.name}</td>
+                      <td className="px-5 py-3">
+                        <div className="font-medium">{row.name}</div>
+                        {/* Hours at each store, for people who split their time */}
+                        {row.stores.length > 1 && (
+                          <div className="text-[11.5px] text-gray-500">{row.stores.map((s) => `${s.store} ${s.hours}h`).join(" · ")}</div>
+                        )}
+                      </td>
                       <td className="px-5 py-3 text-right">{row.totalShifts}</td>
                       <td className="px-5 py-3 text-right">{row.rotaHours}h</td>
                       <td className="px-5 py-3 text-right text-amber-600">{row.extraHours ? `+${row.extraHours}h` : "—"}</td>

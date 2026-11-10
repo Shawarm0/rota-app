@@ -72,6 +72,10 @@ export const updateUser: RequestHandler = async (req, res, next) => {
     if ((req.body.role !== undefined || req.body.storeAccess !== undefined) && !isOwner) {
       throw new ForbiddenError("Only the owner can change store managers");
     }
+    // The owner or the person's store manager decides where else they work
+    if (req.body.workStoreIds !== undefined && !isOwner && access.role !== "MANAGER") {
+      throw new ForbiddenError("Only the owner or a store manager can change where someone works");
+    }
     if (req.body.isAssistantManager !== undefined && !isOwner && access.role !== "MANAGER") {
       throw new ForbiddenError("Only managers can assign assistant managers");
     }

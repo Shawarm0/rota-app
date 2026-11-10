@@ -1,4 +1,5 @@
 import { RequestHandler } from "express";
+import * as crossStore from "../services/crossStore.service.js";
 
 // Only show each shift's staff category to people allowed to see it
 async function withVisibleCategory<T extends { user?: Parameters<typeof redactCategory>[1] | null }>(req: Request, shift: T): Promise<T> {
@@ -17,6 +18,7 @@ export const createShift: RequestHandler = async (req, res, next) => {
     const rota = await assertCanEditRota(req, param(req, "rotaId"));
     await assertShiftsAtEditableStores(req, rota.location?.name ?? null, [req.body]);
     const shift = await shiftService.createShift(param(req, "rotaId"), req.body);
+    await crossStore.requestApprovalsIfNeeded(req, { id: shift.id });
     res.status(201).json(await withVisibleCategory(req, shift));
   } catch (err) {
     next(err);
@@ -33,6 +35,7 @@ export const updateShift: RequestHandler = async (req, res, next) => {
     }
     const before = await shiftService.getShiftSnapshot(param(req, "id"));
     const shift = await shiftService.updateShift(param(req, "id"), req.body);
+    await crossStore.requestApprovalsIfNeeded(req, { id: shift.id });
     writeAuditLog({
       userId: req.user!.userId,
       action: "EDIT_SHIFT",
@@ -69,6 +72,7 @@ export const bulkCreateShifts: RequestHandler = async (req, res, next) => {
     const rota = await assertCanEditRota(req, param(req, "rotaId"));
     await assertShiftsAtEditableStores(req, rota.location?.name ?? null, req.body.shifts);
     const result = await shiftService.bulkCreateShifts(param(req, "rotaId"), req.body.shifts);
+    await crossStore.requestApprovalsIfNeeded(req, { rotaId: param(req, "rotaId") });
     res.status(201).json(result);
   } catch (err) {
     next(err);
@@ -135,8 +139,14 @@ export const syncShifts: RequestHandler = async (req, res, next) => {
   try {
     const rota = await assertCanEditRota(req, param(req, "rotaId"));
     await assertShiftsAtEditableStores(req, rota.location?.name ?? null, req.body.shifts);
-    const shifts = await shiftService.syncShifts(param(req, "rotaId"), req.body.shifts);
-    res.json(shifts);
+    // Anyone newly added must work at a store this person runs (home or "also works at"); people already on
+    // the rota (e.g. placed there by the owner) can stay
+    const current = new Set((await shiftService.getRotaShifts(rota.id)).map((s) => s.userId));
+    const added = new Set((req.body.shifts as { userId?: string | null }[]).map((s) => s.userId).filter((id): id is string => !!id && !current.has(id)));
+    for (const userId of added) await assertUserAtStore(req, userId);
+    await shiftService.syncShifts(param(req, "rotaId"), req.body.shifts);
+    await crossStore.requestApprovalsIfNeeded(req, { rotaId: param(req, "rotaId") });
+    res.json(await shiftService.getRotaShifts(param(req, "rotaId")));
   } catch (err) {
     next(err);
   }
@@ -146,7 +156,10 @@ export const createAdditionalShift: RequestHandler = async (req, res, next) => {
   try {
     await assertCanEditStore(req, req.body.location || null);
     if (req.body.userId) await assertUserAtStore(req, req.body.userId);
-    const shift = await shiftService.createAdditionalShift(req.user!.businessId!, req.body);
+    // Staff from another store wait for their home manager's approval before they're told about the shift
+    const pending = await crossStore.needsApproval(req, req.body.userId, req.body.location || null);
+    const shift = await shiftService.createAdditionalShift(req.user!.businessId!, req.body, !pending);
+    if (pending) await crossStore.requestApprovalsIfNeeded(req, { id: shift.id });
     // An open shift can be put up for cover straight away
     const cover = !shift.userId && req.body.requestCover ? await shiftService.requestCover(shift.id) : null;
     writeAuditLog({
@@ -185,3 +198,30 @@ export const claimShift: RequestHandler = async (req, res, next) => {
     next(err);
   }
 };
+
+export const listApprovals: RequestHandler = async (req, res, next) => {
+  try {
+    res.json(await crossStore.listPendingApprovals(req));
+  } catch (err) {
+    next(err);
+  }
+};
+
+const decide = (approve: boolean): RequestHandler => async (req, res, next) => {
+  try {
+    const result = await crossStore.decideApproval(req, param(req, "id"), approve);
+    writeAuditLog({
+      userId: req.user!.userId,
+      action: approve ? "APPROVE_CROSS_STORE" : "REJECT_CROSS_STORE",
+      entity: "Shift",
+      entityId: param(req, "id"),
+      details: result,
+    });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const approveCrossStore = decide(true);
+export const rejectCrossStore = decide(false);

@@ -25,6 +25,13 @@ enum ShiftStatus {
   AVAILABLE
 }
 
+// A shift given to someone from another store waits for their home store manager to approve it
+enum CrossStoreStatus {
+  NONE
+  PENDING
+  APPROVED
+}
+
 enum HolidayStatus {
   PENDING
   APPROVED
@@ -64,6 +71,7 @@ model Location {
   access     StoreAccess[]
   categories Category[]
   templates  ShiftTemplate[]
+  workers    UserWorkStore[]
 
   @@unique([businessId, name])
 }
@@ -123,6 +131,7 @@ model User {
   auditLogs        AuditLog[]
   sessions         Session[]
   storeAccess      StoreAccess[]
+  workStores       UserWorkStore[]
 }
 
 model Session {
@@ -161,6 +170,9 @@ model Shift {
   location  String?
   notes     String?
   status    ShiftStatus @default(ASSIGNED)
+  crossStoreStatus CrossStoreStatus @default(NONE)
+  // Who asked for a visiting staff member, so they hear the home store manager's decision
+  requestedById    String?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -239,4 +251,14 @@ model ShiftTemplate {
   location   Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+}
+
+// Stores someone also works at besides their home store, so those stores can schedule them
+model UserWorkStore {
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, locationId])
 }

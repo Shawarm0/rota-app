@@ -76,3 +76,26 @@ export function useClaimShift() {
     },
   });
 }
+
+export function useCrossStoreRequests(enabled: boolean) {
+  return useQuery({
+    queryKey: ["crossStoreRequests"],
+    queryFn: shiftApi.listCrossStoreRequests,
+    enabled,
+  });
+}
+
+export function useDecideCrossStoreRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, approve }: { id: string; approve: boolean }) => shiftApi.decideCrossStoreRequest(id, approve),
+    onSuccess: (_, { approve }) => {
+      qc.invalidateQueries({ queryKey: ["crossStoreRequests"] });
+      qc.invalidateQueries({ queryKey: ["allShifts"] });
+      qc.invalidateQueries({ queryKey: ["shiftsToCover"] });
+      qc.invalidateQueries({ queryKey: ["employeeSummaries"] });
+      toast(approve ? "Shift approved" : "Shift rejected — it's now open for cover", "success");
+    },
+    onError: (err: any) => toast(err.response?.data?.error?.message || "Couldn't update the request", "error"),
+  });
+}
