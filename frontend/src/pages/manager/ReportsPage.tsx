@@ -16,7 +16,8 @@ export function ReportsPage() {
   const [to, setTo] = useState(toDateString(now));
   const [exportingPdf, setExportingPdf] = useState(false);
 
-  const validRange = !!from && !!to && from <= to;
+  // Matches the server's limit of a year per report
+  const validRange = !!from && !!to && from <= to && new Date(to).getTime() - new Date(from).getTime() <= 366 * 86_400_000;
   const { data: report, isLoading } = useQuery({
     queryKey: ["hoursReport", from, to],
     queryFn: () => dashboardApi.getHoursReport(from, to),
@@ -50,7 +51,7 @@ export function ReportsPage() {
               variant="secondary"
               size="sm"
               disabled={!validRange}
-              onClick={() => dashboardApi.exportCSV(from, to)}
+              onClick={() => dashboardApi.exportCSV(from, to).catch(() => toast("Couldn't export the CSV", "error"))}
             >
               <Download className="h-4 w-4 mr-1" /> Export CSV
             </Button>
@@ -72,7 +73,7 @@ export function ReportsPage() {
         </Card>
 
         {!validRange ? (
-          <p className="text-sm text-gray-500 px-1">Choose a start date on or before the end date.</p>
+          <p className="text-sm text-gray-500 px-1">Choose a start date on or before the end date, up to a year apart.</p>
         ) : isLoading ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : report ? (

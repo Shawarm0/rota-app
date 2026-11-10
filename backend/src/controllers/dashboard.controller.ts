@@ -34,6 +34,8 @@ export const getStaffing: RequestHandler = async (req, res, next) => {
   }
 };
 
+const MAX_REPORT_DAYS = 366;
+
 // Validated ?from=YYYY-MM-DD&to=YYYY-MM-DD for reports
 function reportRange(req: Request) {
   const from = String(req.query.from ?? "");
@@ -41,6 +43,9 @@ function reportRange(req: Request) {
   const isDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(new Date(d).getTime());
   if (!isDate(from) || !isDate(to)) throw new AppError(400, "Choose a valid start and end date");
   if (from > to) throw new AppError(400, "The start date must be on or before the end date");
+  // Keeps very large reports (and PDFs) from tying up the server
+  const days = (new Date(to).getTime() - new Date(from).getTime()) / 86_400_000;
+  if (days > MAX_REPORT_DAYS) throw new AppError(400, "Reports can cover up to a year at a time");
   return { from, to };
 }
 

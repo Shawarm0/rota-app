@@ -87,7 +87,8 @@ async function download(path: string, params: Record<string, string>, filename: 
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  // Freed after a moment: some browsers (e.g. older Safari) cancel the download if it's revoked straight away
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
 export async function exportCSV(from: string, to: string) {

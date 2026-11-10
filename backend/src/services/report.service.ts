@@ -72,27 +72,34 @@ export async function exportCSV(businessId: string, from: string, to: string, st
   return [header, ...rows].join("\n");
 }
 
-// The same report plus hours grouped by the store each shift was worked at, for the PDF
+function toTotals(shifts: { status: string; startTime: string; endTime: string }[]) {
+  const totals = summariseShifts(shifts);
+  return {
+    totalShifts: totals.rotaShifts + totals.extraShifts,
+    rotaHours: minutesToHours(totals.rotaMinutes),
+    extraHours: minutesToHours(totals.extraMinutes),
+    totalHours: minutesToHours(totals.totalMinutes),
+  };
+}
+
+// The same report plus hours grouped by the store each shift was worked at, and overall totals worked
+// out from exact minutes, for the PDF
 export async function getHoursReportDetail(businessId: string, from: string, to: string, stores: Store[] | null) {
   const employees = await loadReport(businessId, from, to, stores);
-  const shiftsByStore = new Map<string, { status: string; startTime: string; endTime: string }[]>();
-  for (const shift of employees.flatMap((e) => e.shifts)) {
-    const store = shift.location ?? shift.rota.location?.name ?? "No store";
-    shiftsByStore.set(store, [...(shiftsByStore.get(store) ?? []), shift]);
+  const allShifts = employees.flatMap((e) => e.shifts);
+
+  const shiftsByStore = new Map<string, typeof allShifts>();
+  for (const shift of allShifts) {
+    const store = shift.location || shift.rota.location?.name || "No store";
+    const group = shiftsByStore.get(store);
+    if (group) group.push(shift);
+    else shiftsByStore.set(store, [shift]);
   }
   const byStore = [...shiftsByStore.entries()]
-    .map(([store, shifts]) => {
-      const totals = summariseShifts(shifts);
-      return {
-        store,
-        totalShifts: totals.rotaShifts + totals.extraShifts,
-        rotaHours: minutesToHours(totals.rotaMinutes),
-        extraHours: minutesToHours(totals.extraMinutes),
-        totalHours: minutesToHours(totals.totalMinutes),
-      };
-    })
+    .map(([store, shifts]) => ({ store, ...toTotals(shifts) }))
     .sort((a, b) => a.store.localeCompare(b.store));
-  return { rows: toRows(employees), byStore };
+
+  return { rows: toRows(employees), byStore, totals: toTotals(allShifts) };
 }
 
 // Names printed on the PDF
