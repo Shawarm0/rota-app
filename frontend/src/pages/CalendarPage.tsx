@@ -64,6 +64,16 @@ function sortShifts(shifts: Shift[]): Shift[] {
   });
 }
 
+// One entry per person, so someone working a split day shows once. Open shifts stay separate.
+function groupByPerson(shifts: Shift[]): Shift[][] {
+  const groups = new Map<string, Shift[]>();
+  for (const s of shifts) {
+    const key = s.userId && s.status !== "AVAILABLE" ? s.userId : `shift:${s.id}`;
+    groups.set(key, [...(groups.get(key) ?? []), s]);
+  }
+  return [...groups.values()].map((g) => [...g].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+}
+
 // Employees only see their own shifts, so show when the shift is rather than their own initials
 function ShiftPill({ shift, label, color }: { shift: Shift; label?: string; color?: string }) {
   const catColor = color ?? getCatColor(shift);
@@ -126,6 +136,8 @@ export function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedShifts, setSelectedShifts] = useState<Shift[] | null>(null);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  // The person whose split-day shifts are opened out in the day view
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [locationFilter, setLocationFilter] = useState<string>("");
@@ -175,6 +187,9 @@ export function CalendarPage() {
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
 
   const getShiftsForDay = (day: Date) => sortShifts(shifts?.filter((s) => isSameDay(s.date, day)) || []);
+  // Managers see one pill per person. Employees see a pill per shift, as theirs show the times.
+  const getPillsForDay = (dayShifts: Shift[]) =>
+    isManager ? groupByPerson(dayShifts).map((g) => g.find((s) => s.crossStoreStatus === "PENDING") ?? g[0]) : dayShifts;
   const getHolidaysForDay = (day: Date) => holidays?.filter((h) => isSameDay(h.date, day)) || [];
 
   const today = new Date();
@@ -185,6 +200,7 @@ export function CalendarPage() {
     if (dayShifts.length > 0 || dayHolidays.length > 0) {
       setSelectedShifts(dayShifts);
       setSelectedDay(day);
+      setExpandedUserId(null);
     }
   };
 
@@ -223,6 +239,53 @@ export function CalendarPage() {
     { value: "", label: "All locations" },
     ...(locations?.map((l) => ({ value: l.name, label: l.name })) || []),
   ];
+
+  // One shift in the day view. Nested rows sit under a person's combined bar.
+  const renderShiftRow = (shift: Shift, nested = false) => (
+    <div
+      key={shift.id}
+      className={clsx(
+        "flex items-center justify-between rounded-lg border p-3",
+        nested && "bg-white",
+        isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && "cursor-pointer hover:bg-gray-50",
+      )}
+      onClick={() => isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && handleEditShift(shift)}
+    >
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          {shift.status === "AVAILABLE" ? (
+            <span className="inline-flex items-center rounded-full px-3 py-[5px] text-xs font-semibold bg-gray-100 text-gray-600">
+              Available
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center rounded-full px-3 py-[5px] text-xs font-semibold"
+              style={{
+                backgroundColor: `${shiftColor(shift)}18`,
+                color: shiftColor(shift),
+              }}
+            >
+              {shift.status === "ADDITIONAL" ? "Additional" : "Assigned"}
+            </span>
+          )}
+          {shift.user && !nested && (
+            <span className="text-xs text-gray-500">{shift.user.firstName} {shift.user.lastName}</span>
+          )}
+        </div>
+        <p className="text-sm text-gray-700">
+          {shift.startTime} - {shift.endTime}
+          {shift.location && ` · ${shift.location}`}
+        </p>
+        {shift.notes && <p className="text-xs text-gray-400">{shift.notes}</p>}
+        {shift.crossStoreStatus === "PENDING" && (
+          <p className="text-xs font-medium text-amber-700">Awaiting approval from their home store's manager</p>
+        )}
+      </div>
+      {isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && (
+        <span className="text-xs text-gray-400">Edit &rarr;</span>
+      )}
+    </div>
+  );
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -313,6 +376,7 @@ export function CalendarPage() {
                       }
                       const day = new Date(year, month, dayNum);
                       const dayShifts = getShiftsForDay(day);
+                      const dayPills = getPillsForDay(dayShifts);
                       const dayHolidays = getHolidaysForDay(day);
                       const isToday = isSameDay(day, today);
                       const hasApprovedHoliday = dayHolidays.some((h) => h.status === "APPROVED");
@@ -348,12 +412,12 @@ export function CalendarPage() {
                             {hasPendingHoliday && !hasApprovedHoliday && (
                               <span className="w-2 h-2 rounded-full bg-amber-400" />
                             )}
-                            {dayShifts.slice(0, hasApprovedHoliday ? 1 : 2).map((s) => (
+                            {dayPills.slice(0, hasApprovedHoliday ? 1 : 2).map((s) => (
                               <ShiftPill key={s.id} shift={s} label={isManager ? undefined : s.startTime} color={shiftColor(s)} />
                             ))}
-                            {dayShifts.length > (hasApprovedHoliday ? 1 : 2) && (
+                            {dayPills.length > (hasApprovedHoliday ? 1 : 2) && (
                               <span className="text-[9px] text-gray-400 font-medium">
-                                +{dayShifts.length - (hasApprovedHoliday ? 1 : 2)}
+                                +{dayPills.length - (hasApprovedHoliday ? 1 : 2)}
                               </span>
                             )}
                           </div>
@@ -381,6 +445,7 @@ export function CalendarPage() {
                       }
                       const day = new Date(year, month, dayNum);
                       const dayShifts = getShiftsForDay(day);
+                      const dayPills = getPillsForDay(dayShifts);
                       const dayHolidays = getHolidaysForDay(day);
                       const isToday = isSameDay(day, today);
                       const hasApprovedHoliday = dayHolidays.some((h) => h.status === "APPROVED");
@@ -412,12 +477,12 @@ export function CalendarPage() {
                           ))}
                           {dayShifts.length > 0 && (
                             <div className="flex flex-col gap-[3px] mt-1">
-                              {dayShifts.slice(0, 3).map((s) => (
+                              {dayPills.slice(0, 3).map((s) => (
                                 <ShiftPill key={s.id} shift={s} label={isManager ? undefined : `${s.startTime}–${s.endTime}`} color={shiftColor(s)} />
                               ))}
-                              {dayShifts.length > 3 && (
+                              {dayPills.length > 3 && (
                                 <span className="text-[10px] text-gray-400 font-medium">
-                                  +{dayShifts.length - 3} more
+                                  +{dayPills.length - 3} more
                                 </span>
                               )}
                             </div>
@@ -515,50 +580,57 @@ export function CalendarPage() {
         )}
         {selectedShifts && selectedShifts.length > 0 ? (
           <div className="space-y-3">
-            {selectedShifts.map((shift) => (
-              <div
-                key={shift.id}
-                className={clsx(
-                  "flex items-center justify-between rounded-lg border p-3",
-                  isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && "cursor-pointer hover:bg-gray-50",
-                )}
-                onClick={() => isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && handleEditShift(shift)}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    {shift.status === "AVAILABLE" ? (
-                      <span className="inline-flex items-center rounded-full px-3 py-[5px] text-xs font-semibold bg-gray-100 text-gray-600">
-                        Available
-                      </span>
-                    ) : (
-                      <span
-                        className="inline-flex items-center rounded-full px-3 py-[5px] text-xs font-semibold"
-                        style={{
-                          backgroundColor: `${shiftColor(shift)}18`,
-                          color: shiftColor(shift),
-                        }}
-                      >
-                        {shift.status === "ADDITIONAL" ? "Additional" : "Assigned"}
-                      </span>
-                    )}
-                    {shift.user && (
-                      <span className="text-xs text-gray-500">{shift.user.firstName} {shift.user.lastName}</span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-700">
-                    {shift.startTime} - {shift.endTime}
-                    {shift.location && ` · ${shift.location}`}
-                  </p>
-                  {shift.notes && <p className="text-xs text-gray-400">{shift.notes}</p>}
-                  {shift.crossStoreStatus === "PENDING" && (
-                    <p className="text-xs font-medium text-amber-700">Awaiting approval from their home store's manager</p>
+            {groupByPerson(selectedShifts).map((group) => {
+              if (group.length === 1) return renderShiftRow(group[0]);
+              const first = group[0];
+              const open = expandedUserId === first.userId;
+              const stores = [...new Set(group.map((s) => s.location).filter(Boolean))];
+              const statuses = [...new Set(group.map((s) => s.status))];
+              const editable = isManager && group.some((s) => canEditStore(s.location ?? s.rota?.location?.name));
+              return (
+                <div key={first.userId} className="rounded-lg border">
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    className="flex w-full items-center justify-between rounded-lg p-3 text-left cursor-pointer hover:bg-gray-50"
+                    onClick={() => setExpandedUserId(open ? null : first.userId)}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="inline-flex items-center rounded-full px-3 py-[5px] text-xs font-semibold"
+                          style={{ backgroundColor: `${shiftColor(first)}18`, color: shiftColor(first) }}
+                        >
+                          {statuses.map((st) => (st === "ADDITIONAL" ? "Additional" : "Assigned")).join(" + ")}
+                        </span>
+                        {first.user && (
+                          <span className="text-xs text-gray-500">{first.user.firstName} {first.user.lastName}</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700">
+                        {group
+                          .map((s) => `${s.startTime} - ${s.endTime}${stores.length > 1 && s.location ? ` (${s.location})` : ""}`)
+                          .join(" : ")}
+                        {stores.length === 1 && ` · ${stores[0]}`}
+                      </p>
+                      {group.some((s) => s.crossStoreStatus === "PENDING") && (
+                        <p className="text-xs font-medium text-amber-700">Awaiting approval from their home store's manager</p>
+                      )}
+                    </div>
+                    <span className="flex items-center gap-1 text-xs text-gray-400 shrink-0 ml-3">
+                      {group.length} shifts
+                      <ChevronRight className={clsx("h-3.5 w-3.5 transition-transform", open && "rotate-90")} />
+                    </span>
+                  </button>
+                  {open && (
+                    <div className="space-y-2 border-t border-gray-100 bg-gray-50/60 p-2.5">
+                      {editable && <p className="px-0.5 text-xs text-gray-500">Choose which shift to edit</p>}
+                      {group.map((s) => renderShiftRow(s, true))}
+                    </div>
                   )}
                 </div>
-                {isManager && canEditStore(shift.location ?? shift.rota?.location?.name) && (
-                  <span className="text-xs text-gray-400">Edit &rarr;</span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-gray-500">No shifts on this day.</p>
