@@ -75,6 +75,13 @@ function groupByPerson(shifts: Shift[]): Shift[][] {
   return [...groups.values()].map((g) => [...g].sort((a, b) => a.startTime.localeCompare(b.startTime)));
 }
 
+// Earliest first for the day view; a split day sits where its first shift starts
+function byStartTime(groups: Shift[][]): Shift[][] {
+  return [...groups].sort(
+    (a, b) => a[0].startTime.localeCompare(b[0].startTime) || a[0].endTime.localeCompare(b[0].endTime),
+  );
+}
+
 const shiftStore = (s: Shift) => s.location ?? s.rota?.location?.name ?? "";
 
 // The day's shifts under a heading per store, alphabetically, with shifts that have no store last
@@ -605,7 +612,7 @@ export function CalendarPage() {
                   </h3>
                 )}
                 <div className="space-y-3">
-            {groupByPerson(storeShifts).map((group) => {
+            {byStartTime(groupByPerson(storeShifts)).map((group) => {
               if (group.length === 1) return renderShiftRow(group[0]);
               const first = group[0];
               const personKey = `${store}:${first.userId}`;
