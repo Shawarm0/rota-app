@@ -24,3 +24,26 @@ export function useCreateBusiness() {
     },
   });
 }
+
+export function useBusinessActivity(businessId: string | null) {
+  return useQuery({
+    queryKey: ["business-activity", businessId],
+    queryFn: () => businessApi.listActivity(businessId!),
+    enabled: !!businessId,
+    staleTime: 0,
+  });
+}
+
+export function useDeleteBusinessActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ businessId, ids }: { businessId: string; ids?: string[] }) => businessApi.deleteActivity(businessId, ids),
+    onSuccess: ({ deleted }) => {
+      qc.invalidateQueries({ queryKey: ["business-activity"] });
+      toast(`Deleted ${deleted} ${deleted === 1 ? "entry" : "entries"}`, "success");
+    },
+    onError: (err: any) => {
+      toast(err.response?.data?.error?.message || "Failed to delete activity", "error");
+    },
+  });
+}

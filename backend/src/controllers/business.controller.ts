@@ -16,3 +16,19 @@ export const createBusiness: RequestHandler = async (req, res, next) => {
     next(err);
   }
 };
+
+export const listActivity: RequestHandler = async (req, res, next) => {
+  try {
+    res.json(await businessService.listActivity(req.params.id as string));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteActivity: RequestHandler = async (req, res, next) => {
+  try {
+    res.json(await businessService.deleteActivity(req.params.id as string, req.body.ids));
+  } catch (err) {
+    next(err);
+  }
+};

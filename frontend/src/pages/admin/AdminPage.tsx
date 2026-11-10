@@ -8,8 +8,9 @@ import { Modal } from "../../components/ui/Modal";
 import { Badge } from "../../components/ui/Badge";
 import { Spinner } from "../../components/ui/Spinner";
 import { useUsers, useCreateUser, useDeleteUser } from "../../hooks/useUsers";
-import { useBusinesses, useCreateBusiness } from "../../hooks/useBusinesses";
-import { Plus, Users, Trash2, Building2, Search, MapPin, UserPlus } from "lucide-react";
+import { useBusinesses, useCreateBusiness, useBusinessActivity, useDeleteBusinessActivity } from "../../hooks/useBusinesses";
+import { describeActivity, formatActivityDate, formatActivityTime } from "../../lib/activity";
+import { Plus, Users, Trash2, Building2, Search, MapPin, UserPlus, History } from "lucide-react";
 import type { User } from "../../types";
 
 interface OwnerForm {
@@ -40,6 +41,96 @@ function OwnerFields({ register }: { register: UseFormRegister<OwnerForm> }) {
   );
 }
 
+// A business's activity log, where entries can be ticked and deleted, or the whole log cleared
+function ActivityModal({ businessId, businessName, onClose }: { businessId: string | null; businessName: string; onClose: () => void }) {
+  const { data, isLoading } = useBusinessActivity(businessId);
+  const deleteActivity = useDeleteBusinessActivity();
+  const [selected, setSelected] = useState<string[]>([]);
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  // Ignore ticks for entries that have since been deleted
+  const chosen = selected.filter((id) => items.some((i) => i.id === id));
+
+  const close = () => {
+    setSelected([]);
+    onClose();
+  };
+
+  const toggle = (id: string) => setSelected((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
+
+  const deleteSelected = () => {
+    if (!businessId || !chosen.length) return;
+    deleteActivity.mutate({ businessId, ids: chosen }, { onSuccess: () => setSelected([]) });
+  };
+
+  const deleteAll = () => {
+    if (!businessId) return;
+    if (confirm(`Delete all ${total} activity ${total === 1 ? "entry" : "entries"} for ${businessName}? This cannot be undone.`)) {
+      deleteActivity.mutate({ businessId }, { onSuccess: () => setSelected([]) });
+    }
+  };
+
+  return (
+    <Modal open={!!businessId} onClose={close} title={`Activity · ${businessName}`} className="max-w-[640px]">
+      {isLoading ? (
+        <div className="flex justify-center py-8"><Spinner /></div>
+      ) : !items.length ? (
+        <p className="text-sm text-gray-500">No activity recorded for this business.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <label className="flex items-center gap-2 text-[13px] text-gray-700 cursor-pointer">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-indigo-600"
+                checked={chosen.length === items.length}
+                onChange={(e) => setSelected(e.target.checked ? items.map((i) => i.id) : [])}
+              />
+              Select all shown
+            </label>
+            <p className="text-[12px] text-gray-500">
+              {total > items.length ? `Showing the newest ${items.length} of ${total}` : `${total} ${total === 1 ? "entry" : "entries"}`}
+            </p>
+          </div>
+          <div className="max-h-[50vh] overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+            {items.map((log) => {
+              const { summary, detail } = describeActivity(log);
+              return (
+                <label key={log.id} className="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 mt-0.5 accent-indigo-600 shrink-0"
+                    checked={chosen.includes(log.id)}
+                    onChange={() => toggle(log.id)}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[13px] text-gray-700">
+                      <span className="font-semibold text-gray-900">{log.user.firstName} {log.user.lastName}</span> {summary}
+                    </p>
+                    {detail && <p className="text-[12px] text-gray-600">{detail}</p>}
+                    <p className="text-[12px] text-gray-400">{formatActivityDate(log.createdAt)}, {formatActivityTime(log.createdAt)}</p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex justify-between gap-2.5 flex-wrap border-t border-gray-200 pt-4 -mx-[22px] px-[22px] -mb-[22px] pb-4">
+            <Button variant="danger" type="button" disabled={deleteActivity.isPending} onClick={deleteAll}>
+              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete all
+            </Button>
+            <div className="flex gap-2.5 ml-auto">
+              <Button variant="secondary" type="button" onClick={close}>Close</Button>
+              <Button type="button" disabled={!chosen.length} loading={deleteActivity.isPending} onClick={deleteSelected}>
+                Delete selected{chosen.length ? ` (${chosen.length})` : ""}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 export function AdminPage() {
   const { data: businesses, isLoading: businessesLoading } = useBusinesses();
   const { data: users, isLoading: usersLoading } = useUsers();
@@ -48,6 +139,7 @@ export function AdminPage() {
   const deleteUser = useDeleteUser();
   const [showNewBusiness, setShowNewBusiness] = useState(false);
   const [ownerForBusiness, setOwnerForBusiness] = useState<string | null>(null);
+  const [activityForBusiness, setActivityForBusiness] = useState<string | null>(null);
   const [businessFilter, setBusinessFilter] = useState("");
   const [search, setSearch] = useState("");
   const businessForm = useForm<OwnerForm>();
@@ -117,9 +209,14 @@ export function AdminPage() {
                       </p>
                     )}
                   </div>
-                  <Button size="sm" variant="secondary" onClick={() => setOwnerForBusiness(b.id)}>
-                    <UserPlus className="h-4 w-4 mr-1" /> Add Owner
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button size="sm" variant="secondary" onClick={() => setActivityForBusiness(b.id)}>
+                      <History className="h-4 w-4 mr-1" /> Activity
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setOwnerForBusiness(b.id)}>
+                      <UserPlus className="h-4 w-4 mr-1" /> Add Owner
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -206,6 +303,11 @@ export function AdminPage() {
           </div>
         </form>
       </Modal>
+      <ActivityModal
+        businessId={activityForBusiness}
+        businessName={businessName(activityForBusiness)}
+        onClose={() => setActivityForBusiness(null)}
+      />
     </>
   );
 }

@@ -9,3 +9,8 @@ export const createBusinessSchema = z.object({
     lastName: z.string().min(1).max(100),
   }),
 });
+
+// Without ids, every entry for the business is deleted
+export const deleteActivitySchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(500).optional(),
+});
